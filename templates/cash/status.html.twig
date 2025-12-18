@@ -1,0 +1,145 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Caja{% endblock %}
+
+{% block body %}
+    <div class="d-flex align-items-center justify-content-between mb-4">
+        <div>
+            <p class="text-uppercase text-secondary fw-semibold mb-1 small">Operaciones</p>
+            <h1 class="h3 mb-0">Caja</h1>
+        </div>
+        <div class="badge bg-light text-dark border">{{ app.user.business.name }}</div>
+    </div>
+
+    {% if openSession %}
+        <div class="row g-4 mb-4">
+            <div class="col-lg-6">
+                <div class="card h-100 shadow-sm border-0">
+                    <div class="card-body">
+                        <div class="d-flex align-items-center justify-content-between mb-3">
+                            <div>
+                                <div class="text-uppercase text-secondary small fw-semibold">Caja abierta</div>
+                                <div class="fw-bold h5 mb-0">{{ openSession.openedAt|date('d/m/Y H:i') }}</div>
+                            </div>
+                            <span class="badge bg-success px-3">Abierta</span>
+                        </div>
+                        <p class="mb-1 text-muted">Apertura por {{ openSession.openedBy.fullName }}</p>
+                        <p class="mb-3 text-muted">Saldo inicial: <strong>${{ openSession.initialCash }}</strong></p>
+
+                        <h6 class="text-uppercase text-secondary small fw-semibold mb-2">Totales en curso</h6>
+                        {% if runningTotals %}
+                            <ul class="list-unstyled mb-0">
+                                {% for method, total in runningTotals %}
+                                    <li class="d-flex justify-content-between py-1">
+                                        <span class="text-muted">{{ method }}</span>
+                                        <span class="fw-semibold">${{ total }}</span>
+                                    </li>
+                                {% endfor %}
+                            </ul>
+                        {% else %}
+                            <div class="text-muted">Sin movimientos aún.</div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-6">
+                <div class="card h-100 shadow-sm border-0">
+                    <div class="card-body">
+                        <div class="d-flex align-items-center justify-content-between mb-3">
+                            <h5 class="mb-0">Cerrar caja</h5>
+                            <span class="badge bg-danger-subtle text-danger border">Confirmá cierre</span>
+                        </div>
+                        <form method="post" action="{{ path('app_cash_close') }}" class="vstack gap-3">
+                            <input type="hidden" name="_token" value="{{ csrf_token('close_cash') }}">
+                            <div>
+                                <label class="form-label fw-semibold">Efectivo contado</label>
+                                <div class="input-group">
+                                    <span class="input-group-text">$</span>
+                                    <input type="number" name="final_cash_counted" step="0.01" min="0" class="form-control" placeholder="0,00" required>
+                                </div>
+                                <div class="form-text">Incluí el efectivo en caja al cierre.</div>
+                            </div>
+                            <div class="d-flex justify-content-end gap-2">
+                                <a class="btn btn-outline-secondary" href="{{ path('app_sale_new') }}">Seguir vendiendo</a>
+                                <button type="submit" class="btn btn-danger">Cerrar caja</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    {% else %}
+        <div class="card shadow-sm border-0 mb-4">
+            <div class="card-body">
+                <div class="d-flex align-items-center justify-content-between mb-3">
+                    <div>
+                        <div class="text-uppercase text-secondary small fw-semibold">Caja cerrada</div>
+                        <div class="h5 mb-0">Abrí una nueva sesión</div>
+                    </div>
+                    <span class="badge bg-secondary">Inactiva</span>
+                </div>
+                <form method="post" action="{{ path('app_cash_open') }}" class="row g-3 align-items-end">
+                    <div class="col-md-6 col-lg-4">
+                        <label class="form-label fw-semibold">Saldo inicial</label>
+                        <div class="input-group">
+                            <span class="input-group-text">$</span>
+                            <input type="number" name="initial_cash" step="0.01" min="0" class="form-control" placeholder="0,00" required>
+                        </div>
+                        <div class="form-text">Registrá el efectivo al abrir.</div>
+                    </div>
+                    <div class="col-md-6 col-lg-4 mt-3 mt-md-0">
+                        <input type="hidden" name="_token" value="{{ csrf_token('open_cash') }}">
+                        <button type="submit" class="btn btn-primary px-4">Abrir caja</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    {% endif %}
+
+    <div class="card shadow-sm border-0">
+        <div class="card-body">
+            <div class="d-flex align-items-center justify-content-between mb-3">
+                <h5 class="mb-0">Sesiones recientes</h5>
+                <span class="text-muted small">Últimas 5</span>
+            </div>
+            <div class="table-responsive">
+                <table class="table align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Estado</th>
+                            <th>Apertura</th>
+                            <th>Cierre</th>
+                            <th>Inicial</th>
+                            <th>Conteo cierre</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for session in recentSessions %}
+                            <tr>
+                                <td>
+                                    {% if session.closedAt %}
+                                        <span class="badge bg-secondary">Cerrada</span>
+                                    {% else %}
+                                        <span class="badge bg-success">Abierta</span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ session.openedAt|date('d/m/Y H:i') }}</td>
+                                <td>{{ session.closedAt ? session.closedAt|date('d/m/Y H:i') : '—' }}</td>
+                                <td>${{ session.initialCash }}</td>
+                                <td>{{ session.finalCashCounted ? '$' ~ session.finalCashCounted : '—' }}</td>
+                                <td class="text-end">
+                                    <a class="btn btn-sm btn-outline-primary" href="{{ path('app_cash_report', { id: session.id }) }}">Ver reporte</a>
+                                </td>
+                            </tr>
+                        {% else %}
+                            <tr>
+                                <td colspan="6" class="text-center text-muted py-4">Sin sesiones registradas.</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+{% endblock %}

@@ -1,0 +1,104 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Reporte de caja{% endblock %}
+
+{% block body %}
+    <div class="d-flex align-items-center justify-content-between mb-4">
+        <div>
+            <p class="text-uppercase text-secondary fw-semibold mb-1 small">Operaciones</p>
+            <h1 class="h3 mb-0">Reporte de caja</h1>
+        </div>
+        <div class="badge bg-light text-dark border">{{ app.user.business.name }}</div>
+    </div>
+
+    <div class="card shadow-sm border-0 mb-4">
+        <div class="card-body">
+            <div class="d-flex align-items-center justify-content-between mb-3">
+                <div>
+                    <div class="text-uppercase text-secondary small fw-semibold">Apertura</div>
+                    <div class="h5 mb-0">{{ cashSession.openedAt|date('d/m/Y H:i') }}</div>
+                </div>
+                {% if cashSession.closedAt %}
+                    <span class="badge bg-secondary">Cerrada</span>
+                {% else %}
+                    <span class="badge bg-success">Abierta</span>
+                {% endif %}
+            </div>
+            <div class="row g-4">
+                <div class="col-md-3">
+                    <div class="text-muted small">Apertura por</div>
+                    <div class="fw-semibold">{{ cashSession.openedBy.fullName }}</div>
+                </div>
+                <div class="col-md-3">
+                    <div class="text-muted small">Saldo inicial</div>
+                    <div class="fw-semibold">${{ cashSession.initialCash }}</div>
+                </div>
+                <div class="col-md-3">
+                    <div class="text-muted small">Cierre</div>
+                    <div class="fw-semibold">{{ cashSession.closedAt ? cashSession.closedAt|date('d/m/Y H:i') : '—' }}</div>
+                </div>
+                <div class="col-md-3">
+                    <div class="text-muted small">Conteo efectivo cierre</div>
+                    <div class="fw-semibold">{{ cashSession.finalCashCounted ? '$' ~ cashSession.finalCashCounted : 'Pendiente' }}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <div class="col-lg-6">
+            <div class="card shadow-sm border-0 h-100">
+                <div class="card-body">
+                    <h5 class="mb-3">Totales por método</h5>
+                    {% if totals %}
+                        <ul class="list-unstyled mb-0">
+                            {% for method, total in totals %}
+                                <li class="d-flex justify-content-between py-2 border-bottom small">
+                                    <span class="text-uppercase fw-semibold">{{ method }}</span>
+                                    <span class="fw-bold">${{ total }}</span>
+                                </li>
+                            {% endfor %}
+                        </ul>
+                    {% else %}
+                        <div class="text-muted">No hay pagos en esta sesión.</div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-6">
+            <div class="card shadow-sm border-0 h-100">
+                <div class="card-body">
+                    <h5 class="mb-3">Notas</h5>
+                    <p class="text-muted mb-3">Usá este resumen para conciliación rápida al cierre.</p>
+                    <div class="d-flex flex-column gap-2">
+                        <div class="d-flex justify-content-between">
+                            <span class="text-muted">Estado</span>
+                            <span class="fw-semibold">{{ cashSession.closedAt ? 'Cerrada' : 'Abierta' }}</span>
+                        </div>
+                        <div class="d-flex justify-content-between">
+                            <span class="text-muted">Diferencia en efectivo</span>
+                            {% set expectedCash = totals['CASH'] ?? '0.00' %}
+                            {% if cashSession.finalCashCounted %}
+                                {% set diff = cashSession.finalCashCounted - expectedCash %}
+                                <span class="fw-semibold {{ diff == 0 ? 'text-success' : 'text-danger' }}">${{ diff|number_format(2, '.', ',') }}</span>
+                            {% else %}
+                                <span class="text-muted">Pendiente</span>
+                            {% endif %}
+                        </div>
+                        <div class="d-flex justify-content-between">
+                            <span class="text-muted">Ventas registradas</span>
+                            <span class="fw-semibold">{{ totals ? totals|length : 0 }} métodos</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="mt-4">
+        <a class="btn btn-outline-secondary" href="{{ path('app_cash_status') }}">Volver a caja</a>
+        {% if cashSession.isOpen %}
+            <a class="btn btn-primary" href="{{ path('app_sale_new') }}">Seguir vendiendo</a>
+        {% endif %}
+    </div>
+{% endblock %}

@@ -8,6 +8,7 @@ use App\Entity\Product;
 use App\Entity\Sale;
 use App\Entity\SaleItem;
 use App\Entity\StockMovement;
+use App\Repository\CashSessionRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
@@ -20,14 +21,24 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
 #[Route('/sales', name: 'app_sale_')]
 class SaleController extends AbstractController
 {
-    public function __construct(private readonly EntityManagerInterface $entityManager)
-    {
+    public function __construct(
+        private readonly EntityManagerInterface $entityManager,
+        private readonly CashSessionRepository $cashSessionRepository,
+    ) {
     }
 
     #[Route('/new', name: 'new', methods: ['GET', 'POST'])]
     public function new(Request $request): Response
     {
         $business = $this->requireBusinessContext();
+        $openSession = $this->cashSessionRepository->findOpenForBusiness($business);
+
+        if ($openSession === null) {
+            $this->addFlash('danger', 'Necesitás abrir caja para registrar ventas.');
+
+            return $this->redirectToRoute('app_cash_status');
+        }
+
         $productRepository = $this->entityManager->getRepository(Product::class);
         $products = $productRepository->findBy(['business' => $business, 'isActive' => true], ['name' => 'ASC']);
 
