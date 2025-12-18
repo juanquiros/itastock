@@ -17,6 +17,9 @@ class UserType extends AbstractType
 {
     public function buildForm(FormBuilderInterface $builder, array $options): void
     {
+        /** @var Business|null $business */
+        $business = $options['current_business'];
+
         $currentRole = 'ROLE_SELLER';
         if ($builder->getData() instanceof User) {
             foreach ($builder->getData()->getRoles() as $role) {
@@ -37,8 +40,11 @@ class UserType extends AbstractType
             ->add('business', EntityType::class, [
                 'class' => Business::class,
                 'choice_label' => 'name',
+                'choices' => $business ? [$business] : [],
                 'label' => 'Comercio',
-                'placeholder' => 'Seleccionar comercio',
+                'placeholder' => $business ? null : 'Seleccionar comercio',
+                'data' => $business,
+                'disabled' => (bool) $business,
             ])
             ->add('role', ChoiceType::class, [
                 'label' => 'Rol',
@@ -67,6 +73,7 @@ class UserType extends AbstractType
         $resolver->setDefaults([
             'data_class' => User::class,
             'require_password' => true,
+            'current_business' => null,
         ]);
     }
 }

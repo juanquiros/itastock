@@ -2,6 +2,7 @@
 
 namespace App\Controller;
 
+use App\Entity\Business;
 use App\Entity\User;
 use App\Form\UserType;
 use App\Repository\UserRepository;
@@ -12,6 +13,7 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Annotation\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
+use Symfony\Component\Security\Core\Exception\AccessDeniedException;
 
 #[IsGranted('ROLE_ADMIN')]
 #[Route('/users', name: 'app_user_')]
@@ -26,16 +28,25 @@ class UserController extends AbstractController
     #[Route('', name: 'index', methods: ['GET'])]
     public function index(UserRepository $userRepository): Response
     {
+        $business = $this->requireBusinessContext();
+
         return $this->render('user/index.html.twig', [
-            'users' => $userRepository->findAll(),
+            'users' => $userRepository->findBy(['business' => $business]),
         ]);
     }
 
     #[Route('/new', name: 'new', methods: ['GET', 'POST'])]
     public function new(Request $request): Response
     {
+        $business = $this->requireBusinessContext();
+
         $user = new User();
-        $form = $this->createForm(UserType::class, $user, ['require_password' => true]);
+        $user->setBusiness($business);
+
+        $form = $this->createForm(UserType::class, $user, [
+            'require_password' => true,
+            'current_business' => $business,
+        ]);
         $form->handleRequest($request);
 
         if ($form->isSubmitted() && $form->isValid()) {
@@ -54,7 +65,14 @@ class UserController extends AbstractController
     #[Route('/{id}/edit', name: 'edit', methods: ['GET', 'POST'])]
     public function edit(Request $request, User $user): Response
     {
-        $form = $this->createForm(UserType::class, $user, ['require_password' => false]);
+        $business = $this->requireBusinessContext();
+
+        $this->denyIfDifferentBusiness($user, $business);
+
+        $form = $this->createForm(UserType::class, $user, [
+            'require_password' => false,
+            'current_business' => $business,
+        ]);
         $form->handleRequest($request);
 
         if ($form->isSubmitted() && $form->isValid()) {
@@ -74,6 +92,9 @@ class UserController extends AbstractController
     #[Route('/{id}', name: 'delete', methods: ['POST'])]
     public function delete(Request $request, User $user): Response
     {
+        $business = $this->requireBusinessContext();
+        $this->denyIfDifferentBusiness($user, $business);
+
         if ($this->isCsrfTokenValid('delete'.$user->getId(), $request->request->get('_token'))) {
             $this->entityManager->remove($user);
             $this->entityManager->flush();
@@ -95,5 +116,23 @@ class UserController extends AbstractController
 
         $this->entityManager->persist($user);
         $this->entityManager->flush();
+    }
+
+    private function requireBusinessContext(): Business
+    {
+        $business = $this->getUser()?->getBusiness();
+
+        if (!$business instanceof Business) {
+            throw new AccessDeniedException('No se puede gestionar usuarios sin un comercio asignado.');
+        }
+
+        return $business;
+    }
+
+    private function denyIfDifferentBusiness(User $user, Business $adminBusiness): void
+    {
+        if ($user->getBusiness() && $user->getBusiness() !== $adminBusiness) {
+            throw new AccessDeniedException('Solo podés gestionar usuarios de tu comercio.');
+        }
     }
 }
