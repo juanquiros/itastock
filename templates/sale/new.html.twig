@@ -69,170 +69,172 @@
 {% block javascripts %}
     {{ parent() }}
     <script>
-        const products = {{ productPayload|json_encode|raw }};
-        const items = [];
+        document.addEventListener('DOMContentLoaded', () => {
+            const products = {{ productPayload|json_encode|raw }};
+            const items = [];
 
-        const searchInput = document.getElementById('product-search');
-        const resultsContainer = document.getElementById('search-results');
-        const itemsTable = document.getElementById('sale-items');
-        const emptyRow = document.getElementById('empty-row');
-        const totalElement = document.getElementById('sale-total');
+            const searchInput = document.getElementById('product-search');
+            const resultsContainer = document.getElementById('search-results');
+            const itemsTable = document.getElementById('sale-items');
+            const emptyRow = document.getElementById('empty-row');
+            const totalElement = document.getElementById('sale-total');
 
-        function formatMoney(value) {
-            return `$${value.toFixed(2)}`;
-        }
+            function formatMoney(value) {
+                return `$${value.toFixed(2)}`;
+            }
 
-        function renderResults(query = '') {
-            const term = query.trim().toLowerCase();
-            const filtered = products.filter((p) => {
-                return p.name.toLowerCase().includes(term) || (p.barcode && p.barcode.toLowerCase().includes(term)) || p.sku.toLowerCase().includes(term);
-            }).slice(0, 6);
+            function renderResults(query = '') {
+                const term = query.trim().toLowerCase();
+                const filtered = products.filter((p) => {
+                    return p.name.toLowerCase().includes(term) || (p.barcode && p.barcode.toLowerCase().includes(term)) || p.sku.toLowerCase().includes(term);
+                }).slice(0, 6);
 
-            if (filtered.length === 0) {
-                resultsContainer.innerHTML = '';
+                if (filtered.length === 0) {
+                    resultsContainer.innerHTML = '';
+                    return filtered;
+                }
+
+                const list = filtered.map((product) => `
+                    <div class="d-flex align-items-center justify-content-between border rounded-3 p-3 mb-2 bg-white">
+                        <div>
+                            <div class="fw-semibold">${product.name}</div>
+                            <div class="text-muted small">SKU: ${product.sku}${product.barcode ? ' · Código: ' + product.barcode : ''}</div>
+                            <div class="text-muted small">Stock disponible: ${product.stock}</div>
+                        </div>
+                        <div class="d-flex align-items-center gap-3">
+                            <span class="fw-semibold">${formatMoney(product.price)}</span>
+                            <button type="button" class="btn btn-sm btn-primary" data-product="${product.id}">Agregar</button>
+                        </div>
+                    </div>
+                `).join('');
+
+                resultsContainer.innerHTML = list;
+                resultsContainer.querySelectorAll('button[data-product]').forEach((btn) => {
+                    btn.addEventListener('click', () => addItem(parseInt(btn.dataset.product, 10)));
+                });
+
                 return filtered;
             }
 
-            const list = filtered.map((product) => `
-                <div class="d-flex align-items-center justify-content-between border rounded-3 p-3 mb-2 bg-white">
-                    <div>
-                        <div class="fw-semibold">${product.name}</div>
-                        <div class="text-muted small">SKU: ${product.sku}${product.barcode ? ' · Código: ' + product.barcode : ''}</div>
-                        <div class="text-muted small">Stock disponible: ${product.stock}</div>
-                    </div>
-                    <div class="d-flex align-items-center gap-3">
-                        <span class="fw-semibold">${formatMoney(product.price)}</span>
-                        <button type="button" class="btn btn-sm btn-primary" data-product="${product.id}">Agregar</button>
-                    </div>
-                </div>
-            `).join('');
-
-            resultsContainer.innerHTML = list;
-            resultsContainer.querySelectorAll('button[data-product]').forEach((btn) => {
-                btn.addEventListener('click', () => addItem(parseInt(btn.dataset.product, 10)));
-            });
-
-            return filtered;
-        }
-
-        function addItem(productId) {
-            const product = products.find((p) => p.id === productId);
-            if (!product) {
-                return;
-            }
-
-            const existing = items.find((item) => item.product_id === productId);
-            if (existing) {
-                if (existing.qty < product.stock) {
-                    existing.qty += 1;
+            function addItem(productId) {
+                const product = products.find((p) => p.id === productId);
+                if (!product) {
+                    return;
                 }
-            } else {
-                items.push({
-                    product_id: product.id,
-                    name: product.name,
-                    price: product.price,
-                    stock: product.stock,
-                    qty: 1,
-                });
+
+                const existing = items.find((item) => item.product_id === productId);
+                if (existing) {
+                    if (existing.qty < product.stock) {
+                        existing.qty += 1;
+                    }
+                } else {
+                    items.push({
+                        product_id: product.id,
+                        name: product.name,
+                        price: product.price,
+                        stock: product.stock,
+                        qty: 1,
+                    });
+                }
+
+                renderItems();
             }
 
-            renderItems();
-        }
+            function renderItems() {
+                itemsTable.innerHTML = '';
 
-        function renderItems() {
-            itemsTable.innerHTML = '';
+                if (items.length === 0) {
+                    itemsTable.appendChild(emptyRow);
+                    emptyRow.style.display = '';
+                    updateTotal();
+                    return;
+                }
 
-            if (items.length === 0) {
-                itemsTable.appendChild(emptyRow);
-                emptyRow.style.display = '';
+                emptyRow.style.display = 'none';
+
+                items.forEach((item, index) => {
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td>
+                            <div class="fw-semibold">${item.name}</div>
+                            <input type="hidden" name="items[${index}][product_id]" value="${item.product_id}">
+                        </td>
+                        <td class="text-end">${formatMoney(item.price)}</td>
+                        <td>
+                            <input type="number" min="1" max="${item.stock}" name="items[${index}][qty]" value="${item.qty}" class="form-control form-control-sm" data-index="${index}">
+                        </td>
+                        <td class="text-end">${formatMoney(item.price * item.qty)}</td>
+                        <td class="text-end">
+                            <button type="button" class="btn btn-link text-danger" data-remove="${index}">Eliminar</button>
+                        </td>
+                    `;
+                    itemsTable.appendChild(row);
+                });
+
+                itemsTable.querySelectorAll('input[type="number"]').forEach((input) => {
+                    input.addEventListener('change', (event) => {
+                        const idx = parseInt(event.target.dataset.index, 10);
+                        const value = Math.min(Math.max(parseInt(event.target.value, 10) || 1, 1), items[idx].stock);
+                        items[idx].qty = value;
+                        renderItems();
+                    });
+                });
+
+                itemsTable.querySelectorAll('button[data-remove]').forEach((button) => {
+                    button.addEventListener('click', (event) => {
+                        const idx = parseInt(event.target.dataset.remove, 10);
+                        items.splice(idx, 1);
+                        renderItems();
+                    });
+                });
+
                 updateTotal();
-                return;
             }
 
-            emptyRow.style.display = 'none';
+            function updateTotal() {
+                const total = items.reduce((sum, item) => sum + (item.price * item.qty), 0);
+                totalElement.textContent = formatMoney(total);
+            }
 
-            items.forEach((item, index) => {
-                const row = document.createElement('tr');
-                row.innerHTML = `
-                    <td>
-                        <div class="fw-semibold">${item.name}</div>
-                        <input type="hidden" name="items[${index}][product_id]" value="${item.product_id}">
-                    </td>
-                    <td class="text-end">${formatMoney(item.price)}</td>
-                    <td>
-                        <input type="number" min="1" max="${item.stock}" name="items[${index}][qty]" value="${item.qty}" class="form-control form-control-sm" data-index="${index}">
-                    </td>
-                    <td class="text-end">${formatMoney(item.price * item.qty)}</td>
-                    <td class="text-end">
-                        <button type="button" class="btn btn-link text-danger" data-remove="${index}">Eliminar</button>
-                    </td>
-                `;
-                itemsTable.appendChild(row);
+            searchInput.addEventListener('input', (event) => {
+                renderResults(event.target.value);
             });
 
-            itemsTable.querySelectorAll('input[type="number"]').forEach((input) => {
-                input.addEventListener('change', (event) => {
-                    const idx = parseInt(event.target.dataset.index, 10);
-                    const value = Math.min(Math.max(parseInt(event.target.value, 10) || 1, 1), items[idx].stock);
-                    items[idx].qty = value;
-                    renderItems();
-                });
-            });
-
-            itemsTable.querySelectorAll('button[data-remove]').forEach((button) => {
-                button.addEventListener('click', (event) => {
-                    const idx = parseInt(event.target.dataset.remove, 10);
-                    items.splice(idx, 1);
-                    renderItems();
-                });
-            });
-
-            updateTotal();
-        }
-
-        function updateTotal() {
-            const total = items.reduce((sum, item) => sum + (item.price * item.qty), 0);
-            totalElement.textContent = formatMoney(total);
-        }
-
-        searchInput.addEventListener('input', (event) => {
-            renderResults(event.target.value);
-        });
-
-        searchInput.addEventListener('keydown', (event) => {
-            if (event.key === 'Enter') {
-                event.preventDefault();
-                const filtered = renderResults(searchInput.value);
-                if (filtered.length > 0) {
-                    addItem(filtered[0].id);
-                    searchInput.select();
+            searchInput.addEventListener('keydown', (event) => {
+                if (event.key === 'Enter') {
+                    event.preventDefault();
+                    const filtered = renderResults(searchInput.value);
+                    if (filtered.length > 0) {
+                        addItem(filtered[0].id);
+                        searchInput.select();
+                    }
                 }
-            }
-        });
-
-        const saleForm = document.getElementById('sale-form');
-
-        saleForm.addEventListener('keydown', (event) => {
-            if (event.key === 'Enter' && !(event.target instanceof HTMLButtonElement && event.target.type === 'submit')) {
-                event.preventDefault();
-            }
-        });
-
-        saleForm.addEventListener('submit', () => {
-            items.forEach((item, index) => {
-                const qtyInput = document.createElement('input');
-                qtyInput.type = 'hidden';
-                qtyInput.name = `items[${index}][qty]`;
-                qtyInput.value = item.qty;
-                const productInput = document.createElement('input');
-                productInput.type = 'hidden';
-                productInput.name = `items[${index}][product_id]`;
-                productInput.value = item.product_id;
-                saleForm.appendChild(qtyInput);
-                saleForm.appendChild(productInput);
             });
-        });
 
-        renderResults('');
+            const saleForm = document.getElementById('sale-form');
+
+            saleForm.addEventListener('keydown', (event) => {
+                if (event.key === 'Enter' && !(event.target instanceof HTMLButtonElement && event.target.type === 'submit')) {
+                    event.preventDefault();
+                }
+            });
+
+            saleForm.addEventListener('submit', () => {
+                items.forEach((item, index) => {
+                    const qtyInput = document.createElement('input');
+                    qtyInput.type = 'hidden';
+                    qtyInput.name = `items[${index}][qty]`;
+                    qtyInput.value = item.qty;
+                    const productInput = document.createElement('input');
+                    productInput.type = 'hidden';
+                    productInput.name = `items[${index}][product_id]`;
+                    productInput.value = item.product_id;
+                    saleForm.appendChild(qtyInput);
+                    saleForm.appendChild(productInput);
+                });
+            });
+
+            renderResults('');
+        });
     </script>
 {% endblock %}
