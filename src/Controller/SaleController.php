@@ -3,6 +3,7 @@
 namespace App\Controller;
 
 use App\Entity\Business;
+use App\Entity\Customer;
 use App\Entity\Payment;
 use App\Entity\Product;
 use App\Entity\Sale;
@@ -42,7 +43,9 @@ class SaleController extends AbstractController
         }
 
         $productRepository = $this->entityManager->getRepository(Product::class);
+        $customerRepository = $this->entityManager->getRepository(Customer::class);
         $products = $productRepository->findBy(['business' => $business, 'isActive' => true], ['name' => 'ASC']);
+        $customers = $customerRepository->findActiveForBusiness($business);
 
         if ($request->isMethod('POST')) {
             return $this->handleSubmission($request, $business, $products, $user);
@@ -58,6 +61,12 @@ class SaleController extends AbstractController
                 'price' => (float) $product->getBasePrice(),
                 'stock' => $product->getStock(),
             ], $products),
+            'customersPayload' => array_map(static fn (Customer $customer) => [
+                'id' => $customer->getId(),
+                'name' => $customer->getName(),
+                'document' => $customer->getDocumentNumber(),
+                'type' => $customer->getCustomerType(),
+            ], $customers),
         ]);
     }
 
@@ -78,6 +87,7 @@ class SaleController extends AbstractController
     private function handleSubmission(Request $request, Business $business, array $products, User $user): Response
     {
         $itemsData = $request->request->all('items');
+        $customerId = (int) $request->request->get('customer_id', 0);
 
         if (!is_array($itemsData) || count($itemsData) === 0) {
             $this->addFlash('danger', 'Agregá al menos un producto para registrar la venta.');
@@ -90,9 +100,27 @@ class SaleController extends AbstractController
             $productIndex[$product->getId()] = $product;
         }
 
+        $customer = null;
+        if ($customerId > 0) {
+            $customer = $this->entityManager->getRepository(Customer::class)->find($customerId);
+
+            if (!$customer instanceof Customer || $customer->getBusiness() !== $business) {
+                $this->addFlash('danger', 'El cliente seleccionado no pertenece a tu comercio.');
+
+                return $this->redirectToRoute('app_sale_new');
+            }
+
+            if (!$customer->isActive()) {
+                $this->addFlash('danger', 'No podés usar un cliente inactivo.');
+
+                return $this->redirectToRoute('app_sale_new');
+            }
+        }
+
         $sale = new Sale();
         $sale->setBusiness($business);
         $sale->setCreatedBy($user);
+        $sale->setCustomer($customer);
 
         $total = 0.0;
 

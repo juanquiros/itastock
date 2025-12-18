@@ -1,0 +1,33 @@
+{{ form_start(form) }}
+    <div class="row g-3">
+        <div class="col-md-6">
+            {{ form_row(form.name) }}
+        </div>
+        <div class="col-md-3">
+            {{ form_row(form.documentType) }}
+        </div>
+        <div class="col-md-3">
+            {{ form_row(form.documentNumber) }}
+        </div>
+        <div class="col-md-6">
+            {{ form_row(form.customerType) }}
+        </div>
+        <div class="col-md-6">
+            {{ form_row(form.phone) }}
+        </div>
+        <div class="col-12">
+            {{ form_row(form.address) }}
+        </div>
+        <div class="col-12">
+            <div class="form-check">
+                {{ form_widget(form.isActive, { attr: { class: 'form-check-input' } }) }}
+                {{ form_label(form.isActive, null, { label_attr: { class: 'form-check-label' } }) }}
+            </div>
+            {{ form_errors(form.isActive) }}
+        </div>
+    </div>
+    <div class="d-flex justify-content-end gap-2 mt-4">
+        <a class="btn btn-outline-secondary" href="{{ path('app_customer_index') }}">Cancelar</a>
+        <button class="btn btn-primary">Guardar</button>
+    </div>
+{{ form_end(form) }}

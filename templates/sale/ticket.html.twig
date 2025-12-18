@@ -21,6 +21,11 @@
                         <div class="text-muted">{{ sale.business.name }}</div>
                     </div>
 
+                    <div class="mb-3">
+                        <div class="fw-semibold">Cliente</div>
+                        <div class="text-muted">{{ sale.customer ? sale.customer.name : 'Consumidor Final' }}</div>
+                    </div>
+
                     <div class="table-responsive mb-3">
                         <table class="table table-sm align-middle">
                             <thead class="table-light">

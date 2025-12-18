@@ -7,8 +7,8 @@ use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Mapping as ORM;
 
-#[ORM\Entity(repositoryClass: SaleRepository::class)]
 #[ORM\Table(name: 'sales')]
+#[ORM\Entity(repositoryClass: SaleRepository::class)]
 class Sale
 {
     #[ORM\Id]
@@ -23,6 +23,10 @@ class Sale
     #[ORM\ManyToOne]
     #[ORM\JoinColumn(onDelete: 'SET NULL')]
     private ?User $createdBy = null;
+
+    #[ORM\ManyToOne]
+    #[ORM\JoinColumn(onDelete: 'SET NULL')]
+    private ?Customer $customer = null;
 
     #[ORM\Column(type: 'decimal', precision: 10, scale: 2)]
     private ?string $total = '0.00';
@@ -70,6 +74,18 @@ class Sale
     public function setCreatedBy(?User $createdBy): self
     {
         $this->createdBy = $createdBy;
+
+        return $this;
+    }
+
+    public function getCustomer(): ?Customer
+    {
+        return $this->customer;
+    }
+
+    public function setCustomer(?Customer $customer): self
+    {
+        $this->customer = $customer;
 
         return $this;
     }
