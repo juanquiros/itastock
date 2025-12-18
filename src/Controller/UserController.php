@@ -16,7 +16,7 @@ use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 use Symfony\Component\Security\Core\Exception\AccessDeniedException;
 
 #[IsGranted('ROLE_ADMIN')]
-#[Route('/users', name: 'app_user_')]
+#[Route('/app/admin/users', name: 'app_user_')]
 class UserController extends AbstractController
 {
     public function __construct(

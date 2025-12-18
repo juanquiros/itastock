@@ -16,7 +16,7 @@ use Symfony\Component\Security\Core\Exception\AccessDeniedException;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 
 #[IsGranted('ROLE_ADMIN')]
-#[Route('/products', name: 'app_product_')]
+#[Route('/app/admin/products', name: 'app_product_')]
 class ProductController extends AbstractController
 {
     public function __construct(private readonly EntityManagerInterface $entityManager)

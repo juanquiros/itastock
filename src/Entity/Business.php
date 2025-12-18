@@ -6,6 +6,7 @@ use App\Repository\BusinessRepository;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Mapping as ORM;
+use DateTimeImmutable;
 use App\Entity\Category;
 use App\Entity\Product;
 
@@ -19,6 +20,9 @@ class Business
 
     #[ORM\Column(length: 255)]
     private ?string $name = null;
+
+    #[ORM\Column]
+    private ?DateTimeImmutable $createdAt = null;
 
     /** @var Collection<int, User> */
     #[ORM\OneToMany(mappedBy: 'business', targetEntity: User::class, orphanRemoval: true)]
@@ -37,6 +41,7 @@ class Business
         $this->users = new ArrayCollection();
         $this->categories = new ArrayCollection();
         $this->products = new ArrayCollection();
+        $this->createdAt = new DateTimeImmutable();
     }
 
     public function getId(): ?int
@@ -52,6 +57,18 @@ class Business
     public function setName(string $name): self
     {
         $this->name = $name;
+
+        return $this;
+    }
+
+    public function getCreatedAt(): ?DateTimeImmutable
+    {
+        return $this->createdAt;
+    }
+
+    public function setCreatedAt(DateTimeImmutable $createdAt): self
+    {
+        $this->createdAt = $createdAt;
 
         return $this;
     }

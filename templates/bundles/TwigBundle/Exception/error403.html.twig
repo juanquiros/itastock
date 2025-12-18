@@ -1,0 +1,17 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Acceso denegado | ItaStock{% endblock %}
+
+{% block body %}
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card shadow-sm border-0">
+                <div class="card-body p-4 text-center">
+                    <h1 class="h4 mb-3 text-danger">Acceso denegado</h1>
+                    <p class="text-muted mb-4">No tenés permisos para ingresar a esta sección.</p>
+                    <a class="btn btn-primary" href="{{ app.user ? path('app_dashboard') : path('app_login') }}">Volver</a>
+                </div>
+            </div>
+        </div>
+    </div>
+{% endblock %}

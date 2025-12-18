@@ -15,7 +15,7 @@ use Symfony\Component\Security\Core\Exception\AccessDeniedException;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 
 #[IsGranted('ROLE_ADMIN')]
-#[Route('/categories', name: 'app_category_')]
+#[Route('/app/admin/categories', name: 'app_category_')]
 class CategoryController extends AbstractController
 {
     public function __construct(private readonly EntityManagerInterface $entityManager)

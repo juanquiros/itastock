@@ -16,7 +16,7 @@ use Symfony\Component\Security\Core\User\UserInterface;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 
 #[IsGranted('ROLE_USER')]
-#[Route('/cash', name: 'app_cash_')]
+#[Route('/app/cash', name: 'app_cash_')]
 class CashSessionController extends AbstractController
 {
     public function __construct(

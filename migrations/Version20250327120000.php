@@ -19,6 +19,7 @@ final class Version20250327120000 extends AbstractMigration
         $business = $schema->createTable('business');
         $business->addColumn('id', 'integer', ['autoincrement' => true]);
         $business->addColumn('name', 'string', ['length' => 255]);
+        $business->addColumn('created_at', 'datetime_immutable');
         $business->setPrimaryKey(['id']);
 
         $users = $schema->createTable('users');
@@ -33,10 +34,14 @@ final class Version20250327120000 extends AbstractMigration
         $users->addIndex(['business_id'], 'IDX_1483A5E9144665A');
         $users->addForeignKeyConstraint('business', ['business_id'], ['id'], ['onDelete' => 'CASCADE'], 'FK_1483A5E9144665A');
 
-        $this->addSql("INSERT INTO business (name) VALUES ('Comercio Demo')");
+        $this->addSql("INSERT INTO business (name, created_at) VALUES ('ItaStock Demo', NOW())");
         $this->addSql(sprintf(
-            "INSERT INTO users (business_id, email, roles, password, full_name) VALUES (1, 'admin@itastock.test', '[\"ROLE_ADMIN\"]', '%s', 'Administrador')",
-            '$2y$12$AU7RffGR0CaFd.ie6Iq1dOUY7n2TM4PXVbmRug3wDaxACJbvYg6qm'
+            "INSERT INTO users (business_id, email, roles, password, full_name) VALUES (1, 'admin@itastock.local', '[\"ROLE_ADMIN\"]', '%s', 'Administrador')",
+            '$2y$12$VI4h4QgRQKwBrHhlpw2p8OS5yMVFFDCBRfpbOC7RlJel.0TZcJp7S'
+        ));
+        $this->addSql(sprintf(
+            "INSERT INTO users (business_id, email, roles, password, full_name) VALUES (1, 'seller@itastock.local', '[\"ROLE_SELLER\"]', '%s', 'Vendedor Demo')",
+            '$2y$12$89wVyMXMWL0fiTk0CDYpPepIZaGd1loMX3SCZAK54lbwitrEHlN.i'
         ));
     }
 
