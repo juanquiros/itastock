@@ -90,12 +90,28 @@ class UserController extends AbstractController
     }
 
     #[Route('/{id}', name: 'delete', methods: ['POST'])]
-    public function delete(Request $request, User $user): Response
+    public function delete(Request $request, User $user, UserRepository $userRepository): Response
     {
         $business = $this->requireBusinessContext();
         $this->denyIfDifferentBusiness($user, $business);
 
+        if ($user === $this->getUser()) {
+            $this->addFlash('error', 'No podés eliminar tu propio usuario.');
+
+            return $this->redirectToRoute('app_user_index');
+        }
+
         if ($this->isCsrfTokenValid('delete'.$user->getId(), $request->request->get('_token'))) {
+            if (in_array('ROLE_ADMIN', $user->getRoles(), true)) {
+                $adminCount = $userRepository->countAdminsByBusiness($business);
+
+                if ($adminCount <= 1) {
+                    $this->addFlash('error', 'Debe quedar al menos un administrador en el comercio.');
+
+                    return $this->redirectToRoute('app_user_index');
+                }
+            }
+
             $this->entityManager->remove($user);
             $this->entityManager->flush();
 
