@@ -1,0 +1,39 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Iniciar sesión | ItaStock{% endblock %}
+
+{% block body %}
+    <div class="row justify-content-center">
+        <div class="col-md-5">
+            <div class="card shadow-sm mt-5">
+                <div class="card-body p-4">
+                    <h1 class="h4 mb-4 text-center text-primary">Acceso backoffice</h1>
+
+                    {% if error %}
+                        <div class="alert alert-danger" role="alert">
+                            {{ error.messageKey|trans(error.messageData, 'security') }}
+                        </div>
+                    {% endif %}
+
+                    <form method="post" novalidate>
+                        <div class="mb-3">
+                            <label for="inputEmail" class="form-label">Correo electrónico</label>
+                            <input type="email" value="{{ last_username }}" name="_username" id="inputEmail" class="form-control" autocomplete="email" required autofocus>
+                        </div>
+                        <div class="mb-3">
+                            <label for="inputPassword" class="form-label">Contraseña</label>
+                            <input type="password" name="_password" id="inputPassword" class="form-control" autocomplete="current-password" required>
+                        </div>
+                        <input type="hidden" name="_csrf_token" value="{{ csrf_token('authenticate') }}">
+
+                        <div class="d-grid">
+                            <button class="btn btn-primary" type="submit">
+                                Entrar
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+{% endblock %}

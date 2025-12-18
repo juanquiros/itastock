@@ -1,0 +1,16 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Editar usuario | ItaStock{% endblock %}
+
+{% block body %}
+    <div class="mb-3">
+        <h1 class="h4 mb-1">Editar usuario</h1>
+        <p class="text-muted mb-0">Actualiza los datos de acceso del usuario.</p>
+    </div>
+
+    <div class="card shadow-sm">
+        <div class="card-body">
+            {% include 'user/_form.html.twig' with {'form': form, 'button_label': 'Guardar cambios'} %}
+        </div>
+    </div>
+{% endblock %}

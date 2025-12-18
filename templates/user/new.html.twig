@@ -1,0 +1,16 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Nuevo usuario | ItaStock{% endblock %}
+
+{% block body %}
+    <div class="mb-3">
+        <h1 class="h4 mb-1">Nuevo usuario</h1>
+        <p class="text-muted mb-0">Crea administradores o vendedores para tus comercios.</p>
+    </div>
+
+    <div class="card shadow-sm">
+        <div class="card-body">
+            {% include 'user/_form.html.twig' with {'form': form, 'button_label': 'Crear'} %}
+        </div>
+    </div>
+{% endblock %}

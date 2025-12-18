@@ -1,0 +1,27 @@
+{{ form_start(form) }}
+    <div class="row">
+        <div class="col-md-6">
+            {{ form_row(form.fullName) }}
+        </div>
+        <div class="col-md-6">
+            {{ form_row(form.email) }}
+        </div>
+    </div>
+    <div class="row">
+        <div class="col-md-6">
+            {{ form_row(form.business) }}
+        </div>
+        <div class="col-md-6">
+            {{ form_row(form.role) }}
+        </div>
+    </div>
+    <div class="row">
+        <div class="col-md-6">
+            {{ form_row(form.plainPassword) }}
+        </div>
+    </div>
+    <div class="d-flex justify-content-end gap-2 mt-3">
+        <a href="{{ path('app_user_index') }}" class="btn btn-outline-secondary">Cancelar</a>
+        <button class="btn btn-primary">{{ button_label|default('Guardar') }}</button>
+    </div>
+{{ form_end(form) }}
