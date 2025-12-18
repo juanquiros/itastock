@@ -16,13 +16,15 @@ final class Version20250327121500 extends AbstractMigration
 
     public function up(Schema $schema): void
     {
-        $this->addSql('ALTER TABLE users ADD reset_token VARCHAR(64) DEFAULT NULL');
-        $this->addSql('ALTER TABLE users ADD reset_requested_at TIMESTAMP(0) WITHOUT TIME ZONE DEFAULT NULL');
+        $users = $schema->getTable('users');
+        $users->addColumn('reset_token', 'string', ['length' => 64, 'notnull' => false]);
+        $users->addColumn('reset_requested_at', 'datetime_immutable', ['notnull' => false]);
     }
 
     public function down(Schema $schema): void
     {
-        $this->addSql('ALTER TABLE users DROP reset_token');
-        $this->addSql('ALTER TABLE users DROP reset_requested_at');
+        $users = $schema->getTable('users');
+        $users->dropColumn('reset_token');
+        $users->dropColumn('reset_requested_at');
     }
 }

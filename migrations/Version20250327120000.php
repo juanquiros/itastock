@@ -16,23 +16,34 @@ final class Version20250327120000 extends AbstractMigration
 
     public function up(Schema $schema): void
     {
-        $this->addSql('CREATE TABLE business (id SERIAL NOT NULL, name VARCHAR(255) NOT NULL, PRIMARY KEY(id))');
-        $this->addSql('CREATE TABLE users (id SERIAL NOT NULL, business_id INT NOT NULL, email VARCHAR(180) NOT NULL, roles JSON NOT NULL, password VARCHAR(255) NOT NULL, full_name VARCHAR(255) NOT NULL, PRIMARY KEY(id))');
-        $this->addSql('CREATE UNIQUE INDEX UNIQ_1483A5E9E7927C74 ON users (email)');
-        $this->addSql('CREATE INDEX IDX_1483A5E9144665A ON users (business_id)');
-        $this->addSql('ALTER TABLE users ADD CONSTRAINT FK_1483A5E9144665A FOREIGN KEY (business_id) REFERENCES business (id) NOT DEFERRABLE INITIALLY IMMEDIATE');
+        $business = $schema->createTable('business');
+        $business->addColumn('id', 'integer', ['autoincrement' => true]);
+        $business->addColumn('name', 'string', ['length' => 255]);
+        $business->setPrimaryKey(['id']);
+
+        $users = $schema->createTable('users');
+        $users->addColumn('id', 'integer', ['autoincrement' => true]);
+        $users->addColumn('business_id', 'integer');
+        $users->addColumn('email', 'string', ['length' => 180]);
+        $users->addColumn('roles', 'json');
+        $users->addColumn('password', 'string', ['length' => 255]);
+        $users->addColumn('full_name', 'string', ['length' => 255]);
+        $users->setPrimaryKey(['id']);
+        $users->addUniqueIndex(['email'], 'UNIQ_1483A5E9E7927C74');
+        $users->addIndex(['business_id'], 'IDX_1483A5E9144665A');
+        $users->addForeignKeyConstraint('business', ['business_id'], ['id'], ['onDelete' => 'CASCADE'], 'FK_1483A5E9144665A');
 
         $this->addSql("INSERT INTO business (name) VALUES ('Comercio Demo')");
         $this->addSql(sprintf(
-            \"INSERT INTO users (business_id, email, roles, password, full_name) VALUES (1, 'admin@itastock.test', '[\"ROLE_ADMIN\"]', '%s', 'Administrador')\",
+            "INSERT INTO users (business_id, email, roles, password, full_name) VALUES (1, 'admin@itastock.test', '[\"ROLE_ADMIN\"]', '%s', 'Administrador')",
             '$2y$12$AU7RffGR0CaFd.ie6Iq1dOUY7n2TM4PXVbmRug3wDaxACJbvYg6qm'
         ));
     }
 
     public function down(Schema $schema): void
     {
-        $this->addSql('ALTER TABLE users DROP CONSTRAINT FK_1483A5E9144665A');
-        $this->addSql('DROP TABLE business');
-        $this->addSql('DROP TABLE users');
+        $schema->getTable('users')->removeForeignKey('FK_1483A5E9144665A');
+        $schema->dropTable('users');
+        $schema->dropTable('business');
     }
 }
