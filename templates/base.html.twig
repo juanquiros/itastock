@@ -87,15 +87,15 @@
                             <li class="nav-item">
                                 <a class="nav-link" href="{{ path('app_sale_new') }}">Nueva venta</a>
                             </li>
+                            <li class="nav-item">
+                                <a class="nav-link" href="{{ path('app_cash_status') }}">Caja</a>
+                            </li>
                             {% if is_granted('ROLE_ADMIN') %}
                                 <li class="nav-item">
                                     <a class="nav-link" href="{{ path('app_product_index') }}">Productos</a>
                                 </li>
                                 <li class="nav-item">
                                     <a class="nav-link" href="{{ path('app_category_index') }}">Categorías</a>
-                                </li>
-                                <li class="nav-item">
-                                    <a class="nav-link" href="{{ path('app_cash_status') }}">Caja</a>
                                 </li>
                                 <li class="nav-item">
                                     <a class="nav-link" href="{{ path('app_user_index') }}">Usuarios</a>

@@ -12,9 +12,10 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Annotation\Route;
 use Symfony\Component\Security\Core\Exception\AccessDeniedException;
+use Symfony\Component\Security\Core\User\UserInterface;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 
-#[IsGranted('ROLE_ADMIN')]
+#[IsGranted('ROLE_USER')]
 #[Route('/cash', name: 'app_cash_')]
 class CashSessionController extends AbstractController
 {
@@ -29,13 +30,20 @@ class CashSessionController extends AbstractController
     public function status(): Response
     {
         $business = $this->requireBusinessContext();
-        $openSession = $this->cashSessionRepository->findOpenForBusiness($business);
+        $user = $this->requireUser();
+        $openSession = $this->cashSessionRepository->findOpenForUser($business, $user);
         $runningTotals = $openSession
             ? $this->paymentRepository->aggregateTotalsByMethod($business, $openSession->getOpenedAt(), new \DateTimeImmutable())
             : [];
 
+        $recentCriteria = ['business' => $business];
+
+        if (!$this->isGranted('ROLE_ADMIN')) {
+            $recentCriteria['openedBy'] = $user;
+        }
+
         $recentSessions = $this->cashSessionRepository->findBy(
-            ['business' => $business],
+            $recentCriteria,
             ['openedAt' => 'DESC'],
             5,
         );
@@ -51,12 +59,13 @@ class CashSessionController extends AbstractController
     public function open(Request $request): Response
     {
         $business = $this->requireBusinessContext();
+        $user = $this->requireUser();
 
         if (!$this->isCsrfTokenValid('open_cash', (string) $request->request->get('_token'))) {
             throw new AccessDeniedException('Token CSRF inválido.');
         }
 
-        if ($this->cashSessionRepository->findOpenForBusiness($business)) {
+        if ($this->cashSessionRepository->findOpenForUser($business, $user)) {
             $this->addFlash('danger', 'Ya tenés una caja abierta.');
 
             return $this->redirectToRoute('app_cash_status');
@@ -66,7 +75,7 @@ class CashSessionController extends AbstractController
 
         $cashSession = new CashSession();
         $cashSession->setBusiness($business);
-        $cashSession->setOpenedBy($this->getUser());
+        $cashSession->setOpenedBy($user);
         $cashSession->setInitialCash(number_format($initialCash, 2, '.', ''));
         $cashSession->setTotalsByPaymentMethod([]);
 
@@ -82,12 +91,13 @@ class CashSessionController extends AbstractController
     public function close(Request $request): Response
     {
         $business = $this->requireBusinessContext();
+        $user = $this->requireUser();
 
         if (!$this->isCsrfTokenValid('close_cash', (string) $request->request->get('_token'))) {
             throw new AccessDeniedException('Token CSRF inválido.');
         }
 
-        $openSession = $this->cashSessionRepository->findOpenForBusiness($business);
+        $openSession = $this->cashSessionRepository->findOpenForUser($business, $user);
 
         if ($openSession === null) {
             $this->addFlash('danger', 'No hay una caja abierta para cerrar.');
@@ -114,9 +124,14 @@ class CashSessionController extends AbstractController
     public function report(CashSession $cashSession): Response
     {
         $business = $this->requireBusinessContext();
+        $user = $this->requireUser();
 
         if ($cashSession->getBusiness() !== $business) {
             throw new AccessDeniedException('Solo podés ver cajas de tu comercio.');
+        }
+
+        if (!$this->isGranted('ROLE_ADMIN') && $cashSession->getOpenedBy()?->getId() !== $user->getId()) {
+            throw new AccessDeniedException('Solo podés ver tus propias cajas.');
         }
 
         $totals = $cashSession->isOpen()
@@ -131,12 +146,23 @@ class CashSessionController extends AbstractController
 
     private function requireBusinessContext(): Business
     {
-        $business = $this->getUser()?->getBusiness();
+        $business = $this->requireUser()->getBusiness();
 
         if (!$business instanceof Business) {
             throw new AccessDeniedException('No se puede operar sin un comercio asignado.');
         }
 
         return $business;
+    }
+
+    private function requireUser(): UserInterface
+    {
+        $user = $this->getUser();
+
+        if ($user === null) {
+            throw new AccessDeniedException('Debés iniciar sesión para operar.');
+        }
+
+        return $user;
     }
 }

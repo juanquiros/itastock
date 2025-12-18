@@ -8,6 +8,7 @@ use App\Entity\Product;
 use App\Entity\Sale;
 use App\Entity\SaleItem;
 use App\Entity\StockMovement;
+use App\Entity\User;
 use App\Repository\CashSessionRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -30,8 +31,9 @@ class SaleController extends AbstractController
     #[Route('/new', name: 'new', methods: ['GET', 'POST'])]
     public function new(Request $request): Response
     {
+        $user = $this->requireUser();
         $business = $this->requireBusinessContext();
-        $openSession = $this->cashSessionRepository->findOpenForBusiness($business);
+        $openSession = $this->cashSessionRepository->findOpenForUser($business, $user);
 
         if ($openSession === null) {
             $this->addFlash('danger', 'Necesitás abrir caja para registrar ventas.');
@@ -43,7 +45,7 @@ class SaleController extends AbstractController
         $products = $productRepository->findBy(['business' => $business, 'isActive' => true], ['name' => 'ASC']);
 
         if ($request->isMethod('POST')) {
-            return $this->handleSubmission($request, $business, $products);
+            return $this->handleSubmission($request, $business, $products, $user);
         }
 
         return $this->render('sale/new.html.twig', [
@@ -73,7 +75,7 @@ class SaleController extends AbstractController
         ]);
     }
 
-    private function handleSubmission(Request $request, Business $business, array $products): Response
+    private function handleSubmission(Request $request, Business $business, array $products, User $user): Response
     {
         $itemsData = $request->request->all('items');
 
@@ -90,7 +92,7 @@ class SaleController extends AbstractController
 
         $sale = new Sale();
         $sale->setBusiness($business);
-        $sale->setCreatedBy($this->getUser());
+        $sale->setCreatedBy($user);
 
         $total = 0.0;
 
@@ -133,7 +135,7 @@ class SaleController extends AbstractController
             $movement->setType(StockMovement::TYPE_SALE);
             $movement->setQty(-$qty);
             $movement->setReference('Venta');
-            $movement->setCreatedBy($this->getUser());
+            $movement->setCreatedBy($user);
 
             $this->entityManager->persist($movement);
         }
@@ -161,12 +163,23 @@ class SaleController extends AbstractController
 
     private function requireBusinessContext(): Business
     {
-        $business = $this->getUser()?->getBusiness();
+        $business = $this->requireUser()->getBusiness();
 
         if (!$business instanceof Business) {
             throw new AccessDeniedException('No se puede operar sin un comercio asignado.');
         }
 
         return $business;
+    }
+
+    private function requireUser(): User
+    {
+        $user = $this->getUser();
+
+        if (!$user instanceof User) {
+            throw new AccessDeniedException('Debés iniciar sesión para operar.');
+        }
+
+        return $user;
     }
 }

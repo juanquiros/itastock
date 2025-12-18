@@ -4,6 +4,7 @@ namespace App\Repository;
 
 use App\Entity\Business;
 use App\Entity\CashSession;
+use App\Entity\User;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
 
@@ -23,6 +24,19 @@ class CashSessionRepository extends ServiceEntityRepository
             ->andWhere('cs.business = :business')
             ->andWhere('cs.closedAt IS NULL')
             ->setParameter('business', $business)
+            ->setMaxResults(1)
+            ->getQuery()
+            ->getOneOrNullResult();
+    }
+
+    public function findOpenForUser(Business $business, User $user): ?CashSession
+    {
+        return $this->createQueryBuilder('cs')
+            ->andWhere('cs.business = :business')
+            ->andWhere('cs.openedBy = :user')
+            ->andWhere('cs.closedAt IS NULL')
+            ->setParameter('business', $business)
+            ->setParameter('user', $user)
             ->setMaxResults(1)
             ->getQuery()
             ->getOneOrNullResult();
