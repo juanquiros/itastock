@@ -48,6 +48,7 @@ class UserType extends AbstractType
                     'Administrador' => 'ROLE_ADMIN',
                     'Vendedor' => 'ROLE_SELLER',
                 ],
+                'mapped' => false,
                 'data' => $currentRole,
             ])
             ->add('plainPassword', PasswordType::class, [
