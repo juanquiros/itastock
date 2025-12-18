@@ -84,6 +84,9 @@
                             <li class="nav-item">
                                 <a class="nav-link" href="{{ path('app_dashboard') }}">Dashboard</a>
                             </li>
+                            <li class="nav-item">
+                                <a class="nav-link" href="{{ path('app_sale_new') }}">Nueva venta</a>
+                            </li>
                             {% if is_granted('ROLE_ADMIN') %}
                                 <li class="nav-item">
                                     <a class="nav-link" href="{{ path('app_product_index') }}">Productos</a>

@@ -1,0 +1,58 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Ticket de venta - ItaStock{% endblock %}
+
+{% block body %}
+    <div class="row justify-content-center">
+        <div class="col-lg-6">
+            <div class="card shadow-sm mb-3">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start mb-3">
+                        <div>
+                            <p class="text-uppercase text-muted mb-1 small">Ticket</p>
+                            <h1 class="h4 mb-0">Venta #{{ sale.id }}</h1>
+                            <p class="mb-0 text-muted">{{ sale.createdAt|date('d/m/Y H:i') }}</p>
+                        </div>
+                        <a class="btn btn-outline-secondary" href="{{ path('app_sale_new') }}">Nueva venta</a>
+                    </div>
+
+                    <div class="mb-3">
+                        <div class="fw-semibold">Comercio</div>
+                        <div class="text-muted">{{ sale.business.name }}</div>
+                    </div>
+
+                    <div class="table-responsive mb-3">
+                        <table class="table table-sm align-middle">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Producto</th>
+                                    <th class="text-end">Cant.</th>
+                                    <th class="text-end">Precio</th>
+                                    <th class="text-end">Total</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in sale.items %}
+                                    <tr>
+                                        <td>{{ item.description }}</td>
+                                        <td class="text-end">{{ item.qty }}</td>
+                                        <td class="text-end">${{ item.unitPrice }}</td>
+                                        <td class="text-end">${{ item.lineTotal }}</td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div class="text-muted">Total pagado</div>
+                        <div class="h4 mb-0 fw-bold">${{ sale.total }}</div>
+                    </div>
+                </div>
+            </div>
+            <div class="text-center text-muted small">
+                Imprimí este ticket desde tu navegador si lo necesitás.
+            </div>
+        </div>
+    </div>
+{% endblock %}

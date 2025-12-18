@@ -1,0 +1,217 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Nueva venta - ItaStock{% endblock %}
+
+{% block body %}
+    <div class="row mb-4">
+        <div class="col-lg-8 mx-auto">
+            <div class="d-flex align-items-center justify-content-between mb-3">
+                <div>
+                    <p class="text-uppercase text-muted mb-1 small">Venta rápida</p>
+                    <h1 class="h3 mb-0">Nueva venta</h1>
+                    <p class="mb-0 text-muted">Buscá productos por nombre o código y sumalos al ticket.</p>
+                </div>
+                <a class="btn btn-outline-secondary" href="{{ path('app_dashboard') }}">Volver</a>
+            </div>
+
+            <div class="card shadow-sm p-4 mb-4">
+                <form method="post" id="sale-form">
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Buscar producto</label>
+                        <input type="search" id="product-search" class="form-control form-control-lg" placeholder="Nombre, SKU o código de barras">
+                        <div class="form-text">Escribí para filtrar y agregá con un clic.</div>
+                    </div>
+
+                    <div class="mb-4" id="search-results"></div>
+
+                    <div class="card bg-light border-0 mb-3">
+                        <div class="card-body">
+                            <div class="d-flex align-items-center justify-content-between mb-3">
+                                <h2 class="h5 mb-0">Ítems del ticket</h2>
+                                <span class="badge text-bg-dark">Stock se descuenta al confirmar</span>
+                            </div>
+                            <div class="table-responsive">
+                                <table class="table align-middle mb-0">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th>Producto</th>
+                                            <th class="text-end">Precio</th>
+                                            <th style="width: 140px;">Cantidad</th>
+                                            <th class="text-end">Total</th>
+                                            <th></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="sale-items">
+                                        <tr id="empty-row">
+                                            <td colspan="5" class="text-center text-muted py-4">Todavía no agregaste productos.</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="d-flex align-items-center justify-content-between mb-3">
+                        <div class="text-muted">Total de la venta</div>
+                        <div class="h3 mb-0 fw-bold" id="sale-total">$0.00</div>
+                    </div>
+
+                    <div class="d-flex justify-content-end gap-2">
+                        <a class="btn btn-outline-secondary" href="{{ path('app_dashboard') }}">Cancelar</a>
+                        <button type="submit" class="btn btn-primary btn-lg">Confirmar venta</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+{% endblock %}
+
+{% block javascripts %}
+    {{ parent() }}
+    <script>
+        const products = {{ productPayload|json_encode|raw }};
+        const items = [];
+
+        const searchInput = document.getElementById('product-search');
+        const resultsContainer = document.getElementById('search-results');
+        const itemsTable = document.getElementById('sale-items');
+        const emptyRow = document.getElementById('empty-row');
+        const totalElement = document.getElementById('sale-total');
+
+        function formatMoney(value) {
+            return `$${value.toFixed(2)}`;
+        }
+
+        function renderResults(query = '') {
+            const term = query.trim().toLowerCase();
+            const filtered = products.filter((p) => {
+                return p.name.toLowerCase().includes(term) || (p.barcode && p.barcode.toLowerCase().includes(term)) || p.sku.toLowerCase().includes(term);
+            }).slice(0, 6);
+
+            if (filtered.length === 0) {
+                resultsContainer.innerHTML = '';
+                return;
+            }
+
+            const list = filtered.map((product) => `
+                <div class="d-flex align-items-center justify-content-between border rounded-3 p-3 mb-2 bg-white">
+                    <div>
+                        <div class="fw-semibold">${product.name}</div>
+                        <div class="text-muted small">SKU: ${product.sku}${product.barcode ? ' · Código: ' + product.barcode : ''}</div>
+                        <div class="text-muted small">Stock disponible: ${product.stock}</div>
+                    </div>
+                    <div class="d-flex align-items-center gap-3">
+                        <span class="fw-semibold">${formatMoney(product.price)}</span>
+                        <button type="button" class="btn btn-sm btn-primary" data-product="${product.id}">Agregar</button>
+                    </div>
+                </div>
+            `).join('');
+
+            resultsContainer.innerHTML = list;
+            resultsContainer.querySelectorAll('button[data-product]').forEach((btn) => {
+                btn.addEventListener('click', () => addItem(parseInt(btn.dataset.product, 10)));
+            });
+        }
+
+        function addItem(productId) {
+            const product = products.find((p) => p.id === productId);
+            if (!product) {
+                return;
+            }
+
+            const existing = items.find((item) => item.product_id === productId);
+            if (existing) {
+                if (existing.qty < product.stock) {
+                    existing.qty += 1;
+                }
+            } else {
+                items.push({
+                    product_id: product.id,
+                    name: product.name,
+                    price: product.price,
+                    stock: product.stock,
+                    qty: 1,
+                });
+            }
+
+            renderItems();
+        }
+
+        function renderItems() {
+            itemsTable.innerHTML = '';
+
+            if (items.length === 0) {
+                itemsTable.appendChild(emptyRow);
+                emptyRow.style.display = '';
+                updateTotal();
+                return;
+            }
+
+            emptyRow.style.display = 'none';
+
+            items.forEach((item, index) => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>
+                        <div class="fw-semibold">${item.name}</div>
+                        <input type="hidden" name="items[${index}][product_id]" value="${item.product_id}">
+                    </td>
+                    <td class="text-end">${formatMoney(item.price)}</td>
+                    <td>
+                        <input type="number" min="1" max="${item.stock}" name="items[${index}][qty]" value="${item.qty}" class="form-control form-control-sm" data-index="${index}">
+                    </td>
+                    <td class="text-end">${formatMoney(item.price * item.qty)}</td>
+                    <td class="text-end">
+                        <button type="button" class="btn btn-link text-danger" data-remove="${index}">Eliminar</button>
+                    </td>
+                `;
+                itemsTable.appendChild(row);
+            });
+
+            itemsTable.querySelectorAll('input[type="number"]').forEach((input) => {
+                input.addEventListener('change', (event) => {
+                    const idx = parseInt(event.target.dataset.index, 10);
+                    const value = Math.min(Math.max(parseInt(event.target.value, 10) || 1, 1), items[idx].stock);
+                    items[idx].qty = value;
+                    renderItems();
+                });
+            });
+
+            itemsTable.querySelectorAll('button[data-remove]').forEach((button) => {
+                button.addEventListener('click', (event) => {
+                    const idx = parseInt(event.target.dataset.remove, 10);
+                    items.splice(idx, 1);
+                    renderItems();
+                });
+            });
+
+            updateTotal();
+        }
+
+        function updateTotal() {
+            const total = items.reduce((sum, item) => sum + (item.price * item.qty), 0);
+            totalElement.textContent = formatMoney(total);
+        }
+
+        searchInput.addEventListener('input', (event) => {
+            renderResults(event.target.value);
+        });
+
+        document.getElementById('sale-form').addEventListener('submit', () => {
+            items.forEach((item, index) => {
+                const qtyInput = document.createElement('input');
+                qtyInput.type = 'hidden';
+                qtyInput.name = `items[${index}][qty]`;
+                qtyInput.value = item.qty;
+                const productInput = document.createElement('input');
+                productInput.type = 'hidden';
+                productInput.name = `items[${index}][product_id]`;
+                productInput.value = item.product_id;
+                document.getElementById('sale-form').appendChild(qtyInput);
+                document.getElementById('sale-form').appendChild(productInput);
+            });
+        });
+
+        renderResults('');
+    </script>
+{% endblock %}
