@@ -68,6 +68,17 @@
                         <div class="h3 mb-0 fw-bold" id="sale-total">$0.00</div>
                     </div>
 
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold" for="payment-method">Medio de pago</label>
+                        <select name="payment_method" id="payment-method" class="form-select form-select-lg">
+                            <option value="CASH">Efectivo</option>
+                            <option value="TRANSFER">Transferencia</option>
+                            <option value="CARD">Tarjeta</option>
+                            <option value="ACCOUNT">Cuenta corriente</option>
+                        </select>
+                        <div class="form-text" id="payment-help">Seleccioná un cliente para habilitar la cuenta corriente.</div>
+                    </div>
+
                     <div class="d-flex justify-content-end gap-2">
                         <a class="btn btn-outline-secondary" href="{{ path('app_dashboard') }}">Cancelar</a>
                         <button type="submit" class="btn btn-primary btn-lg">Confirmar venta</button>
@@ -100,6 +111,8 @@
             const customerSelection = document.getElementById('customer-selection');
             const customerField = document.getElementById('customer-id');
             const customerClear = document.getElementById('customer-clear');
+            const paymentMethod = document.getElementById('payment-method');
+            const paymentHelp = document.getElementById('payment-help');
 
             function formatMoney(value) {
                 return `$${value.toFixed(2)}`;
@@ -130,6 +143,11 @@
                 if (!selectedCustomer) {
                     customerSelection.innerHTML = '<span class="badge text-bg-secondary">Consumidor final</span>';
                     customerField.value = '';
+                    if (paymentMethod.value === 'ACCOUNT') {
+                        paymentMethod.value = 'CASH';
+                    }
+                    paymentMethod.querySelector('option[value="ACCOUNT"]').disabled = true;
+                    paymentHelp.textContent = 'Seleccioná un cliente para habilitar la cuenta corriente.';
                     return;
                 }
 
@@ -144,6 +162,8 @@
                     </div>
                 `;
                 customerField.value = selectedCustomer.id;
+                paymentMethod.querySelector('option[value="ACCOUNT"]').disabled = false;
+                paymentHelp.textContent = 'Usá cuenta corriente solo con clientes activos.';
 
                 const removeBtn = document.getElementById('customer-remove');
                 if (removeBtn) {

@@ -62,6 +62,7 @@
                                 </td>
                                 <td class="text-end">
                                     <div class="d-inline-flex gap-2">
+                                        <a class="btn btn-sm btn-outline-secondary" href="{{ path('app_customer_account', { id: customer.id }) }}">Cuenta</a>
                                         <a class="btn btn-sm btn-outline-primary" href="{{ path('app_customer_edit', { id: customer.id }) }}">Editar</a>
                                         <form method="post" action="{{ path('app_customer_delete', { id: customer.id }) }}" onsubmit="return confirm('¿Eliminar este cliente?');">
                                             <input type="hidden" name="_token" value="{{ csrf_token('delete' ~ customer.id) }}">

@@ -1,0 +1,107 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Cuenta corriente - {{ customer.name }}{% endblock %}
+
+{% block body %}
+    <div class="row mb-4">
+        <div class="col-lg-10 mx-auto">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <div>
+                    <p class="text-uppercase text-muted mb-1 small">Cuenta corriente</p>
+                    <h1 class="h3 mb-0">{{ customer.name }}</h1>
+                    <p class="mb-0 text-muted">Saldo y movimientos del cliente.</p>
+                </div>
+                <div class="d-flex gap-2">
+                    <a class="btn btn-outline-secondary" href="{{ path('app_customer_index') }}">Volver</a>
+                    <a class="btn btn-primary" href="{{ path('app_customer_collect', {id: customer.id}) }}">Registrar pago</a>
+                </div>
+            </div>
+
+            <div class="card shadow-sm mb-3">
+                <div class="card-body d-flex justify-content-between align-items-center">
+                    <div>
+                        <div class="text-muted">Saldo actual</div>
+                        <div class="display-6 fw-bold">${{ balance }}</div>
+                    </div>
+                    <div class="text-end">
+                        <div class="text-muted small">Documento</div>
+                        <div class="fw-semibold">{{ customer.documentNumber ?? 'Sin documento' }}</div>
+                        <div class="text-muted small">Tipo</div>
+                        <div class="fw-semibold">{{ customer.customerType }}</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h2 class="h5 mb-0">Movimientos</h2>
+                        <form class="row g-2" method="get">
+                            <div class="col-auto">
+                                <input type="date" name="from" value="{{ filters.from }}" class="form-control" placeholder="Desde">
+                            </div>
+                            <div class="col-auto">
+                                <input type="date" name="to" value="{{ filters.to }}" class="form-control" placeholder="Hasta">
+                            </div>
+                            <div class="col-auto">
+                                <select name="type" class="form-select">
+                                    <option value="">Todos</option>
+                                    <option value="DEBIT" {% if filters.type == 'DEBIT' %}selected{% endif %}>Débitos</option>
+                                    <option value="CREDIT" {% if filters.type == 'CREDIT' %}selected{% endif %}>Créditos</option>
+                                </select>
+                            </div>
+                            <div class="col-auto">
+                                <button class="btn btn-outline-secondary" type="submit">Filtrar</button>
+                            </div>
+                        </form>
+                    </div>
+
+                    <div class="table-responsive">
+                        <table class="table align-middle">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Fecha</th>
+                                    <th>Tipo</th>
+                                    <th>Referencia</th>
+                                    <th class="text-end">Importe</th>
+                                    <th>Usuario</th>
+                                    <th>Nota</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for movement in movements %}
+                                    <tr>
+                                        <td>{{ movement.createdAt|date('d/m/Y H:i') }}</td>
+                                        <td>
+                                            {% if movement.type == 'DEBIT' %}
+                                                <span class="badge text-bg-danger">Débito</span>
+                                            {% else %}
+                                                <span class="badge text-bg-success">Crédito</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% if movement.referenceType == 'SALE' and movement.referenceId %}
+                                                <a href="{{ path('app_sale_ticket', {id: movement.referenceId}) }}">Venta #{{ movement.referenceId }}</a>
+                                            {% elseif movement.referenceType == 'PAYMENT' %}
+                                                Pago
+                                            {% else %}
+                                                {{ movement.referenceType ?? 'N/A' }}
+                                            {% endif %}
+                                        </td>
+                                        <td class="text-end">${{ movement.amount }}</td>
+                                        <td>{{ movement.createdBy ? movement.createdBy.fullName : 'N/D' }}</td>
+                                        <td class="text-muted">{{ movement.note ?? '—' }}</td>
+                                    </tr>
+                                {% else %}
+                                    <tr>
+                                        <td colspan="6" class="text-center text-muted py-4">Sin movimientos todavía.</td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+{% endblock %}

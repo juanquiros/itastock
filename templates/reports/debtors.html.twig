@@ -1,0 +1,65 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Reporte de deudores{% endblock %}
+
+{% block body %}
+    <div class="row mb-4">
+        <div class="col-lg-10 mx-auto">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <div>
+                    <p class="text-uppercase text-muted mb-1 small">Reportes</p>
+                    <h1 class="h3 mb-0">Clientes con saldo pendiente</h1>
+                    <p class="mb-0 text-muted">Ordenado por mayor deuda.</p>
+                </div>
+                <a class="btn btn-outline-secondary" href="{{ path('app_dashboard') }}">Volver</a>
+            </div>
+
+            <div class="card shadow-sm mb-3">
+                <div class="card-body">
+                    <form class="row g-2 align-items-end" method="get">
+                        <div class="col-auto">
+                            <label class="form-label" for="min_balance">Saldo mínimo</label>
+                            <input type="number" step="0.01" min="0" name="min_balance" id="min_balance" value="{{ minBalance }}" class="form-control">
+                        </div>
+                        <div class="col-auto">
+                            <button class="btn btn-primary" type="submit">Filtrar</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <div class="card shadow-sm">
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table align-middle">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Cliente</th>
+                                    <th>Teléfono</th>
+                                    <th class="text-end">Saldo</th>
+                                    <th>Último movimiento</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for row in items %}
+                                    <tr>
+                                        <td class="fw-semibold">{{ row.customer.name }}</td>
+                                        <td>{{ row.customer.phone ?? 'Sin dato' }}</td>
+                                        <td class="text-end fw-semibold">${{ row.balance }}</td>
+                                        <td>{{ row.lastMovement ? row.lastMovement|date('d/m/Y H:i') : 'N/D' }}</td>
+                                        <td class="text-end"><a class="btn btn-link" href="{{ path('app_customer_account', {id: row.customer.id}) }}">Ver cuenta</a></td>
+                                    </tr>
+                                {% else %}
+                                    <tr>
+                                        <td colspan="5" class="text-center text-muted py-4">No hay clientes con saldo pendiente según el filtro.</td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+{% endblock %}

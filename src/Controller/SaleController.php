@@ -14,6 +14,7 @@ use App\Entity\User;
 use App\Repository\CashSessionRepository;
 use App\Repository\PriceListItemRepository;
 use App\Repository\PriceListRepository;
+use App\Service\CustomerAccountService;
 use App\Service\PricingService;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -33,6 +34,7 @@ class SaleController extends AbstractController
         private readonly PriceListRepository $priceListRepository,
         private readonly PriceListItemRepository $priceListItemRepository,
         private readonly PricingService $pricingService,
+        private readonly CustomerAccountService $customerAccountService,
     ) {
     }
 
@@ -106,6 +108,14 @@ class SaleController extends AbstractController
     {
         $itemsData = $request->request->all('items');
         $customerId = (int) $request->request->get('customer_id', 0);
+        $paymentMethod = strtoupper((string) $request->request->get('payment_method', 'CASH'));
+        $allowedMethods = ['CASH', 'TRANSFER', 'CARD', 'ACCOUNT'];
+
+        if (!in_array($paymentMethod, $allowedMethods, true)) {
+            $this->addFlash('danger', 'Seleccioná un medio de pago válido.');
+
+            return $this->redirectToRoute('app_sale_new');
+        }
 
         if (!is_array($itemsData) || count($itemsData) === 0) {
             $this->addFlash('danger', 'Agregá al menos un producto para registrar la venta.');
@@ -133,6 +143,12 @@ class SaleController extends AbstractController
 
                 return $this->redirectToRoute('app_sale_new');
             }
+        }
+
+        if ($paymentMethod === 'ACCOUNT' && !$customer instanceof Customer) {
+            $this->addFlash('danger', 'Elegí un cliente activo para vender en cuenta corriente.');
+
+            return $this->redirectToRoute('app_sale_new');
         }
 
         $sale = new Sale();
@@ -196,11 +212,27 @@ class SaleController extends AbstractController
 
         $payment = new Payment();
         $payment->setAmount($sale->getTotal());
-        $payment->setMethod('CASH');
+        $payment->setMethod($paymentMethod);
         $sale->addPayment($payment);
 
-        $this->entityManager->persist($sale);
-        $this->entityManager->flush();
+        $connection = $this->entityManager->getConnection();
+        $connection->beginTransaction();
+
+        try {
+            $this->entityManager->persist($sale);
+            $this->entityManager->flush();
+
+            if ($paymentMethod === 'ACCOUNT') {
+                $this->customerAccountService->addDebitForSale($sale);
+                $this->entityManager->flush();
+            }
+
+            $connection->commit();
+        } catch (\Throwable $exception) {
+            $connection->rollBack();
+
+            throw $exception;
+        }
 
         $this->addFlash('success', 'Venta registrada.');
 

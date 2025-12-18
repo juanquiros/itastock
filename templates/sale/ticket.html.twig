@@ -49,6 +49,17 @@
                         </table>
                     </div>
 
+                    <div class="mb-3">
+                        <div class="fw-semibold">Pago</div>
+                        <ul class="list-unstyled mb-0 text-muted">
+                            {% for payment in sale.payments %}
+                                <li>{{ payment.method }} · ${{ payment.amount }}</li>
+                            {% else %}
+                                <li>Sin pagos registrados</li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+
                     <div class="d-flex justify-content-between align-items-center">
                         <div class="text-muted">Total pagado</div>
                         <div class="h4 mb-0 fw-bold">${{ sale.total }}</div>
