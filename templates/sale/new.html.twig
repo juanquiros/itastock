@@ -90,7 +90,7 @@
 
             if (filtered.length === 0) {
                 resultsContainer.innerHTML = '';
-                return;
+                return filtered;
             }
 
             const list = filtered.map((product) => `
@@ -111,6 +111,8 @@
             resultsContainer.querySelectorAll('button[data-product]').forEach((btn) => {
                 btn.addEventListener('click', () => addItem(parseInt(btn.dataset.product, 10)));
             });
+
+            return filtered;
         }
 
         function addItem(productId) {
@@ -195,6 +197,17 @@
 
         searchInput.addEventListener('input', (event) => {
             renderResults(event.target.value);
+        });
+
+        searchInput.addEventListener('keydown', (event) => {
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                const filtered = renderResults(searchInput.value);
+                if (filtered.length > 0) {
+                    addItem(filtered[0].id);
+                    searchInput.select();
+                }
+            }
         });
 
         document.getElementById('sale-form').addEventListener('submit', () => {
