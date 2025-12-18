@@ -15,7 +15,6 @@ use Symfony\Component\Mime\Address;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 use Symfony\Component\Routing\Annotation\Route;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
-use Symfony\Component\Uid\Uuid;
 use Symfony\Component\Mailer\MailerInterface;
 
 #[Route('/password', name: 'app_password_')]
@@ -37,7 +36,7 @@ class PasswordResetController extends AbstractController
             $user = $userRepository->findOneBy(['email' => $email]);
 
             if ($user instanceof User) {
-                $token = Uuid::v4()->toRfc4122();
+                $token = bin2hex(random_bytes(32));
                 $user->setResetToken($token);
                 $user->setResetRequestedAt(new \DateTimeImmutable());
                 $entityManager->flush();
