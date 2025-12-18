@@ -1,0 +1,19 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Editar categoría · ItaStock{% endblock %}
+
+{% block body %}
+    <div class="d-flex align-items-center justify-content-between mb-3">
+        <div>
+            <p class="text-uppercase text-muted mb-1 small fw-semibold">Productos</p>
+            <h1 class="h4 mb-0">Editar categoría</h1>
+            <p class="text-secondary mb-0">Actualizá el nombre de la categoría sin afectar tus productos.</p>
+        </div>
+    </div>
+
+    <div class="card shadow-sm">
+        <div class="card-body">
+            {{ include('category/_form.html.twig', { form: form }) }}
+        </div>
+    </div>
+{% endblock %}
