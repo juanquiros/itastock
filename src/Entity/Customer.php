@@ -5,6 +5,7 @@ namespace App\Entity;
 use App\Repository\CustomerRepository;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\Validator\Constraints as Assert;
+use App\Entity\PriceList;
 
 #[ORM\Entity(repositoryClass: CustomerRepository::class)]
 #[ORM\Table(name: 'customers')]
@@ -50,6 +51,10 @@ class Customer
 
     #[ORM\Column]
     private bool $isActive = true;
+
+    #[ORM\ManyToOne]
+    #[ORM\JoinColumn(onDelete: 'SET NULL')]
+    private ?PriceList $priceList = null;
 
     #[ORM\Column]
     private ?\DateTimeImmutable $createdAt = null;
@@ -169,6 +174,18 @@ class Customer
     public function setCreatedAt(\DateTimeImmutable $createdAt): self
     {
         $this->createdAt = $createdAt;
+
+        return $this;
+    }
+
+    public function getPriceList(): ?PriceList
+    {
+        return $this->priceList;
+    }
+
+    public function setPriceList(?PriceList $priceList): self
+    {
+        $this->priceList = $priceList;
 
         return $this;
     }

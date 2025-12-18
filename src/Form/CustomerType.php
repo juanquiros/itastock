@@ -3,6 +3,7 @@
 namespace App\Form;
 
 use App\Entity\Customer;
+use App\Entity\PriceList;
 use Symfony\Component\Form\AbstractType;
 use Symfony\Component\Form\Extension\Core\Type\CheckboxType;
 use Symfony\Component\Form\Extension\Core\Type\ChoiceType;
@@ -54,6 +55,15 @@ class CustomerType extends AbstractType
                     'Revendedor' => Customer::CUSTOMER_REVENDEDOR,
                 ],
             ])
+            ->add('priceList', ChoiceType::class, [
+                'label' => 'Lista de precios',
+                'required' => false,
+                'placeholder' => 'Lista default',
+                'choices' => $options['price_lists'],
+                'choice_label' => static function (PriceList $list) {
+                    return $list->getName().($list->isDefault() ? ' (Default)' : '');
+                },
+            ])
             ->add('isActive', CheckboxType::class, [
                 'label' => 'Cliente activo',
                 'required' => false,
@@ -65,6 +75,7 @@ class CustomerType extends AbstractType
     {
         $resolver->setDefaults([
             'data_class' => Customer::class,
+            'price_lists' => [],
         ]);
     }
 }

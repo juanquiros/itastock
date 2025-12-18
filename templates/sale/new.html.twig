@@ -84,6 +84,9 @@
         document.addEventListener('DOMContentLoaded', () => {
             const products = {{ productPayload|json_encode|raw }};
             const customers = {{ customersPayload|json_encode|raw }};
+            const priceLists = {{ priceLists|json_encode|raw }};
+            const priceListPrices = {{ priceListPrices|json_encode|raw }};
+            const defaultPriceListId = {{ defaultPriceListId|json_encode|raw }};
             const items = [];
             let selectedCustomer = null;
 
@@ -100,6 +103,27 @@
 
             function formatMoney(value) {
                 return `$${value.toFixed(2)}`;
+            }
+
+            function resolvePriceListId() {
+                if (selectedCustomer && selectedCustomer.priceList) {
+                    const candidate = priceLists.find((pl) => pl.id === selectedCustomer.priceList && pl.isDefault === false) || priceLists.find((pl) => pl.id === selectedCustomer.priceList);
+                    if (candidate) {
+                        return candidate.id;
+                    }
+                }
+
+                return defaultPriceListId;
+            }
+
+            function resolveUnitPrice(productId) {
+                const listId = resolvePriceListId();
+                if (listId && priceListPrices[listId] && priceListPrices[listId][productId] !== undefined) {
+                    return parseFloat(priceListPrices[listId][productId]);
+                }
+
+                const product = products.find((p) => p.id === productId);
+                return product ? parseFloat(product.price) : 0;
             }
 
             function renderCustomerSelection() {
@@ -159,6 +183,7 @@
                         const id = parseInt(button.dataset.customer, 10);
                         selectedCustomer = customers.find((c) => c.id === id) || null;
                         renderCustomerSelection();
+                        recalculatePrices();
                         customerResults.innerHTML = '';
                         customerSearch.value = '';
                     });
@@ -184,7 +209,7 @@
                             <div class="text-muted small">Stock disponible: ${product.stock}</div>
                         </div>
                         <div class="d-flex align-items-center gap-3">
-                            <span class="fw-semibold">${formatMoney(product.price)}</span>
+                            <span class="fw-semibold">${formatMoney(resolveUnitPrice(product.id))}</span>
                             <button type="button" class="btn btn-sm btn-primary" data-product="${product.id}">Agregar</button>
                         </div>
                     </div>
@@ -205,20 +230,27 @@
                 }
 
                 const existing = items.find((item) => item.product_id === productId);
-                if (existing) {
-                    if (existing.qty < product.stock) {
-                        existing.qty += 1;
+                    if (existing) {
+                        if (existing.qty < product.stock) {
+                            existing.qty += 1;
+                        }
+                    } else {
+                        items.push({
+                            product_id: product.id,
+                            name: product.name,
+                            price: resolveUnitPrice(product.id),
+                            stock: product.stock,
+                            qty: 1,
+                        });
                     }
-                } else {
-                    items.push({
-                        product_id: product.id,
-                        name: product.name,
-                        price: product.price,
-                        stock: product.stock,
-                        qty: 1,
-                    });
-                }
 
+                renderItems();
+            }
+
+            function recalculatePrices() {
+                items.forEach((item) => {
+                    item.price = resolveUnitPrice(item.product_id);
+                });
                 renderItems();
             }
 
@@ -290,6 +322,7 @@
                     if (filtered.length > 0) {
                         selectedCustomer = filtered[0];
                         renderCustomerSelection();
+                        recalculatePrices();
                         customerResults.innerHTML = '';
                         customerSearch.value = '';
                     }
@@ -301,6 +334,7 @@
                 customerSearch.value = '';
                 customerResults.innerHTML = '';
                 renderCustomerSelection();
+                recalculatePrices();
             });
 
             searchInput.addEventListener('input', (event) => {

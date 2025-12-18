@@ -6,6 +6,7 @@ use App\Entity\Business;
 use App\Entity\Customer;
 use App\Form\CustomerType;
 use App\Repository\CustomerRepository;
+use App\Repository\PriceListRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
@@ -18,8 +19,10 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
 #[Route('/app/admin/customers', name: 'app_customer_')]
 class CustomerController extends AbstractController
 {
-    public function __construct(private readonly EntityManagerInterface $entityManager)
-    {
+    public function __construct(
+        private readonly EntityManagerInterface $entityManager,
+        private readonly PriceListRepository $priceListRepository,
+    ) {
     }
 
     #[Route('', name: 'index', methods: ['GET'])]
@@ -42,7 +45,9 @@ class CustomerController extends AbstractController
         $customer = new Customer();
         $customer->setBusiness($business);
 
-        $form = $this->createForm(CustomerType::class, $customer);
+        $form = $this->createForm(CustomerType::class, $customer, [
+            'price_lists' => $this->priceListRepository->findActiveForBusiness($business),
+        ]);
         $form->handleRequest($request);
 
         if ($form->isSubmitted() && $form->isValid()) {
@@ -65,7 +70,9 @@ class CustomerController extends AbstractController
         $business = $this->requireBusinessContext();
         $this->denyIfDifferentBusiness($customer, $business);
 
-        $form = $this->createForm(CustomerType::class, $customer);
+        $form = $this->createForm(CustomerType::class, $customer, [
+            'price_lists' => $this->priceListRepository->findActiveForBusiness($business),
+        ]);
         $form->handleRequest($request);
 
         if ($form->isSubmitted() && $form->isValid()) {

@@ -1,0 +1,73 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Precios - {{ priceList.name }}{% endblock %}
+
+{% block body %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+        <h1 class="h3 mb-0">Precios: {{ priceList.name }}</h1>
+        <p class="text-muted mb-0">Dejá vacío para usar el precio base del producto.</p>
+    </div>
+    <a class="btn btn-outline-secondary" href="{{ path('app_price_list_index') }}">Volver</a>
+</div>
+
+<div class="card shadow-sm">
+    <div class="card-body">
+        <form class="row g-2 align-items-end mb-3" method="get">
+            <input type="hidden" name="page" value="1">
+            <div class="col-md-6">
+                <label class="form-label">Buscar producto</label>
+                <input type="text" name="q" value="{{ query }}" class="form-control" placeholder="Nombre, SKU o código de barras">
+            </div>
+            <div class="col-md-2">
+                <button class="btn btn-outline-secondary w-100" type="submit">Filtrar</button>
+            </div>
+        </form>
+
+        <form method="post">
+            <div class="table-responsive">
+                <table class="table align-middle">
+                    <thead>
+                        <tr>
+                            <th>Producto</th>
+                            <th>SKU</th>
+                            <th>Precio base</th>
+                            <th>Precio en lista</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for product in products %}
+                            <tr>
+                                <td>{{ product.name }}</td>
+                                <td>{{ product.sku }}</td>
+                                <td>$ {{ product.basePrice|number_format(2, '.', ',') }}</td>
+                                <td style="max-width: 200px;">
+                                    <input type="text" name="prices[{{ product.id }}]" value="{{ currentPrices[product.id]|default('') }}" class="form-control" placeholder="Usar base">
+                                </td>
+                            </tr>
+                        {% else %}
+                            <tr>
+                                <td colspan="4" class="text-center text-muted">No hay productos para listar.</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            <div class="d-flex justify-content-between align-items-center mt-3">
+                <div>
+                    Página {{ page }} de {{ pages }}
+                </div>
+                <div class="d-flex gap-2">
+                    {% if page > 1 %}
+                        <a class="btn btn-outline-secondary" href="{{ path('app_price_list_products', {id: priceList.id, page: page - 1, q: query}) }}">Anterior</a>
+                    {% endif %}
+                    {% if page < pages %}
+                        <a class="btn btn-outline-secondary" href="{{ path('app_price_list_products', {id: priceList.id, page: page + 1, q: query}) }}">Siguiente</a>
+                    {% endif %}
+                    <button class="btn btn-primary" type="submit">Guardar precios</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

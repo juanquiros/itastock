@@ -6,11 +6,15 @@ use App\Entity\Business;
 use App\Entity\Customer;
 use App\Entity\Payment;
 use App\Entity\Product;
+use App\Entity\PriceList;
 use App\Entity\Sale;
 use App\Entity\SaleItem;
 use App\Entity\StockMovement;
 use App\Entity\User;
 use App\Repository\CashSessionRepository;
+use App\Repository\PriceListItemRepository;
+use App\Repository\PriceListRepository;
+use App\Service\PricingService;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
@@ -26,6 +30,9 @@ class SaleController extends AbstractController
     public function __construct(
         private readonly EntityManagerInterface $entityManager,
         private readonly CashSessionRepository $cashSessionRepository,
+        private readonly PriceListRepository $priceListRepository,
+        private readonly PriceListItemRepository $priceListItemRepository,
+        private readonly PricingService $pricingService,
     ) {
     }
 
@@ -46,6 +53,9 @@ class SaleController extends AbstractController
         $customerRepository = $this->entityManager->getRepository(Customer::class);
         $products = $productRepository->findBy(['business' => $business, 'isActive' => true], ['name' => 'ASC']);
         $customers = $customerRepository->findActiveForBusiness($business);
+        $priceLists = $this->priceListRepository->findActiveForBusiness($business);
+        $priceListPrices = $this->priceListItemRepository->findPricesByBusiness($business);
+        $defaultPriceList = $this->priceListRepository->findDefaultActiveForBusiness($business);
 
         if ($request->isMethod('POST')) {
             return $this->handleSubmission($request, $business, $products, $user);
@@ -66,7 +76,15 @@ class SaleController extends AbstractController
                 'name' => $customer->getName(),
                 'document' => $customer->getDocumentNumber(),
                 'type' => $customer->getCustomerType(),
+                'priceList' => $customer->getPriceList()?->getId(),
             ], $customers),
+            'priceLists' => array_map(static fn (PriceList $list) => [
+                'id' => $list->getId(),
+                'name' => $list->getName(),
+                'isDefault' => $list->isDefault(),
+            ], $priceLists),
+            'priceListPrices' => $priceListPrices,
+            'defaultPriceListId' => $defaultPriceList?->getId(),
         ]);
     }
 
@@ -144,7 +162,7 @@ class SaleController extends AbstractController
                 return $this->redirectToRoute('app_sale_new');
             }
 
-            $unitPrice = (float) $product->getBasePrice();
+            $unitPrice = $this->pricingService->resolveUnitPrice($product, $customer);
             $lineTotal = round($unitPrice * $qty, 2);
             $total += $lineTotal;
 
