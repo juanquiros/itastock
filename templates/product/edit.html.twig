@@ -1,0 +1,15 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Editar producto · ItaStock{% endblock %}
+
+{% block body %}
+    <div class="d-flex align-items-center justify-content-between mb-3">
+        <div>
+            <p class="text-uppercase text-muted mb-1 small fw-semibold">Inventario</p>
+            <h1 class="h4 mb-0">Editar producto</h1>
+            <p class="text-secondary mb-0">Actualizá precios, categoría o ajustá stock cuando lo necesites.</p>
+        </div>
+    </div>
+
+    {{ include('product/_form.html.twig', { form: form }) }}
+{% endblock %}

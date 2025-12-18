@@ -86,6 +86,9 @@
                             </li>
                             {% if is_granted('ROLE_ADMIN') %}
                                 <li class="nav-item">
+                                    <a class="nav-link" href="{{ path('app_product_index') }}">Productos</a>
+                                </li>
+                                <li class="nav-item">
                                     <a class="nav-link" href="{{ path('app_user_index') }}">Usuarios</a>
                                 </li>
                             {% endif %}

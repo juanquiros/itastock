@@ -1,0 +1,44 @@
+{{ form_start(form) }}
+<div class="card shadow-sm">
+    <div class="card-body">
+        <div class="row g-3">
+            <div class="col-md-6">
+                {{ form_row(form.name) }}
+            </div>
+            <div class="col-md-3">
+                {{ form_row(form.sku) }}
+            </div>
+            <div class="col-md-3">
+                {{ form_row(form.barcode) }}
+            </div>
+            <div class="col-md-4">
+                {{ form_row(form.cost) }}
+            </div>
+            <div class="col-md-4">
+                {{ form_row(form.basePrice) }}
+            </div>
+            <div class="col-md-4">
+                {{ form_row(form.stockMin) }}
+            </div>
+            <div class="col-md-4">
+                {{ form_row(form.category) }}
+            </div>
+            <div class="col-md-4">
+                {{ form_row(form.isActive) }}
+            </div>
+            {% if form.stock is defined %}
+                <div class="col-md-4">
+                    {{ form_row(form.stock) }}
+                </div>
+            {% endif %}
+            <div class="col-md-4">
+                {{ form_row(form.stockAdjustment) }}
+            </div>
+        </div>
+        <div class="mt-4 d-flex justify-content-end gap-2">
+            <a class="btn btn-outline-secondary" href="{{ path('app_product_index') }}">Cancelar</a>
+            <button class="btn btn-primary" type="submit">Guardar</button>
+        </div>
+    </div>
+</div>
+{{ form_end(form) }}
