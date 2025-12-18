@@ -210,7 +210,15 @@
             }
         });
 
-        document.getElementById('sale-form').addEventListener('submit', () => {
+        const saleForm = document.getElementById('sale-form');
+
+        saleForm.addEventListener('keydown', (event) => {
+            if (event.key === 'Enter' && !(event.target instanceof HTMLButtonElement && event.target.type === 'submit')) {
+                event.preventDefault();
+            }
+        });
+
+        saleForm.addEventListener('submit', () => {
             items.forEach((item, index) => {
                 const qtyInput = document.createElement('input');
                 qtyInput.type = 'hidden';
@@ -220,8 +228,8 @@
                 productInput.type = 'hidden';
                 productInput.name = `items[${index}][product_id]`;
                 productInput.value = item.product_id;
-                document.getElementById('sale-form').appendChild(qtyInput);
-                document.getElementById('sale-form').appendChild(productInput);
+                saleForm.appendChild(qtyInput);
+                saleForm.appendChild(productInput);
             });
         });
 
