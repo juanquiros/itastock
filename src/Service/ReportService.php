@@ -101,8 +101,9 @@ class ReportService
         return $this->productRepository->createQueryBuilder('p')
             ->andWhere('p.business = :business')
             ->andWhere('p.stock <= p.stockMin')
+            ->addSelect('p.stock - p.stockMin AS HIDDEN deficit')
             ->setParameter('business', $business)
-            ->orderBy('(p.stock - p.stockMin)', 'ASC')
+            ->orderBy('deficit', 'ASC')
             ->getQuery()
             ->getResult();
     }
