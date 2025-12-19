@@ -1,0 +1,20 @@
+{% extends 'platform/base_platform.html.twig' %}
+
+{% block header_title %}{{ plan.id ? 'Editar plan' : 'Nuevo plan' }}{% endblock %}
+
+{% block body %}
+    <div class="mb-3">
+        <a class="btn btn-outline-secondary" href="{{ path('platform_plans_index') }}">Volver</a>
+    </div>
+    {{ form_start(form) }}
+        {{ form_row(form.code) }}
+        {{ form_row(form.name) }}
+        {{ form_row(form.priceMonthly) }}
+        {{ form_row(form.currency) }}
+        {{ form_row(form.featuresJson) }}
+        {{ form_row(form.isActive) }}
+        {{ form_row(form.isFeatured) }}
+        {{ form_row(form.sortOrder) }}
+        <button class="btn btn-primary mt-3">{{ plan.id ? 'Guardar' : 'Crear' }}</button>
+    {{ form_end(form) }}
+{% endblock %}

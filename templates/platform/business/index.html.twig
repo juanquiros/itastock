@@ -1,0 +1,41 @@
+{% extends 'platform/base_platform.html.twig' %}
+
+{% block header_title %}Comercios{% endblock %}
+
+{% block body %}
+    <div class="mb-3 d-flex gap-2">
+        <a class="btn btn-primary" href="{{ path('platform_business_new') }}">Nuevo comercio</a>
+    </div>
+    <div class="table-responsive">
+        <table class="table align-middle">
+            <thead>
+                <tr>
+                    <th>Nombre</th>
+                    <th>Status</th>
+                    <th>Fecha</th>
+                    <th>Usuarios</th>
+                    <th class="text-end">Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for business in businesses %}
+                    <tr>
+                        <td>{{ business.name }}</td>
+                        <td>{{ business.status }}</td>
+                        <td>{{ business.createdAt|date('Y-m-d') }}</td>
+                        <td>{{ business.users|length }}</td>
+                        <td class="text-end d-flex gap-2 justify-content-end">
+                            <a class="btn btn-sm btn-outline-primary" href="{{ path('platform_business_show', {id: business.id}) }}">Ver</a>
+                            <a class="btn btn-sm btn-outline-secondary" href="{{ path('platform_business_edit', {id: business.id}) }}">Editar</a>
+                            <a class="btn btn-sm btn-outline-success" href="{{ path('platform_business_admin_new', {id: business.id}) }}">Crear admin</a>
+                            <a class="btn btn-sm btn-outline-info" href="{{ path('platform_business_users', {id: business.id}) }}">Usuarios</a>
+                            <a class="btn btn-sm btn-outline-warning" href="{{ path('platform_business_subscription', {id: business.id}) }}">Suscripción</a>
+                        </td>
+                    </tr>
+                {% else %}
+                    <tr><td colspan="5">Sin comercios.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+{% endblock %}

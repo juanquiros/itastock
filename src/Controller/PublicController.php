@@ -98,6 +98,14 @@ class PublicController extends AbstractController
         return $this->renderPublicPage($page, 'Política de privacidad', placeholderMessage: 'Pronto publicaremos nuestra política de privacidad.');
     }
 
+    #[Route('/p/{slug}', name: 'public_page', methods: ['GET'])]
+    public function page(string $slug): Response
+    {
+        $page = $this->publicPageRepository->findPublishedBySlug($slug);
+
+        return $this->renderPublicPage($page, ucfirst($slug));
+    }
+
     private function renderPublicPage(?PublicPage $page, string $fallbackTitle, string $placeholderMessage = 'En construcción'): Response
     {
         if ($page === null) {

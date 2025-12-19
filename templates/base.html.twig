@@ -112,6 +112,15 @@
                             {% endif %}
                         </ul>
                         <div class="d-flex align-items-center gap-3 text-white">
+                            {% set sub = subscriptionContext.getCurrentSubscription(app.user) %}
+                            {% if sub %}
+                                <span class="badge rounded-pill bg-light text-dark">
+                                    {{ sub.status }}
+                                    {% if sub.status == 'TRIAL' and sub.trialEndsAt %}
+                                        · vence {{ sub.trialEndsAt|date('d/m') }}
+                                    {% endif %}
+                                </span>
+                            {% endif %}
                             <span class="fw-semibold">{{ app.user.fullName }}</span>
                             <a class="btn btn-outline-light btn-sm" href="{{ path('app_logout') }}">Cerrar sesión</a>
                         </div>

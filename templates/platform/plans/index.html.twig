@@ -1,0 +1,44 @@
+{% extends 'platform/base_platform.html.twig' %}
+
+{% block header_title %}Planes{% endblock %}
+
+{% block body %}
+    <div class="mb-3">
+        <a class="btn btn-primary" href="{{ path('platform_plans_new') }}">Nuevo plan</a>
+    </div>
+    <div class="table-responsive">
+        <table class="table align-middle">
+            <thead>
+                <tr>
+                    <th>Código</th>
+                    <th>Nombre</th>
+                    <th>Precio</th>
+                    <th>Moneda</th>
+                    <th>Activo</th>
+                    <th>Destacado</th>
+                    <th>Orden</th>
+                    <th class="text-end">Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for plan in plans %}
+                    <tr>
+                        <td><code>{{ plan.code }}</code></td>
+                        <td>{{ plan.name }}</td>
+                        <td>${{ plan.priceMonthly|number_format(2, ',', '.') }}</td>
+                        <td>{{ plan.currency }}</td>
+                        <td>{{ plan.isActive ? 'Sí' : 'No' }}</td>
+                        <td>{{ plan.isFeatured ? 'Sí' : 'No' }}</td>
+                        <td>{{ plan.sortOrder }}</td>
+                        <td class="text-end d-flex gap-2 justify-content-end">
+                            <a class="btn btn-sm btn-outline-primary" href="{{ path('platform_plans_show', {id: plan.id}) }}">Ver</a>
+                            <a class="btn btn-sm btn-outline-secondary" href="{{ path('platform_plans_edit', {id: plan.id}) }}">Editar</a>
+                        </td>
+                    </tr>
+                {% else %}
+                    <tr><td colspan="8">Sin planes.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+{% endblock %}

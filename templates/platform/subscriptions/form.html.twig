@@ -1,0 +1,18 @@
+{% extends 'platform/base_platform.html.twig' %}
+
+{% block header_title %}Suscripción de {{ business.name }}{% endblock %}
+
+{% block body %}
+    <div class="mb-3">
+        <a class="btn btn-outline-secondary" href="{{ path('platform_business_show', {id: business.id}) }}">Volver</a>
+    </div>
+    {{ form_start(form) }}
+        {{ form_row(form.plan) }}
+        {{ form_row(form.status) }}
+        {{ form_row(form.startAt) }}
+        {{ form_row(form.trialEndsAt) }}
+        {{ form_row(form.endAt) }}
+        {{ form_row(form.notes) }}
+        <button class="btn btn-primary mt-3">Guardar</button>
+    {{ form_end(form) }}
+{% endblock %}

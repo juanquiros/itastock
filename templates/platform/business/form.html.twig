@@ -1,0 +1,14 @@
+{% extends 'platform/base_platform.html.twig' %}
+
+{% block header_title %}{{ business.id ? 'Editar comercio' : 'Nuevo comercio' }}{% endblock %}
+
+{% block body %}
+    <div class="mb-3">
+        <a class="btn btn-outline-secondary" href="{{ path('platform_business_index') }}">Volver</a>
+    </div>
+    {{ form_start(form) }}
+        {{ form_row(form.name) }}
+        {{ form_row(form.status) }}
+        <button class="btn btn-primary mt-3">{{ business.id ? 'Guardar' : 'Crear' }}</button>
+    {{ form_end(form) }}
+{% endblock %}

@@ -1,0 +1,22 @@
+{% extends 'platform/base_platform.html.twig' %}
+
+{% block header_title %}Lead de {{ lead.name }}{% endblock %}
+
+{% block body %}
+    <div class="mb-3">
+        <a class="btn btn-outline-secondary" href="{{ path('platform_leads_index') }}">Volver</a>
+    </div>
+    <dl class="row">
+        <dt class="col-sm-3">Fecha</dt><dd class="col-sm-9">{{ lead.createdAt|date('Y-m-d H:i') }}</dd>
+        <dt class="col-sm-3">Email</dt><dd class="col-sm-9">{{ lead.email }}</dd>
+        <dt class="col-sm-3">Teléfono</dt><dd class="col-sm-9">{{ lead.phone ?: '—' }}</dd>
+        <dt class="col-sm-3">Fuente</dt><dd class="col-sm-9">{{ lead.source ?: 'web' }}</dd>
+        <dt class="col-sm-3">Archivado</dt><dd class="col-sm-9">{{ lead.isArchived ? 'Sí' : 'No' }}</dd>
+    </dl>
+    <div class="card">
+        <div class="card-header">Mensaje</div>
+        <div class="card-body">
+            <p class="mb-0">{{ lead.message }}</p>
+        </div>
+    </div>
+{% endblock %}

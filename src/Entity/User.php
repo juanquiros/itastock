@@ -44,6 +44,9 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\Column(nullable: true)]
     private ?\DateTimeImmutable $resetRequestedAt = null;
 
+    #[ORM\Column(options: ['default' => true])]
+    private bool $isActive = true;
+
     public function getId(): ?int
     {
         return $this->id;
@@ -147,6 +150,18 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     public function setResetRequestedAt(?\DateTimeImmutable $resetRequestedAt): self
     {
         $this->resetRequestedAt = $resetRequestedAt;
+
+        return $this;
+    }
+
+    public function isActive(): bool
+    {
+        return $this->isActive;
+    }
+
+    public function setIsActive(bool $isActive): self
+    {
+        $this->isActive = $isActive;
 
         return $this;
     }

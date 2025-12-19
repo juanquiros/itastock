@@ -1,5 +1,6 @@
 security:
     role_hierarchy:
+        ROLE_PLATFORM_ADMIN: [ROLE_ADMIN, ROLE_SELLER]
         ROLE_ADMIN: ROLE_SELLER
     # https://symfony.com/doc/current/security.html#registering-the-user-hashing-passwords
     password_hashers:
@@ -42,6 +43,8 @@ security:
         - { path: ^/password, roles: PUBLIC_ACCESS }
         - { path: ^/$, roles: PUBLIC_ACCESS }
         - { path: ^/(features|pricing|contact|terms|privacy)$, roles: PUBLIC_ACCESS }
+        - { path: ^/platform, roles: ROLE_PLATFORM_ADMIN }
+        - { path: ^/app/subscription/blocked$, roles: ROLE_USER }
         - { path: ^/app/admin, roles: ROLE_ADMIN }
         - { path: ^/app/(pos|cash), roles: ROLE_SELLER }
         - { path: ^/app, roles: ROLE_USER }

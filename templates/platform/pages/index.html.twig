@@ -1,0 +1,47 @@
+{% extends 'platform/base_platform.html.twig' %}
+
+{% block header_title %}Páginas públicas{% endblock %}
+
+{% block body %}
+    <div class="mb-3">
+        <a class="btn btn-primary" href="{{ path('platform_pages_new') }}">Nueva página</a>
+    </div>
+    <div class="table-responsive">
+        <table class="table align-middle">
+            <thead>
+                <tr>
+                    <th>Slug</th>
+                    <th>Título</th>
+                    <th>Publicado</th>
+                    <th>Actualizado</th>
+                    <th class="text-end">Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for page in pages %}
+                    <tr>
+                        <td><code>{{ page.slug }}</code></td>
+                        <td>{{ page.title }}</td>
+                        <td>
+                            {% if page.isPublished %}
+                                <span class="badge text-bg-success">Publicado</span>
+                            {% else %}
+                                <span class="badge text-bg-secondary">Borrador</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ page.updatedAt ? page.updatedAt|date('Y-m-d H:i') : '—' }}</td>
+                        <td class="text-end d-flex gap-2 justify-content-end">
+                            <a class="btn btn-sm btn-outline-primary" href="{{ path('platform_pages_show', {id: page.id}) }}">Ver</a>
+                            <a class="btn btn-sm btn-outline-secondary" href="{{ path('platform_pages_edit', {id: page.id}) }}">Editar</a>
+                            {% if page.isPublished %}
+                                <a class="btn btn-sm btn-outline-success" target="_blank" href="{{ page.slug in ['home','features','pricing','terms','privacy'] ? path('public_' ~ page.slug) : path('public_page', {slug: page.slug}) }}">Preview</a>
+                            {% endif %}
+                        </td>
+                    </tr>
+                {% else %}
+                    <tr><td colspan="5">Sin páginas.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+{% endblock %}

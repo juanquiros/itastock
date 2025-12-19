@@ -1,0 +1,29 @@
+{% extends 'platform/base_platform.html.twig' %}
+
+{% block header_title %}{{ business.name }}{% endblock %}
+
+{% block body %}
+    <div class="mb-3 d-flex gap-2">
+        <a class="btn btn-outline-secondary" href="{{ path('platform_business_index') }}">Volver</a>
+        <a class="btn btn-primary" href="{{ path('platform_business_edit', {id: business.id}) }}">Editar</a>
+        <a class="btn btn-success" href="{{ path('platform_business_admin_new', {id: business.id}) }}">Crear admin</a>
+        <a class="btn btn-info text-white" href="{{ path('platform_business_users', {id: business.id}) }}">Usuarios</a>
+        <a class="btn btn-warning" href="{{ path('platform_business_subscription', {id: business.id}) }}">Suscripción</a>
+    </div>
+
+    <dl class="row">
+        <dt class="col-sm-3">Status</dt><dd class="col-sm-9">{{ business.status }}</dd>
+        <dt class="col-sm-3">Fecha de alta</dt><dd class="col-sm-9">{{ business.createdAt|date('Y-m-d') }}</dd>
+    </dl>
+
+    {% if business.subscription %}
+        <div class="card mt-3">
+            <div class="card-header">Suscripción</div>
+            <div class="card-body">
+                <p class="mb-1">Plan: {{ business.subscription.plan.name }}</p>
+                <p class="mb-1">Estado: {{ business.subscription.status }}</p>
+                <p class="mb-0">Trial hasta: {{ business.subscription.trialEndsAt ? business.subscription.trialEndsAt|date('Y-m-d') : '—' }}</p>
+            </div>
+        </div>
+    {% endif %}
+{% endblock %}

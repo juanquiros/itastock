@@ -1,0 +1,15 @@
+{% extends 'platform/base_platform.html.twig' %}
+
+{% block header_title %}Nuevo admin para {{ business.name }}{% endblock %}
+
+{% block body %}
+    <div class="mb-3">
+        <a class="btn btn-outline-secondary" href="{{ path('platform_business_show', {id: business.id}) }}">Volver</a>
+    </div>
+    {{ form_start(form) }}
+        {{ form_row(form.fullName) }}
+        {{ form_row(form.email) }}
+        {{ form_row(form.plainPassword) }}
+        <button class="btn btn-primary mt-3">Crear admin</button>
+    {{ form_end(form) }}
+{% endblock %}

@@ -1,0 +1,56 @@
+{% extends 'platform/base_platform.html.twig' %}
+
+{% block header_title %}Suscripciones{% endblock %}
+
+{% block body %}
+    <form method="get" class="row g-2 align-items-end mb-3">
+        <div class="col-md-4">
+            <label class="form-label">Estado</label>
+            <select class="form-select" name="status">
+                <option value="">Todos</option>
+                {% for s in ['TRIAL','ACTIVE','PAST_DUE','CANCELED','SUSPENDED'] %}
+                    <option value="{{ s }}" {{ filters.status == s ? 'selected' : '' }}>{{ s }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-4">
+            <label class="form-label">Plan</label>
+            <select class="form-select" name="plan">
+                <option value="">Todos</option>
+                {% for plan in plans %}
+                    <option value="{{ plan.id }}" {{ filters.plan == plan.id ? 'selected' : '' }}>{{ plan.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-2 d-grid">
+            <button class="btn btn-outline-primary" type="submit">Filtrar</button>
+        </div>
+    </form>
+
+    <div class="table-responsive">
+        <table class="table align-middle">
+            <thead>
+                <tr>
+                    <th>Comercio</th>
+                    <th>Plan</th>
+                    <th>Estado</th>
+                    <th>Inicio</th>
+                    <th>Trial hasta</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for subscription in subscriptions %}
+                    <tr>
+                        <td><a href="{{ path('platform_business_show', {id: subscription.business.id}) }}">{{ subscription.business.name }}</a></td>
+                        <td>{{ subscription.plan.name }}</td>
+                        <td>{{ subscription.status }}</td>
+                        <td>{{ subscription.startAt|date('Y-m-d') }}</td>
+                        <td>{{ subscription.trialEndsAt ? subscription.trialEndsAt|date('Y-m-d') : '—' }}</td>
+                    </tr>
+                {% else %}
+                    <tr><td colspan="5">Sin suscripciones.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+{% endblock %}

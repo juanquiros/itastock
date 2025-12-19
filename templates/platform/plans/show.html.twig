@@ -1,0 +1,32 @@
+{% extends 'platform/base_platform.html.twig' %}
+
+{% block header_title %}Plan {{ plan.name }}{% endblock %}
+
+{% block body %}
+    <div class="mb-3">
+        <a class="btn btn-outline-secondary" href="{{ path('platform_plans_index') }}">Volver</a>
+        <a class="btn btn-primary" href="{{ path('platform_plans_edit', {id: plan.id}) }}">Editar</a>
+    </div>
+    <dl class="row">
+        <dt class="col-sm-3">Código</dt><dd class="col-sm-9">{{ plan.code }}</dd>
+        <dt class="col-sm-3">Precio</dt><dd class="col-sm-9">${{ plan.priceMonthly|number_format(2, ',', '.') }} {{ plan.currency }}</dd>
+        <dt class="col-sm-3">Activo</dt><dd class="col-sm-9">{{ plan.isActive ? 'Sí' : 'No' }}</dd>
+        <dt class="col-sm-3">Destacado</dt><dd class="col-sm-9">{{ plan.isFeatured ? 'Sí' : 'No' }}</dd>
+        <dt class="col-sm-3">Orden</dt><dd class="col-sm-9">{{ plan.sortOrder }}</dd>
+    </dl>
+    <div class="card">
+        <div class="card-header">Características</div>
+        <div class="card-body">
+            {% set features = plan.featuresJson ? plan.featuresJson|json_decode : [] %}
+            {% if features is iterable and features|length > 0 %}
+                <ul>
+                    {% for item in features %}
+                        <li>{{ item }}</li>
+                    {% endfor %}
+                </ul>
+            {% else %}
+                <p class="text-muted mb-0">{{ plan.featuresJson ?: 'Sin datos' }}</p>
+            {% endif %}
+        </div>
+    </div>
+{% endblock %}

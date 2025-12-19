@@ -33,6 +33,9 @@ class Lead
     #[ORM\Column(length: 120, nullable: true)]
     private ?string $source = null;
 
+    #[ORM\Column(options: ['default' => false])]
+    private bool $isArchived = false;
+
     public function __construct()
     {
         $this->createdAt = new \DateTimeImmutable();
@@ -111,6 +114,18 @@ class Lead
     public function setSource(?string $source): self
     {
         $this->source = $source;
+
+        return $this;
+    }
+
+    public function isArchived(): bool
+    {
+        return $this->isArchived;
+    }
+
+    public function setIsArchived(bool $isArchived): self
+    {
+        $this->isArchived = $isArchived;
 
         return $this;
     }

@@ -9,6 +9,8 @@ use Doctrine\ORM\Mapping as ORM;
 use DateTimeImmutable;
 use App\Entity\Category;
 use App\Entity\Product;
+use App\Entity\Subscription;
+use Symfony\Component\Validator\Constraints as Assert;
 
 #[ORM\Entity(repositoryClass: BusinessRepository::class)]
 class Business
@@ -20,6 +22,10 @@ class Business
 
     #[ORM\Column(length: 255)]
     private ?string $name = null;
+
+    #[ORM\Column(length: 20, options: ['default' => 'ACTIVE'])]
+    #[Assert\Choice(choices: ['ACTIVE', 'SUSPENDED'])]
+    private string $status = 'ACTIVE';
 
     #[ORM\Column]
     private ?DateTimeImmutable $createdAt = null;
@@ -35,6 +41,9 @@ class Business
     /** @var Collection<int, Product> */
     #[ORM\OneToMany(mappedBy: 'business', targetEntity: Product::class, orphanRemoval: true)]
     private Collection $products;
+
+    #[ORM\OneToOne(mappedBy: 'business', targetEntity: Subscription::class, cascade: ['persist', 'remove'])]
+    private ?Subscription $subscription = null;
 
     public function __construct()
     {
@@ -69,6 +78,18 @@ class Business
     public function setCreatedAt(DateTimeImmutable $createdAt): self
     {
         $this->createdAt = $createdAt;
+
+        return $this;
+    }
+
+    public function getStatus(): string
+    {
+        return $this->status;
+    }
+
+    public function setStatus(string $status): self
+    {
+        $this->status = $status;
 
         return $this;
     }
@@ -156,6 +177,28 @@ class Business
                 $product->setBusiness(null);
             }
         }
+
+        return $this;
+    }
+
+    public function getSubscription(): ?Subscription
+    {
+        return $this->subscription;
+    }
+
+    public function setSubscription(?Subscription $subscription): self
+    {
+        // unset the owning side of the relation if necessary
+        if ($subscription === null && $this->subscription !== null) {
+            $this->subscription->setBusiness(null);
+        }
+
+        // set the owning side of the relation if necessary
+        if ($subscription !== null && $subscription->getBusiness() !== $this) {
+            $subscription->setBusiness($this);
+        }
+
+        $this->subscription = $subscription;
 
         return $this;
     }

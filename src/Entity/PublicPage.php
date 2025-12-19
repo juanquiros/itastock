@@ -6,10 +6,14 @@ use App\Repository\PublicPageRepository;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 
+use Symfony\Bridge\Doctrine\Validator\Constraints\UniqueEntity;
+use Symfony\Component\Validator\Constraints as Assert;
+
 #[ORM\Entity(repositoryClass: PublicPageRepository::class)]
 #[ORM\Table(name: 'public_pages')]
 #[ORM\UniqueConstraint(name: 'uniq_public_page_slug', columns: ['slug'])]
 #[ORM\HasLifecycleCallbacks]
+#[UniqueEntity(fields: ['slug'], message: 'Ya existe una página con este slug.')]
 class PublicPage
 {
     #[ORM\Id]
@@ -18,9 +22,11 @@ class PublicPage
     private ?int $id = null;
 
     #[ORM\Column(length: 150)]
+    #[Assert\NotBlank]
     private ?string $slug = null;
 
     #[ORM\Column(length: 180)]
+    #[Assert\NotBlank]
     private ?string $title = null;
 
     #[ORM\Column(length: 255, nullable: true)]

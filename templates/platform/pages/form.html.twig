@@ -1,0 +1,18 @@
+{% extends 'platform/base_platform.html.twig' %}
+
+{% block header_title %}{{ page.id ? 'Editar página' : 'Nueva página' }}{% endblock %}
+
+{% block body %}
+    <div class="mb-3">
+        <a class="btn btn-outline-secondary" href="{{ path('platform_pages_index') }}">Volver</a>
+    </div>
+
+    {{ form_start(form) }}
+        {{ form_row(form.slug) }}
+        {{ form_row(form.title) }}
+        {{ form_row(form.metaDescription) }}
+        {{ form_row(form.bodyHtml) }}
+        {{ form_row(form.isPublished) }}
+        <button class="btn btn-primary mt-3">{{ page.id ? 'Actualizar' : 'Crear' }}</button>
+    {{ form_end(form) }}
+{% endblock %}
