@@ -40,6 +40,8 @@ security:
         - { path: ^/(_profiler|_wdt), roles: PUBLIC_ACCESS }
         - { path: ^/(login|logout)$, roles: PUBLIC_ACCESS }
         - { path: ^/password, roles: PUBLIC_ACCESS }
+        - { path: ^/$, roles: PUBLIC_ACCESS }
+        - { path: ^/(features|pricing|contact|terms|privacy)$, roles: PUBLIC_ACCESS }
         - { path: ^/app/admin, roles: ROLE_ADMIN }
         - { path: ^/app/(pos|cash), roles: ROLE_SELLER }
         - { path: ^/app, roles: ROLE_USER }

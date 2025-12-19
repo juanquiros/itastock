@@ -1,0 +1,35 @@
+{% extends 'public/base_public.html.twig' %}
+
+{% block title %}{{ page.title }} | ItaStock{% endblock %}
+
+{% block meta_description %}
+    {% if page.metaDescription %}
+        <meta name="description" content="{{ page.metaDescription }}">
+    {% endif %}
+{% endblock %}
+
+{% block body %}
+    <section class="hero text-center">
+        <div class="row justify-content-center">
+            <div class="col-lg-10 col-xl-8">
+                <span class="badge bg-light text-dark mb-3 px-3 py-2 rounded-pill border">ItaStock</span>
+                <h1 class="fw-bold display-5 mb-3">{{ page.title }}</h1>
+                <p class="lead text-muted">Actualizado {{ page.updatedAt ? page.updatedAt|date('d/m/Y') : 'recientemente' }}</p>
+            </div>
+        </div>
+    </section>
+
+    <section class="pb-5">
+        <div class="row justify-content-center">
+            <div class="col-lg-10 col-xl-8">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-body p-4 p-lg-5">
+                        <article class="content-body">
+                            {{ page.bodyHtml|raw }}
+                        </article>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+{% endblock %}
