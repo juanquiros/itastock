@@ -35,7 +35,7 @@
                     </thead>
                     <tbody>
                         {% for product in products %}
-                            {% set lowStock = product.stock|float <= product.stockMin %}
+                            {% set lowStock = product.stock|floatval <= product.stockMin %}
                             <tr class="{{ lowStock ? 'table-warning' : '' }}">
                                 <td class="fw-semibold">
                                     {{ product.name }}
