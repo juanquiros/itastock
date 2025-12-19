@@ -83,7 +83,7 @@ class SaleRepository extends ServiceEntityRepository
     public function aggregateByHour(Business $business, \DateTimeImmutable $from, \DateTimeImmutable $to, ?User $seller = null): array
     {
         $qb = $this->createQueryBuilder('s')
-            ->select('HOUR(s.createdAt) AS hour')
+            ->select("FUNCTION('HOUR', s.createdAt) AS hour")
             ->addSelect('COALESCE(SUM(s.total), 0) AS amount')
             ->andWhere('s.business = :business')
             ->andWhere('s.createdAt >= :from')
