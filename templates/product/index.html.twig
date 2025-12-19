@@ -9,7 +9,12 @@
             <h1 class="h4 mb-0">Productos</h1>
             <p class="text-secondary mb-0">Seguimiento de stock y precios. Controlá lo que se vende todos los días.</p>
         </div>
-        <a class="btn btn-primary" href="{{ path('app_product_new') }}">Nuevo producto</a>
+        <div class="btn-group" role="group">
+            <a class="btn btn-outline-secondary" href="{{ path('app_product_export') }}">Exportar CSV</a>
+            <a class="btn btn-outline-secondary" href="{{ path('app_product_import') }}">Importar CSV</a>
+            <a class="btn btn-outline-secondary" href="{{ path('app_stock_import') }}">Ajustes por CSV</a>
+            <a class="btn btn-primary" href="{{ path('app_product_new') }}">Nuevo producto</a>
+        </div>
     </div>
 
     <div class="card shadow-sm">

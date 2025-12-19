@@ -6,11 +6,15 @@ use App\Entity\Business;
 use App\Entity\Product;
 use App\Entity\StockMovement;
 use App\Form\ProductType;
+use App\Form\ProductImportType;
+use App\Entity\User;
 use App\Repository\ProductRepository;
+use App\Service\ProductCsvImportService;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 use Symfony\Component\Routing\Annotation\Route;
 use Symfony\Component\Security\Core\Exception\AccessDeniedException;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
@@ -30,6 +34,71 @@ class ProductController extends AbstractController
 
         return $this->render('product/index.html.twig', [
             'products' => $productRepository->findBy(['business' => $business], ['name' => 'ASC']),
+        ]);
+    }
+
+    #[Route('/export.csv', name: 'export', methods: ['GET'])]
+    public function export(ProductRepository $productRepository): Response
+    {
+        $business = $this->requireBusinessContext();
+
+        $products = $productRepository->findBy(['business' => $business], ['name' => 'ASC']);
+
+        $response = new StreamedResponse();
+        $response->setCallback(static function () use ($products): void {
+            $handle = fopen('php://output', 'w');
+            fputcsv($handle, ['sku', 'barcode', 'name', 'cost', 'basePrice', 'stockMin', 'isActive'], ';');
+
+            foreach ($products as $product) {
+                fputcsv($handle, [
+                    $product->getSku(),
+                    $product->getBarcode(),
+                    $product->getName(),
+                    number_format((float) $product->getCost(), 2, '.', ''),
+                    number_format((float) $product->getBasePrice(), 2, '.', ''),
+                    $product->getStockMin(),
+                    $product->isActive() ? '1' : '0',
+                ], ';');
+            }
+
+            fclose($handle);
+        });
+
+        $response->headers->set('Content-Type', 'text/csv; charset=utf-8');
+        $response->headers->set('Content-Disposition', 'attachment; filename="products.csv"');
+
+        return $response;
+    }
+
+    #[Route('/import', name: 'import', methods: ['GET', 'POST'])]
+    public function import(Request $request, ProductCsvImportService $importService): Response
+    {
+        $business = $this->requireBusinessContext();
+        $form = $this->createForm(ProductImportType::class);
+        $form->handleRequest($request);
+
+        $results = null;
+
+        if ($form->isSubmitted() && $form->isValid()) {
+            $file = $form->get('file')->getData();
+            $dryRun = (bool) $form->get('dryRun')->getData();
+
+            $results = $importService->import($file, $business, $this->requireUser(), $dryRun);
+
+            $message = sprintf(
+                'Importación finalizada: %d creados, %d actualizados, %d fallidos%s.',
+                $results['created'],
+                $results['updated'],
+                count($results['failed']),
+                $dryRun ? ' (sin aplicar cambios)' : ''
+            );
+
+            $this->addFlash('success', $message);
+        }
+
+        return $this->render('product/import.html.twig', [
+            'form' => $form,
+            'results' => $results,
         ]);
     }
 
@@ -136,6 +205,17 @@ class ProductController extends AbstractController
         }
 
         return $business;
+    }
+
+    private function requireUser(): User
+    {
+        $user = $this->getUser();
+
+        if (!$user instanceof User) {
+            throw new AccessDeniedException('Debés iniciar sesión.');
+        }
+
+        return $user;
     }
 
     private function denyIfDifferentBusiness(Product $product, Business $business): void

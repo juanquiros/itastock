@@ -1,0 +1,43 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Exportar ventas · ItaStock{% endblock %}
+
+{% block body %}
+    <div class="d-flex align-items-center justify-content-between mb-3">
+        <div>
+            <p class="text-uppercase text-muted mb-1 small fw-semibold">Reportes</p>
+            <h1 class="h4 mb-0">Exportar ventas</h1>
+            <p class="text-secondary mb-0">Descargá ventas en CSV filtrando por fecha.</p>
+        </div>
+        <a class="btn btn-outline-secondary" href="{{ path('app_reports_debtors') }}">Volver a reportes</a>
+    </div>
+
+    {% if errors is not empty %}
+        <div class="alert alert-danger">
+            <ul class="mb-0">
+                {% for error in errors %}
+                    <li>{{ error }}</li>
+                {% endfor %}
+            </ul>
+        </div>
+    {% endif %}
+
+    <div class="card shadow-sm">
+        <div class="card-body">
+            <form class="row g-3" method="get" action="{{ path('app_admin_sales_export', { _format: 'csv' }) }}">
+                <div class="col-md-4">
+                    <label class="form-label" for="from">Desde</label>
+                    <input class="form-control" id="from" name="from" type="date" value="{{ filters.from }}" required>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label" for="to">Hasta</label>
+                    <input class="form-control" id="to" name="to" type="date" value="{{ filters.to }}" required>
+                </div>
+                <div class="col-md-4 d-flex align-items-end gap-2">
+                    <button class="btn btn-primary" type="submit">Exportar CSV</button>
+                    <a class="btn btn-outline-secondary" href="{{ path('app_admin_sales_export') }}">Limpiar</a>
+                </div>
+            </form>
+        </div>
+    </div>
+{% endblock %}

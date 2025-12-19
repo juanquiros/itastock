@@ -34,7 +34,7 @@
 
             <div class="card shadow-sm">
                 <div class="card-body">
-                    <div class="d-flex justify-content-between align-items-center mb-3">
+                    <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
                         <h2 class="h5 mb-0">Movimientos</h2>
                         <form class="row g-2" method="get">
                             <div class="col-auto">
@@ -54,6 +54,7 @@
                                 <button class="btn btn-outline-secondary" type="submit">Filtrar</button>
                             </div>
                         </form>
+                        <a class="btn btn-outline-primary" href="{{ path('app_customer_account_export', {id: customer.id, from: filters.from, to: filters.to}) }}">Exportar CSV</a>
                     </div>
 
                     <div class="table-responsive">

@@ -1,0 +1,77 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Importar productos · ItaStock{% endblock %}
+
+{% block body %}
+    <div class="d-flex align-items-center justify-content-between mb-3">
+        <div>
+            <p class="text-uppercase text-muted mb-1 small fw-semibold">Inventario</p>
+            <h1 class="h4 mb-0">Importar productos</h1>
+            <p class="text-secondary mb-0">Cargá o actualizá productos por CSV. Separador ';' en UTF-8.</p>
+        </div>
+        <a class="btn btn-outline-secondary" href="{{ path('app_product_index') }}">Volver al listado</a>
+    </div>
+
+    <div class="row g-4">
+        <div class="col-lg-6">
+            <div class="card shadow-sm">
+                <div class="card-body">
+                    {{ form_start(form, { attr: { enctype: 'multipart/form-data' } }) }}
+                        <div class="mb-3">
+                            {{ form_label(form.file) }}
+                            {{ form_widget(form.file, { attr: { accept: '.csv,text/csv' } }) }}
+                            <div class="form-text">Columnas requeridas: <code>sku;name;basePrice</code>. Opcionales: <code>barcode;cost;stockMin;isActive</code> (0/1 o true/false).</div>
+                        </div>
+                        <div class="form-check mb-3">
+                            {{ form_widget(form.dryRun, { attr: { class: 'form-check-input' } }) }}
+                            {{ form_label(form.dryRun, null, { label_attr: { class: 'form-check-label' } }) }}
+                        </div>
+                        <div class="d-flex gap-2">
+                            <button class="btn btn-primary" type="submit">Procesar CSV</button>
+                            <a class="btn btn-outline-secondary" href="{{ path('app_product_export') }}">Descargar plantilla</a>
+                        </div>
+                    {{ form_end(form) }}
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-6">
+            <div class="card shadow-sm h-100">
+                <div class="card-body">
+                    <h2 class="h6 text-uppercase text-muted mb-3">Formato esperado</h2>
+                    <ul class="mb-4">
+                        <li>Separador <strong>;</strong> (punto y coma).</li>
+                        <li><code>basePrice</code> y <code>cost</code> en decimal con punto.</li>
+                        <li><code>stockMin</code> entero ≥ 0.</li>
+                        <li><code>isActive</code>: 1/0 o true/false. Si se omite, no cambia el estado.</li>
+                        <li>Los productos se buscan por <strong>sku</strong>. Si no existe, se crea.</li>
+                    </ul>
+                    {% if results %}
+                        <div class="alert alert-info">Resumen: {{ results.created }} creados, {{ results.updated }} actualizados, {{ results.failed|length }} fallidos.</div>
+                        {% if results.failed is not empty %}
+                            <div class="table-responsive" style="max-height: 280px;">
+                                <table class="table table-sm align-middle">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th>Línea</th>
+                                            <th>Motivo</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for fail in results.failed %}
+                                            <tr>
+                                                <td class="fw-semibold">{{ fail.line }}</td>
+                                                <td class="text-danger">{{ fail.reason }}</td>
+                                            </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        {% endif %}
+                    {% else %}
+                        <p class="text-muted mb-0">Subí un CSV para ver el resultado.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+{% endblock %}

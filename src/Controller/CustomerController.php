@@ -13,6 +13,7 @@ use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 use Symfony\Component\Routing\Annotation\Route;
 use Symfony\Component\Security\Core\Exception\AccessDeniedException;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
@@ -116,6 +117,48 @@ class CustomerController extends AbstractController
                 'type' => $typeFilter,
             ],
         ]);
+    }
+
+    #[Route('/{id}/account/export.csv', name: 'account_export', methods: ['GET'])]
+    public function exportAccount(Request $request, Customer $customer): Response
+    {
+        $business = $this->requireBusinessContext();
+        $this->denyIfDifferentBusiness($customer, $business);
+
+        $fromInput = $request->query->get('from');
+        $toInput = $request->query->get('to');
+
+        $fromDate = $fromInput ? new \DateTimeImmutable($fromInput) : null;
+        $toDate = $toInput ? new \DateTimeImmutable($toInput.' 23:59:59') : null;
+
+        $balance = $this->customerAccountService->getBalance($customer);
+        $movements = $this->customerAccountService->getMovements($customer, $fromDate, $toDate, null);
+
+        $callback = static function () use ($customer, $balance, $movements): void {
+            $handle = fopen('php://output', 'w');
+            fwrite($handle, '# Customer: '.$customer->getName()."\n");
+            fwrite($handle, '# Balance: '.$balance."\n");
+            fputcsv($handle, ['date', 'type', 'amount', 'referenceType', 'referenceId', 'note', 'createdBy'], ';');
+
+            foreach ($movements as $movement) {
+                fputcsv($handle, [
+                    $movement->getCreatedAt()?->format('Y-m-d H:i:s'),
+                    $movement->getType(),
+                    number_format((float) $movement->getAmount(), 2, '.', ''),
+                    $movement->getReferenceType(),
+                    $movement->getReferenceId(),
+                    $movement->getNote(),
+                    $movement->getCreatedBy()?->getEmail(),
+                ], ';');
+            }
+
+            fclose($handle);
+        };
+        $response = new StreamedResponse($callback);
+        $response->headers->set('Content-Type', 'text/csv; charset=utf-8');
+        $response->headers->set('Content-Disposition', sprintf('attachment; filename="customer-%d-account.csv"', $customer->getId()));
+
+        return $response;
     }
 
     #[Route('/{id}/collect', name: 'collect', methods: ['GET', 'POST'])]

@@ -1,0 +1,73 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Ajustes masivos de stock · ItaStock{% endblock %}
+
+{% block body %}
+    <div class="d-flex align-items-center justify-content-between mb-3">
+        <div>
+            <p class="text-uppercase text-muted mb-1 small fw-semibold">Inventario</p>
+            <h1 class="h4 mb-0">Importar ajustes de stock</h1>
+            <p class="text-secondary mb-0">Aplicá movimientos ADJUST por CSV. Separador ';'.</p>
+        </div>
+        <a class="btn btn-outline-secondary" href="{{ path('app_product_index') }}">Volver a productos</a>
+    </div>
+
+    <div class="row g-4">
+        <div class="col-lg-6">
+            <div class="card shadow-sm">
+                <div class="card-body">
+                    {{ form_start(form, { attr: { enctype: 'multipart/form-data' } }) }}
+                        <div class="mb-3">
+                            {{ form_label(form.file) }}
+                            {{ form_widget(form.file, { attr: { accept: '.csv,text/csv' } }) }}
+                            <div class="form-text">Columnas: <code>identifier;quantity_delta;note</code>. identifier busca primero por SKU y luego por código de barras.</div>
+                        </div>
+                        <div class="form-check mb-3">
+                            {{ form_widget(form.dryRun, { attr: { class: 'form-check-input' } }) }}
+                            {{ form_label(form.dryRun, null, { label_attr: { class: 'form-check-label' } }) }}
+                        </div>
+                        <button class="btn btn-primary" type="submit">Procesar ajustes</button>
+                    {{ form_end(form) }}
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-6">
+            <div class="card shadow-sm h-100">
+                <div class="card-body">
+                    <h2 class="h6 text-uppercase text-muted mb-3">Reglas</h2>
+                    <ul class="mb-4">
+                        <li><strong>quantity_delta</strong> admite positivos y negativos.</li>
+                        <li>Si el ajuste deja el stock en negativo, la línea se marca como fallida.</li>
+                        <li>Referencia de movimiento: <code>CSV</code> + nota opcional.</li>
+                        <li>Usá <em>Dry run</em> para validar sin grabar cambios.</li>
+                    </ul>
+                    {% if results %}
+                        <div class="alert alert-info">Resumen: {{ results.applied }} aplicadas, {{ results.failed|length }} fallidas.</div>
+                        {% if results.failed is not empty %}
+                            <div class="table-responsive" style="max-height: 280px;">
+                                <table class="table table-sm align-middle">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th>Línea</th>
+                                            <th>Motivo</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for fail in results.failed %}
+                                            <tr>
+                                                <td class="fw-semibold">{{ fail.line }}</td>
+                                                <td class="text-danger">{{ fail.reason }}</td>
+                                            </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        {% endif %}
+                    {% else %}
+                        <p class="text-muted mb-0">Subí un CSV para ver el resultado.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+{% endblock %}
