@@ -7,7 +7,7 @@
         <div>
             <p class="text-uppercase text-muted mb-1 small fw-semibold">Reportes</p>
             <h1 class="h4 mb-0">Exportar ventas</h1>
-            <p class="text-secondary mb-0">Descargá ventas en CSV filtrando por fecha.</p>
+            <p class="text-secondary mb-0">Descargá ventas en CSV o PDF filtrando por fecha.</p>
         </div>
         <a class="btn btn-outline-secondary" href="{{ path('app_reports_debtors') }}">Volver a reportes</a>
     </div>
@@ -35,6 +35,7 @@
                 </div>
                 <div class="col-md-4 d-flex align-items-end gap-2">
                     <button class="btn btn-primary" type="submit">Exportar CSV</button>
+                    <button class="btn btn-outline-primary" type="submit" formaction="{{ path('app_admin_sales_pdf') }}">Exportar PDF</button>
                     <a class="btn btn-outline-secondary" href="{{ path('app_admin_sales_export') }}">Limpiar</a>
                 </div>
             </form>
