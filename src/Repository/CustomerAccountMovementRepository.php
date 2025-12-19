@@ -76,4 +76,26 @@ class CustomerAccountMovementRepository extends ServiceEntityRepository
 
         return $qb->getQuery()->getArrayResult();
     }
+
+    /**
+     * @return array<int, array{customerId:int, balance: float, lastMovement: ?string}>
+     */
+    public function findTopDebtors(Business $business, int $limit = 5): array
+    {
+        $balanceExpression = 'COALESCE(SUM(CASE WHEN m.type = :debit THEN m.amount ELSE -m.amount END), 0)';
+
+        $qb = $this->createQueryBuilder('m')
+            ->select('IDENTITY(m.customer) AS customerId')
+            ->addSelect($balanceExpression.' AS balance')
+            ->addSelect('MAX(m.createdAt) AS lastMovement')
+            ->andWhere('m.business = :business')
+            ->groupBy('m.customer')
+            ->having($balanceExpression.' > 0')
+            ->orderBy('balance', 'DESC')
+            ->setParameter('business', $business)
+            ->setParameter('debit', CustomerAccountMovement::TYPE_DEBIT)
+            ->setMaxResults($limit);
+
+        return $qb->getQuery()->getArrayResult();
+    }
 }

@@ -1,14 +1,525 @@
 {% extends 'base.html.twig' %}
 
-{% block title %}Panel | ItaStock{% endblock %}
+{% block title %}Dashboard | ItaStock{% endblock %}
+
+{% block stylesheets %}
+    <style>
+        .kpi-card {
+            background: linear-gradient(180deg, #ffffff 0%, #f8f9fa 100%);
+            border: 1px solid #eef0f2;
+            border-radius: 12px;
+            padding: 16px;
+            height: 100%;
+        }
+
+        .kpi-label {
+            font-size: 0.9rem;
+            color: #6c757d;
+        }
+
+        .kpi-value {
+            font-size: 1.6rem;
+            font-weight: 700;
+            transition: color 0.3s ease;
+        }
+
+        .kpi-up {
+            background-color: rgba(25, 135, 84, 0.12);
+            transition: background-color 0.5s ease;
+        }
+
+        .kpi-down {
+            background-color: rgba(220, 53, 69, 0.12);
+            transition: background-color 0.5s ease;
+        }
+
+        .section-title {
+            font-size: 1rem;
+            font-weight: 700;
+            color: #2e2e2e;
+        }
+
+        .table-sm td,
+        .table-sm th {
+            padding: 0.45rem 0.5rem;
+        }
+
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            display: inline-block;
+            border-radius: 50%;
+        }
+
+        .card-min-h {
+            min-height: 340px;
+        }
+    </style>
+{% endblock %}
 
 {% block body %}
-    <div class="card shadow-sm">
-        <div class="card-body">
-            <h1 class="h4 mb-3">Bienvenido, {{ app.user.fullName }} 👋</h1>
-            <p class="text-muted mb-0">
-                Usa el menú para administrar el backoffice. Los vendedores pueden consultar el panel y los administradores pueden gestionar usuarios.
-            </p>
+    <div class="d-flex justify-content-between align-items-start flex-wrap gap-3 mb-3">
+        <div>
+            <h1 class="h4 mb-1">Dashboard del comercio</h1>
+            <p class="text-muted mb-0">KPIs en tiempo casi real para tu negocio.</p>
+        </div>
+        <div class="text-end">
+            <div class="small text-muted">Estado de actualización</div>
+            <div class="fw-semibold" id="sync-status">Actualizado</div>
         </div>
     </div>
+
+    <div class="row g-3 mb-3">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <span class="section-title">KPIs de hoy</span>
+                <span class="badge text-bg-light">Zona horaria: America/Argentina/Buenos_Aires</span>
+            </div>
+        </div>
+        <div class="col-12 col-md-6 col-xl-3">
+            <div class="kpi-card" data-kpi-card>
+                <div class="kpi-label d-flex align-items-center justify-content-between mb-1">
+                    <span>Ventas hoy</span>
+                    <span class="text-muted small">ARS</span>
+                </div>
+                <div class="kpi-value" data-kpi="salesTodayAmount" data-format="currency">$ 0</div>
+            </div>
+        </div>
+        <div class="col-12 col-md-6 col-xl-3">
+            <div class="kpi-card" data-kpi-card>
+                <div class="kpi-label mb-1">Cantidad de ventas</div>
+                <div class="kpi-value" data-kpi="salesTodayCount" data-format="number">0</div>
+            </div>
+        </div>
+        <div class="col-12 col-md-6 col-xl-3">
+            <div class="kpi-card" data-kpi-card>
+                <div class="kpi-label d-flex align-items-center justify-content-between mb-1">
+                    <span>Ticket promedio</span>
+                    <span class="text-muted small">ARS</span>
+                </div>
+                <div class="kpi-value" data-kpi="avgTicketToday" data-format="currency">$ 0</div>
+            </div>
+        </div>
+        <div class="col-12 col-md-6 col-xl-3">
+            <div class="kpi-card" data-kpi-card>
+                <div class="kpi-label mb-1">Efectivo esperado</div>
+                <div class="kpi-value" data-kpi="cashExpectedNow" data-format="currency">Caja no abierta</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-3 mb-4">
+        <div class="col-12">
+            <div class="section-title">KPIs del mes</div>
+        </div>
+        <div class="col-12 col-md-6 col-xl-3">
+            <div class="kpi-card" data-kpi-card>
+                <div class="kpi-label d-flex align-items-center justify-content-between mb-1">
+                    <span>Ventas del mes</span>
+                    <span class="text-muted small">ARS</span>
+                </div>
+                <div class="kpi-value" data-kpi="salesMonthAmount" data-format="currency">$ 0</div>
+            </div>
+        </div>
+        <div class="col-12 col-md-6 col-xl-3">
+            <div class="kpi-card" data-kpi-card>
+                <div class="kpi-label mb-1">Ventas del mes</div>
+                <div class="kpi-value" data-kpi="salesMonthCount" data-format="number">0</div>
+            </div>
+        </div>
+        <div class="col-12 col-md-6 col-xl-3">
+            <div class="kpi-card" data-kpi-card>
+                <div class="kpi-label mb-1">% en cuenta corriente</div>
+                <div class="kpi-value" data-kpi="accountSalesMonthPercent" data-format="percent">0%</div>
+            </div>
+        </div>
+        <div class="col-12 col-md-6 col-xl-3">
+            <div class="kpi-card" data-kpi-card>
+                <div class="kpi-label mb-1">Clientes activos</div>
+                <div class="kpi-value" data-kpi="activeCustomersMonthCount" data-format="number">0</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-3 mb-4">
+        <div class="col-12 col-lg-6">
+            <div class="card shadow-sm card-min-h">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span class="section-title">Ventas por hora (hoy)</span>
+                        <a class="small" href="{{ path('app_cash_status') }}">Ver caja</a>
+                    </div>
+                    <canvas id="chart-sales-hour"></canvas>
+                </div>
+            </div>
+        </div>
+        <div class="col-12 col-lg-3">
+            <div class="card shadow-sm card-min-h">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span class="section-title">Medios de pago (hoy)</span>
+                        <a class="small" href="{{ path('app_admin_sales_export') }}">Ventas</a>
+                    </div>
+                    <canvas id="chart-payments"></canvas>
+                </div>
+            </div>
+        </div>
+        <div class="col-12 col-lg-3">
+            <div class="card shadow-sm card-min-h">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span class="section-title">Ventas últimos 7 días</span>
+                        <a class="small" href="{{ path('app_admin_sales_export') }}">Ver reporte</a>
+                    </div>
+                    <canvas id="chart-sales-week"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-3 mb-4">
+        <div class="col-12 col-lg-6">
+            <div class="card shadow-sm h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span class="section-title">Stock bajo (top 5)</span>
+                        <a class="small" href="{{ path('app_product_index') }}">Ir a stock</a>
+                    </div>
+                    <div id="low-stock-list" class="table-responsive">
+                        <table class="table table-sm align-middle mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>SKU</th>
+                                    <th>Producto</th>
+                                    <th class="text-end">Stock</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-12 col-lg-6">
+            <div class="card shadow-sm h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span class="section-title">Deudores (top 5)</span>
+                        <a class="small" href="{{ path('app_reports_debtors') }}">Ver reporte</a>
+                    </div>
+                    <div id="debtors-list" class="table-responsive">
+                        <table class="table table-sm align-middle mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Cliente</th>
+                                    <th>Teléfono</th>
+                                    <th class="text-end">Saldo</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card shadow-sm mb-4">
+        <div class="card-body">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <span class="section-title">Últimas ventas</span>
+                <a class="small" href="{{ path('app_admin_sales_export') }}">Ver ventas</a>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-sm align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Hora</th>
+                            <th>Cliente</th>
+                            <th>Método</th>
+                            <th class="text-end">Total</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody id="recent-sales-body"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+{% endblock %}
+
+{% block javascripts %}
+    <script src="https://cdn.jsdelivr.net/npm/chart.js" defer></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const formatter = {
+                currency: new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+                number: new Intl.NumberFormat('es-AR', { maximumFractionDigits: 0 }),
+                percent: new Intl.NumberFormat('es-AR', { minimumFractionDigits: 0, maximumFractionDigits: 1 })
+            };
+
+            const initialData = {{ summary|json_encode|raw }};
+            const POLL_MS = {{ pollMs }};
+            const kpiElements = document.querySelectorAll('[data-kpi]');
+            const syncStatus = document.getElementById('sync-status');
+            let controller;
+
+            const charts = initCharts(initialData.data.charts);
+            renderAll(initialData);
+            startPolling();
+
+            function formatValue(value, format) {
+                if (value === null || value === undefined) {
+                    return 'Caja no abierta';
+                }
+
+                switch (format) {
+                    case 'currency':
+                        return formatter.currency.format(value);
+                    case 'percent':
+                        return formatter.percent.format(value) + '%';
+                    default:
+                        return formatter.number.format(value);
+                }
+            }
+
+            function animateKpi(el, newValue, format) {
+                const previous = Number(el.dataset.value ?? (format === 'currency' || format === 'percent' ? 0 : 0));
+                const start = isFinite(previous) ? previous : 0;
+                const target = newValue ?? 0;
+                const diff = target - start;
+                const duration = 650;
+                const startTime = performance.now();
+
+                function step(now) {
+                    const progress = Math.min((now - startTime) / duration, 1);
+                    const eased = 1 - Math.pow(1 - progress, 3);
+                    const current = start + diff * eased;
+                    el.textContent = newValue === null ? 'Caja no abierta' : formatValue(current, format);
+
+                    if (progress < 1) {
+                        requestAnimationFrame(step);
+                    } else {
+                        el.dataset.value = target;
+                        el.classList.remove('kpi-up', 'kpi-down');
+                        if (target > start) {
+                            flashKpi(el, 'kpi-up');
+                        } else if (target < start) {
+                            flashKpi(el, 'kpi-down');
+                        }
+                    }
+                }
+
+                requestAnimationFrame(step);
+            }
+
+            function flashKpi(el, cls) {
+                const card = el.closest('[data-kpi-card]');
+                if (!card) return;
+                card.classList.add(cls);
+                setTimeout(() => card.classList.remove(cls), 800);
+            }
+
+            function updateKpis(data) {
+                kpiElements.forEach(el => {
+                    const key = el.dataset.kpi;
+                    const format = el.dataset.format;
+                    if (!key || !format) return;
+                    animateKpi(el, data[key] ?? 0, format);
+                });
+            }
+
+            function renderLowStock(items) {
+                const tbody = document.querySelector('#low-stock-list tbody');
+                if (!tbody) return;
+                if (!items || items.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan=\"3\" class=\"text-center text-muted\">Sin alertas de stock bajo</td></tr>';
+                    return;
+                }
+
+                tbody.innerHTML = items.map(item => `
+                    <tr>
+                        <td><span class=\"badge text-bg-light\">${item.sku}</span></td>
+                        <td>${item.name}</td>
+                        <td class=\"text-end\"><span class=\"badge text-bg-danger\">${item.stock} / ${item.min}</span></td>
+                    </tr>
+                `).join('');
+            }
+
+            function renderDebtors(items) {
+                const tbody = document.querySelector('#debtors-list tbody');
+                if (!tbody) return;
+                if (!items || items.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan=\"3\" class=\"text-center text-muted\">Sin deudores pendientes</td></tr>';
+                    return;
+                }
+
+                tbody.innerHTML = items.map(item => `
+                    <tr>
+                        <td>${item.name}</td>
+                        <td>${item.phone || '-'}</td>
+                        <td class=\"text-end text-danger\">${formatter.currency.format(item.balance)}</td>
+                    </tr>
+                `).join('');
+            }
+
+            function renderRecent(recent) {
+                const tbody = document.getElementById('recent-sales-body');
+                if (!tbody) return;
+                const rows = recent?.recentSalesTop10 ?? [];
+                if (rows.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan=\"5\" class=\"text-center text-muted\">Sin ventas recientes</td></tr>';
+                    return;
+                }
+
+                tbody.innerHTML = rows.map(row => `
+                    <tr>
+                        <td>${row.time}</td>
+                        <td>${row.customer}</td>
+                        <td>${row.method}</td>
+                        <td class=\"text-end fw-semibold\">${formatter.currency.format(row.total)}</td>
+                        <td class=\"text-end\"><a class=\"btn btn-link btn-sm\" href=\"{{ path('app_sale_ticket', {id: 'SALE_ID'}) }}\" data-sale-id=\"${row.saleId}\">Ver ticket</a></td>
+                    </tr>
+                `).join('');
+
+                tbody.querySelectorAll('[data-sale-id]').forEach(link => {
+                    const saleId = link.dataset.saleId;
+                    link.setAttribute('href', '{{ path('app_sale_ticket', {id: 0}) }}'.replace('0', saleId));
+                });
+            }
+
+            function initCharts(chartsData) {
+                const salesHourCtx = document.getElementById('chart-sales-hour');
+                const paymentsCtx = document.getElementById('chart-payments');
+                const weekCtx = document.getElementById('chart-sales-week');
+
+                const salesByHour = chartsData.salesByHourToday ?? [];
+                const salesHourChart = new Chart(salesHourCtx, {
+                    type: 'line',
+                    data: {
+                        labels: salesByHour.map(item => `${item.hour}h`),
+                        datasets: [{
+                            label: 'Ventas',
+                            data: salesByHour.map(item => item.amount),
+                            borderColor: '#C62828',
+                            backgroundColor: 'rgba(198, 40, 40, 0.12)',
+                            fill: true,
+                            tension: 0.3,
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        plugins: { legend: { display: false } },
+                        scales: {
+                            y: { beginAtZero: true },
+                        }
+                    }
+                });
+
+                const payments = chartsData.paymentDistributionToday ?? [];
+                const paymentChart = new Chart(paymentsCtx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: payments.map(item => item.method),
+                        datasets: [{
+                            data: payments.map(item => item.amount),
+                            backgroundColor: ['#C62828', '#F57C00', '#2E86DE', '#6C757D'],
+                        }]
+                    },
+                    options: {
+                        plugins: { legend: { position: 'bottom' } }
+                    }
+                });
+
+                const salesWeek = chartsData.salesLast7Days ?? [];
+                const weekChart = new Chart(weekCtx, {
+                    type: 'bar',
+                    data: {
+                        labels: salesWeek.map(item => item.date.slice(5)),
+                        datasets: [{
+                            label: 'Ventas',
+                            data: salesWeek.map(item => item.amount),
+                            backgroundColor: '#2E2E2E'
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        plugins: { legend: { display: false } },
+                        scales: { y: { beginAtZero: true } }
+                    }
+                });
+
+                return { salesHourChart, paymentChart, weekChart };
+            }
+
+            function updateCharts(chartsData) {
+                const hourly = chartsData.salesByHourToday ?? [];
+                charts.salesHourChart.data.labels = hourly.map(item => `${item.hour}h`);
+                charts.salesHourChart.data.datasets[0].data = hourly.map(item => item.amount);
+                charts.salesHourChart.update('none');
+
+                const payments = chartsData.paymentDistributionToday ?? [];
+                charts.paymentChart.data.labels = payments.map(item => item.method);
+                charts.paymentChart.data.datasets[0].data = payments.map(item => item.amount);
+                charts.paymentChart.update('none');
+
+                const week = chartsData.salesLast7Days ?? [];
+                charts.weekChart.data.labels = week.map(item => item.date.slice(5));
+                charts.weekChart.data.datasets[0].data = week.map(item => item.amount);
+                charts.weekChart.update('none');
+            }
+
+            function renderAlerts(alerts) {
+                renderLowStock(alerts.lowStockTop5 || []);
+                renderDebtors(alerts.topDebtorsTop5 || []);
+            }
+
+            function updateStatus(generatedAt, ok = true) {
+                if (!generatedAt) {
+                    syncStatus.textContent = 'Sincronización con demora';
+                    syncStatus.classList.add('text-warning');
+                    return;
+                }
+                const date = new Date(generatedAt);
+                const time = date.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
+                syncStatus.textContent = ok ? `Actualizado ${time}` : 'Sincronización con demora';
+                syncStatus.classList.toggle('text-warning', !ok);
+            }
+
+            function renderAll(payload) {
+                updateKpis(payload.data.kpisToday);
+                renderAlerts(payload.data.alerts);
+                renderRecent(payload.data.recent);
+                updateCharts(payload.data.charts);
+                updateStatus(payload.generatedAt, true);
+            }
+
+            function startPolling() {
+                setInterval(fetchSummary, POLL_MS);
+            }
+
+            async function fetchSummary() {
+                if (controller) {
+                    controller.abort();
+                }
+
+                controller = new AbortController();
+                try {
+                    const response = await fetch('{{ path('app_dashboard_data_summary') }}', {
+                        headers: { 'Accept': 'application/json' },
+                        signal: controller.signal
+                    });
+
+                    if (!response.ok) {
+                        throw new Error('No se pudo actualizar');
+                    }
+
+                    const payload = await response.json();
+                    renderAll(payload);
+                } catch (error) {
+                    updateStatus(null, false);
+                }
+            }
+        });
+    </script>
 {% endblock %}

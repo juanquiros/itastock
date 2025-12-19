@@ -38,4 +38,33 @@ class ProductRepository extends ServiceEntityRepository
             ->getQuery()
             ->getOneOrNullResult();
     }
+
+    /**
+     * @return array<int, array{productId: int, sku: string, name: string, stock: int, min: int}>
+     */
+    public function findLowStockTop(Business $business, int $limit = 5): array
+    {
+        $rows = $this->createQueryBuilder('p')
+            ->select('p.id AS productId')
+            ->addSelect('p.sku AS sku')
+            ->addSelect('p.name AS name')
+            ->addSelect('p.stock AS stock')
+            ->addSelect('p.stockMin AS min')
+            ->addSelect('p.stock - p.stockMin AS HIDDEN deficit')
+            ->andWhere('p.business = :business')
+            ->andWhere('p.stock <= p.stockMin')
+            ->setParameter('business', $business)
+            ->orderBy('deficit', 'ASC')
+            ->setMaxResults($limit)
+            ->getQuery()
+            ->getArrayResult();
+
+        return array_map(static fn (array $row) => [
+            'productId' => (int) $row['productId'],
+            'sku' => (string) $row['sku'],
+            'name' => (string) $row['name'],
+            'stock' => (int) $row['stock'],
+            'min' => (int) $row['min'],
+        ], $rows);
+    }
 }

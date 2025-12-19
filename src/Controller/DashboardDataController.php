@@ -5,8 +5,8 @@ namespace App\Controller;
 use App\Entity\Business;
 use App\Service\DashboardService;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
-use Symfony\Component\HttpFoundation\RedirectResponse;
-use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpFoundation\JsonResponse;
+use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Routing\Annotation\Route;
 use Symfony\Component\Security\Core\Exception\AccessDeniedException;
 use Symfony\Component\Security\Http\Attribute\Security;
@@ -14,7 +14,8 @@ use Symfony\Contracts\Cache\CacheInterface;
 use Symfony\Contracts\Cache\ItemInterface;
 
 #[Security("is_granted('ROLE_PLATFORM_ADMIN') or is_granted('ROLE_ADMIN') or is_granted('ROLE_BUSINESS_ADMIN')")]
-class DashboardController extends AbstractController
+#[Route('/app/dashboard/data', name: 'app_dashboard_data_')]
+class DashboardDataController extends AbstractController
 {
     public function __construct(
         private readonly DashboardService $dashboardService,
@@ -22,9 +23,13 @@ class DashboardController extends AbstractController
     ) {
     }
 
-    #[Route('/app/dashboard', name: 'app_dashboard', methods: ['GET'])]
-    public function index(): Response
+    #[Route('/summary', name: 'summary', methods: ['GET'])]
+    public function summary(Request $request): JsonResponse
     {
+        if ($request->getPreferredFormat() !== 'json' && $request->headers->get('accept') !== null && !str_contains($request->headers->get('accept'), 'application/json')) {
+            return new JsonResponse(['error' => 'Solo JSON'], JsonResponse::HTTP_NOT_ACCEPTABLE);
+        }
+
         $business = $this->requireBusinessContext();
         $user = $this->getUser();
 
@@ -33,22 +38,14 @@ class DashboardController extends AbstractController
         }
 
         $cacheKey = sprintf('dashboard_summary_%d_%d', $business->getId(), $user->getId());
-        $summary = $this->cache->get($cacheKey, function (ItemInterface $item) use ($business, $user) {
+
+        $payload = $this->cache->get($cacheKey, function (ItemInterface $item) use ($business, $user) {
             $item->expiresAfter(10);
 
             return $this->dashboardService->getSummary($business, $user);
         });
 
-        return $this->render('dashboard/index.html.twig', [
-            'summary' => $summary,
-            'pollMs' => 15000,
-        ]);
-    }
-
-    #[Route('/app', name: 'app_dashboard_redirect', methods: ['GET'])]
-    public function legacyRedirect(): RedirectResponse
-    {
-        return $this->redirectToRoute('app_dashboard');
+        return new JsonResponse($payload);
     }
 
     private function requireBusinessContext(): Business
