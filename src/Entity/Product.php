@@ -299,7 +299,7 @@ class Product
         }
 
         if ($this->allowsFractionalQty && ($this->qtyStep === null || bccomp($this->qtyStep, '0', 3) <= 0)) {
-            $this->qtyStep = '0.100';
+            $this->qtyStep = '0.001';
         }
     }
 

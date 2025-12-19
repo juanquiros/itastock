@@ -120,7 +120,7 @@ class ProductType extends AbstractType
 
             if ($product->getUomBase() !== Product::UOM_UNIT && $product->getQtyStep() === null) {
                 $product->setAllowsFractionalQty(true);
-                $product->setQtyStep('0.100');
+                $product->setQtyStep('0.001');
             }
         });
 
@@ -140,7 +140,7 @@ class ProductType extends AbstractType
                 }
 
                 if (($data['qtyStep'] ?? '') === '' || $data['qtyStep'] === null) {
-                    $data['qtyStep'] = '0.100';
+                    $data['qtyStep'] = '0.001';
                 }
             }
 

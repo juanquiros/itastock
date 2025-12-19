@@ -144,7 +144,7 @@
                     return parseFloat(product.qtyStep);
                 }
 
-                return product.uomBase !== 'UNIT' ? 0.1 : 1;
+                return product.uomBase !== 'UNIT' ? 0.001 : 1;
             }
 
             function normalizeQty(value, item) {
