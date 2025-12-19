@@ -7,10 +7,6 @@ use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Mapping as ORM;
 
-if (class_exists(Sale::class, false)) {
-    return;
-}
-
 #[ORM\Table(name: 'sales')]
 #[ORM\Entity(repositoryClass: SaleRepository::class)]
 class Sale
