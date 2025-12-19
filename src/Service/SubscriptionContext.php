@@ -4,7 +4,7 @@ namespace App\Service;
 
 use App\Entity\Subscription;
 use App\Entity\User;
-use Symfony\Component\Security\Core\Security;
+use Symfony\Bundle\SecurityBundle\Security;
 
 class SubscriptionContext
 {
