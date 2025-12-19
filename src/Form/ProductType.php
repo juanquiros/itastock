@@ -8,9 +8,12 @@ use Doctrine\ORM\EntityRepository;
 use Symfony\Bridge\Doctrine\Form\Type\EntityType;
 use Symfony\Component\Form\AbstractType;
 use Symfony\Component\Form\Extension\Core\Type\CheckboxType;
+use Symfony\Component\Form\Extension\Core\Type\ChoiceType;
 use Symfony\Component\Form\Extension\Core\Type\IntegerType;
 use Symfony\Component\Form\Extension\Core\Type\NumberType;
 use Symfony\Component\Form\Extension\Core\Type\TextType;
+use Symfony\Component\Form\FormEvent;
+use Symfony\Component\Form\FormEvents;
 use Symfony\Component\Form\FormBuilderInterface;
 use Symfony\Component\OptionsResolver\OptionsResolver;
 
@@ -41,6 +44,29 @@ class ProductType extends AbstractType
                 'html5' => true,
                 'attr' => ['step' => '0.01'],
             ])
+            ->add('uomBase', ChoiceType::class, [
+                'label' => 'Unidad de medida',
+                'choices' => [
+                    'Unidad' => Product::UOM_UNIT,
+                    'Kilogramo' => Product::UOM_KG,
+                    'Gramo' => Product::UOM_G,
+                    'Litro' => Product::UOM_L,
+                    'Mililitro' => Product::UOM_ML,
+                ],
+                'placeholder' => false,
+            ])
+            ->add('allowsFractionalQty', CheckboxType::class, [
+                'label' => 'Permitir fraccionar cantidad',
+                'required' => false,
+            ])
+            ->add('qtyStep', NumberType::class, [
+                'label' => 'Paso de cantidad (ej. 0.1 kg)',
+                'scale' => 3,
+                'required' => false,
+                'html5' => true,
+                'attr' => ['step' => '0.001', 'min' => '0.001'],
+                'help' => 'Se usa como step mínimo en POS cuando el producto admite fraccionar.',
+            ])
             ->add('stockMin', IntegerType::class, [
                 'label' => 'Stock mínimo',
             ])
@@ -60,22 +86,62 @@ class ProductType extends AbstractType
                 'label' => 'Activo',
                 'required' => false,
             ])
-            ->add('stockAdjustment', IntegerType::class, [
+            ->add('stockAdjustment', NumberType::class, [
                 'label' => 'Ajuste de stock (± unidades)',
                 'mapped' => false,
                 'required' => false,
-                'data' => 0,
+                'data' => '0.000',
                 'help' => 'Usá valores positivos para sumar y negativos para restar stock.',
+                'scale' => 3,
+                'html5' => true,
+                'attr' => ['step' => '0.001'],
             ]);
 
         if ($options['show_stock']) {
-            $builder->add('stock', IntegerType::class, [
+            $builder->add('stock', NumberType::class, [
                 'label' => 'Stock actual',
                 'mapped' => false,
                 'disabled' => true,
                 'data' => $options['current_stock'],
+                'scale' => 3,
             ]);
         }
+
+        $builder->addEventListener(FormEvents::PRE_SET_DATA, function (FormEvent $event): void {
+            $product = $event->getData();
+
+            if (!$product instanceof Product) {
+                return;
+            }
+
+            if ($product->getUomBase() !== Product::UOM_UNIT && $product->getQtyStep() === null) {
+                $product->setAllowsFractionalQty(true);
+                $product->setQtyStep('0.100');
+            }
+        });
+
+        $builder->addEventListener(FormEvents::PRE_SUBMIT, function (FormEvent $event): void {
+            $data = $event->getData();
+            if (!is_array($data)) {
+                return;
+            }
+
+            $uom = $data['uomBase'] ?? Product::UOM_UNIT;
+            if ($uom === Product::UOM_UNIT) {
+                $data['allowsFractionalQty'] = false;
+                $data['qtyStep'] = null;
+            } else {
+                if (!isset($data['allowsFractionalQty'])) {
+                    $data['allowsFractionalQty'] = true;
+                }
+
+                if (($data['qtyStep'] ?? '') === '' || $data['qtyStep'] === null) {
+                    $data['qtyStep'] = '0.100';
+                }
+            }
+
+            $event->setData($data);
+        });
     }
 
     public function configureOptions(OptionsResolver $resolver): void
@@ -84,7 +150,7 @@ class ProductType extends AbstractType
             'data_class' => Product::class,
             'current_business' => null,
             'show_stock' => false,
-            'current_stock' => 0,
+            'current_stock' => '0.000',
         ]);
     }
 }

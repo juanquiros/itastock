@@ -35,7 +35,7 @@
                     </thead>
                     <tbody>
                         {% for product in products %}
-                            {% set lowStock = product.stock <= product.stockMin %}
+                            {% set lowStock = product.stock|float <= product.stockMin %}
                             <tr class="{{ lowStock ? 'table-warning' : '' }}">
                                 <td class="fw-semibold">
                                     {{ product.name }}
@@ -46,8 +46,8 @@
                                 <td class="text-muted">{{ product.sku }}</td>
                                 <td>{{ product.category ? product.category.name : 'Sin categoría' }}</td>
                                 <td class="text-end">${{ product.basePrice|number_format(2, '.', ',') }}</td>
-                                <td class="text-end fw-semibold">{{ product.stock }}</td>
-                                <td class="text-end text-muted">{{ product.stockMin }}</td>
+                                <td class="text-end fw-semibold">{{ product.stock|number_format(3, '.', ',') }} <span class="text-muted">{{ product.uomBase }}</span></td>
+                                <td class="text-end text-muted">{{ product.stockMin|number_format(3, '.', ',') }}</td>
                                 <td>
                                     {% if product.isActive %}
                                         <span class="badge bg-success">Activo</span>

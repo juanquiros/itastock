@@ -71,7 +71,10 @@ class SaleController extends AbstractController
                 'barcode' => $product->getBarcode(),
                 'sku' => $product->getSku(),
                 'price' => (float) $product->getBasePrice(),
-                'stock' => $product->getStock(),
+                'stock' => (float) $product->getStock(),
+                'uomBase' => $product->getUomBase(),
+                'allowsFractionalQty' => $product->allowsFractionalQty(),
+                'qtyStep' => $product->getQtyStep(),
             ], $products),
             'customersPayload' => array_map(static fn (Customer $customer) => [
                 'id' => $customer->getId(),
@@ -156,13 +159,13 @@ class SaleController extends AbstractController
         $sale->setCreatedBy($user);
         $sale->setCustomer($customer);
 
-        $total = 0.0;
+        $totalCents = 0;
 
         foreach ($itemsData as $row) {
             $productId = (int) ($row['product_id'] ?? 0);
-            $qty = (int) ($row['qty'] ?? 0);
+            $qty = $this->normalizeQuantity($row['qty'] ?? null);
 
-            if ($productId === 0 || $qty <= 0) {
+            if ($productId === 0 || $qty === null || bccomp($qty, '0', 3) <= 0) {
                 continue;
             }
 
@@ -172,30 +175,51 @@ class SaleController extends AbstractController
 
             $product = $productIndex[$productId];
 
-            if ($qty > $product->getStock()) {
+            $qtyStep = $product->getQtyStep() ?? '0.100';
+            $allowsFractional = $product->allowsFractionalQty();
+
+            if ($product->getUomBase() === Product::UOM_UNIT && $allowsFractional === false && !$this->isIntegerQuantity($qty)) {
+                $this->addFlash('danger', sprintf('La cantidad de %s debe ser entera.', $product->getName()));
+
+                return $this->redirectToRoute('app_sale_new');
+            }
+
+            if ($allowsFractional === false && bccomp($qty, '1', 3) < 0) {
+                $this->addFlash('danger', sprintf('La cantidad mínima para %s es 1.', $product->getName()));
+
+                return $this->redirectToRoute('app_sale_new');
+            }
+
+            if ($allowsFractional && !$this->isMultipleOfStep($qty, $qtyStep)) {
+                $this->addFlash('danger', sprintf('La cantidad de %s debe ser múltiplo de %s.', $product->getName(), $qtyStep));
+
+                return $this->redirectToRoute('app_sale_new');
+            }
+
+            if (bccomp($qty, $product->getStock(), 3) === 1) {
                 $this->addFlash('danger', sprintf('No hay stock suficiente para %s.', $product->getName()));
 
                 return $this->redirectToRoute('app_sale_new');
             }
 
             $unitPrice = $this->pricingService->resolveUnitPrice($product, $customer);
-            $lineTotal = round($unitPrice * $qty, 2);
-            $total += $lineTotal;
+            [$lineTotal, $lineCents] = $this->calculateLineTotal(number_format($unitPrice, 2, '.', ''), $qty);
+            $totalCents += $lineCents;
 
             $item = new SaleItem();
             $item->setProduct($product);
             $item->setDescription($product->getName());
             $item->setQty($qty);
             $item->setUnitPrice(number_format($unitPrice, 2, '.', ''));
-            $item->setLineTotal(number_format($lineTotal, 2, '.', ''));
+            $item->setLineTotal($lineTotal);
             $sale->addItem($item);
 
-            $product->adjustStock(-$qty);
+            $product->adjustStock(bcsub('0', $qty, 3));
 
             $movement = new StockMovement();
             $movement->setProduct($product);
             $movement->setType(StockMovement::TYPE_SALE);
-            $movement->setQty(-$qty);
+            $movement->setQty(bcsub('0', $qty, 3));
             $movement->setReference('Venta');
             $movement->setCreatedBy($user);
 
@@ -208,7 +232,7 @@ class SaleController extends AbstractController
             return $this->redirectToRoute('app_sale_new');
         }
 
-        $sale->setTotal(number_format($total, 2, '.', ''));
+        $sale->setTotal($this->formatCents($totalCents));
 
         $payment = new Payment();
         $payment->setAmount($sale->getTotal());
@@ -237,6 +261,105 @@ class SaleController extends AbstractController
         $this->addFlash('success', 'Venta registrada.');
 
         return $this->redirectToRoute('app_sale_ticket', ['id' => $sale->getId()]);
+    }
+
+    private function normalizeQuantity(mixed $value): ?string
+    {
+        if ($value === null) {
+            return null;
+        }
+
+        $stringValue = is_string($value) ? trim($value) : (string) $value;
+        $stringValue = str_replace(',', '.', $stringValue);
+
+        if ($stringValue === '') {
+            return null;
+        }
+
+        if (!preg_match('/^\d+(?:\.\d{1,3})?$/', $stringValue)) {
+            return null;
+        }
+
+        return bcadd($stringValue, '0', 3);
+    }
+
+    private function isIntegerQuantity(string $qty): bool
+    {
+        $normalized = bcadd($qty, '0', 3);
+
+        if (!str_contains($normalized, '.')) {
+            return true;
+        }
+
+        [, $fraction] = array_pad(explode('.', $normalized, 2), 2, '');
+
+        return (int) rtrim($fraction, '0') === 0;
+    }
+
+    private function isMultipleOfStep(string $qty, string $step): bool
+    {
+        if (bccomp($step, '0', 3) <= 0) {
+            return false;
+        }
+
+        $qtyInt = $this->decimalToIntScale($qty, 3);
+        $stepInt = $this->decimalToIntScale($step, 3);
+
+        if ($stepInt === 0) {
+            return false;
+        }
+
+        return $qtyInt % $stepInt === 0;
+    }
+
+    /**
+     * @return array{0: string, 1: int}
+     */
+    private function calculateLineTotal(string $unitPrice, string $qty): array
+    {
+        $unitCents = $this->decimalToIntScale($unitPrice, 2);
+        $qtyScaled = $this->decimalToIntScale($qty, 3);
+
+        $raw = $unitCents * $qtyScaled;
+        $lineCents = intdiv($raw, 1000);
+        $remainder = abs($raw % 1000);
+
+        if ($remainder >= 500) {
+            $lineCents += $raw >= 0 ? 1 : -1;
+        }
+
+        return [$this->formatCents($lineCents), $lineCents];
+    }
+
+    private function formatCents(int $cents): string
+    {
+        $sign = $cents < 0 ? '-' : '';
+        $absolute = abs($cents);
+        $major = intdiv($absolute, 100);
+        $minor = $absolute % 100;
+
+        return sprintf('%s%d.%02d', $sign, $major, $minor);
+    }
+
+    private function decimalToIntScale(string $value, int $scale): int
+    {
+        $normalized = bcadd($value, '0', $scale);
+        $sign = 1;
+
+        if (str_starts_with($normalized, '-')) {
+            $sign = -1;
+            $normalized = substr($normalized, 1);
+        }
+
+        [$integer, $fraction] = array_pad(explode('.', $normalized, 2), 2, '');
+        $fraction = str_pad($fraction, $scale, '0');
+
+        $intString = ltrim($integer.$fraction, '0');
+        if ($intString === '') {
+            $intString = '0';
+        }
+
+        return $sign * (int) $intString;
     }
 
     private function requireBusinessContext(): Business

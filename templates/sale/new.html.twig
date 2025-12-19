@@ -139,6 +139,27 @@
                 return product ? parseFloat(product.price) : 0;
             }
 
+            function resolveQtyStep(product) {
+                if (product.qtyStep !== null && product.qtyStep !== undefined) {
+                    return parseFloat(product.qtyStep);
+                }
+
+                return product.uomBase !== 'UNIT' ? 0.1 : 1;
+            }
+
+            function normalizeQty(value, item) {
+                const step = item.allowsFractional ? item.qtyStep : 1;
+                const min = item.allowsFractional ? item.qtyStep : 1;
+                const numeric = Number.isFinite(value) ? value : min;
+
+                const scaledStep = Math.max(1, Math.round(step * 1000));
+                const scaledValue = Math.max(min * 1000, Math.round(numeric * 1000));
+                const snapped = Math.round(scaledValue / scaledStep) * scaledStep;
+                const limited = Math.min(snapped, Math.round(item.stock * 1000));
+
+                return limited / 1000;
+            }
+
             function renderCustomerSelection() {
                 if (!selectedCustomer) {
                     customerSelection.innerHTML = '<span class="badge text-bg-secondary">Consumidor final</span>';
@@ -226,7 +247,7 @@
                         <div>
                             <div class="fw-semibold">${product.name}</div>
                             <div class="text-muted small">SKU: ${product.sku}${product.barcode ? ' · Código: ' + product.barcode : ''}</div>
-                            <div class="text-muted small">Stock disponible: ${product.stock}</div>
+                            <div class="text-muted small">Stock disponible: ${product.stock} ${product.uomBase}</div>
                         </div>
                         <div class="d-flex align-items-center gap-3">
                             <span class="fw-semibold">${formatMoney(resolveUnitPrice(product.id))}</span>
@@ -249,20 +270,30 @@
                     return;
                 }
 
+                const step = resolveQtyStep(product);
+                const minQty = product.allowsFractionalQty ? step : 1;
+                const defaultQty = minQty;
                 const existing = items.find((item) => item.product_id === productId);
-                    if (existing) {
-                        if (existing.qty < product.stock) {
-                            existing.qty += 1;
-                        }
-                    } else {
-                        items.push({
-                            product_id: product.id,
-                            name: product.name,
-                            price: resolveUnitPrice(product.id),
-                            stock: product.stock,
-                            qty: 1,
-                        });
+                if (existing) {
+                    existing.qty = normalizeQty(existing.qty + defaultQty, existing);
+                } else {
+                    const newItem = {
+                        product_id: product.id,
+                        name: product.name,
+                        price: resolveUnitPrice(product.id),
+                        stock: product.stock,
+                        qty: defaultQty,
+                        qtyStep: step,
+                        allowsFractional: product.allowsFractionalQty === true,
+                        uomBase: product.uomBase,
+                    };
+                    const normalizedQty = normalizeQty(newItem.qty, newItem);
+                    if (normalizedQty < minQty) {
+                        return;
                     }
+                    newItem.qty = normalizedQty;
+                    items.push(newItem);
+                }
 
                 renderItems();
             }
@@ -288,6 +319,8 @@
 
                 items.forEach((item, index) => {
                     const row = document.createElement('tr');
+                    const min = item.allowsFractional ? item.qtyStep : 1;
+                    const step = item.allowsFractional ? item.qtyStep : 1;
                     row.innerHTML = `
                         <td>
                             <div class="fw-semibold">${item.name}</div>
@@ -295,7 +328,10 @@
                         </td>
                         <td class="text-end">${formatMoney(item.price)}</td>
                         <td>
-                            <input type="number" min="1" max="${item.stock}" name="items[${index}][qty]" value="${item.qty}" class="form-control form-control-sm" data-index="${index}">
+                            <div class="input-group input-group-sm">
+                                <input type="number" min="${min}" max="${item.stock}" step="${step}" name="items[${index}][qty]" value="${item.qty.toFixed(3)}" class="form-control form-control-sm" data-index="${index}">
+                                <span class="input-group-text">${item.uomBase}</span>
+                            </div>
                         </td>
                         <td class="text-end">${formatMoney(item.price * item.qty)}</td>
                         <td class="text-end">
@@ -308,8 +344,8 @@
                 itemsTable.querySelectorAll('input[type="number"]').forEach((input) => {
                     input.addEventListener('change', (event) => {
                         const idx = parseInt(event.target.dataset.index, 10);
-                        const value = Math.min(Math.max(parseInt(event.target.value, 10) || 1, 1), items[idx].stock);
-                        items[idx].qty = value;
+                        const value = parseFloat(event.target.value);
+                        items[idx].qty = normalizeQty(value, items[idx]);
                         renderItems();
                     });
                 });
@@ -385,7 +421,7 @@
                     const qtyInput = document.createElement('input');
                     qtyInput.type = 'hidden';
                     qtyInput.name = `items[${index}][qty]`;
-                    qtyInput.value = item.qty;
+                    qtyInput.value = item.qty.toFixed(3);
                     const productInput = document.createElement('input');
                     productInput.type = 'hidden';
                     productInput.name = `items[${index}][product_id]`;

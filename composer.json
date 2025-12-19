@@ -5,6 +5,7 @@
     "prefer-stable": true,
     "require": {
         "php": ">=8.2",
+        "ext-bcmath": "*",
         "ext-ctype": "*",
         "ext-iconv": "*",
         "doctrine/doctrine-bundle": "^2.18",

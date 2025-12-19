@@ -341,7 +341,7 @@
                     <tr>
                         <td><span class=\"badge text-bg-light\">${item.sku}</span></td>
                         <td>${item.name}</td>
-                        <td class=\"text-end\"><span class=\"badge text-bg-danger\">${item.stock} / ${item.min}</span></td>
+                        <td class=\"text-end\"><span class=\"badge text-bg-danger\">${Number(item.stock).toFixed(3)} / ${Number(item.min).toFixed(3)}</span></td>
                     </tr>
                 `).join('');
             }

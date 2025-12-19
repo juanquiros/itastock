@@ -25,8 +25,8 @@ class SaleItem
     #[ORM\Column(length: 255)]
     private ?string $description = null;
 
-    #[ORM\Column]
-    private int $qty = 1;
+    #[ORM\Column(type: 'decimal', precision: 10, scale: 3, options: ['default' => '0.000'])]
+    private string $qty = '0.000';
 
     #[ORM\Column(type: 'decimal', precision: 10, scale: 2)]
     private ?string $unitPrice = '0.00';
@@ -75,14 +75,14 @@ class SaleItem
         return $this;
     }
 
-    public function getQty(): int
+    public function getQty(): string
     {
         return $this->qty;
     }
 
-    public function setQty(int $qty): self
+    public function setQty(string $qty): self
     {
-        $this->qty = $qty;
+        $this->qty = bcadd($qty, '0', 3);
 
         return $this;
     }

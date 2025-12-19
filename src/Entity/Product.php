@@ -8,11 +8,19 @@ use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\Validator\Constraints as Assert;
 use App\Entity\StockMovement;
+use Symfony\Component\Validator\Context\ExecutionContextInterface;
 
 #[ORM\Entity(repositoryClass: ProductRepository::class)]
 #[ORM\Table(name: 'products')]
+#[ORM\HasLifecycleCallbacks]
 class Product
 {
+    public const UOM_UNIT = 'UNIT';
+    public const UOM_KG = 'KG';
+    public const UOM_G = 'G';
+    public const UOM_L = 'L';
+    public const UOM_ML = 'ML';
+
     #[ORM\Id]
     #[ORM\GeneratedValue]
     #[ORM\Column]
@@ -41,8 +49,19 @@ class Product
     #[Assert\PositiveOrZero]
     private int $stockMin = 0;
 
-    #[ORM\Column]
-    private int $stock = 0;
+    #[ORM\Column(type: 'decimal', precision: 10, scale: 3, options: ['default' => '0.000'])]
+    #[Assert\PositiveOrZero]
+    private string $stock = '0.000';
+
+    #[ORM\Column(length: 8, options: ['default' => self::UOM_UNIT])]
+    #[Assert\Choice(choices: [self::UOM_UNIT, self::UOM_KG, self::UOM_G, self::UOM_L, self::UOM_ML])]
+    private string $uomBase = self::UOM_UNIT;
+
+    #[ORM\Column(options: ['default' => false])]
+    private bool $allowsFractionalQty = false;
+
+    #[ORM\Column(type: 'decimal', precision: 10, scale: 3, nullable: true)]
+    private ?string $qtyStep = null;
 
     #[ORM\Column(options: ['default' => true])]
     private bool $isActive = true;
@@ -141,21 +160,60 @@ class Product
         return $this;
     }
 
-    public function getStock(): int
+    public function getStock(): string
     {
         return $this->stock;
     }
 
-    public function setStock(int $stock): self
+    public function setStock(string $stock): self
     {
-        $this->stock = $stock;
+        $this->stock = bcadd($stock, '0', 3);
 
         return $this;
     }
 
-    public function adjustStock(int $delta): self
+    public function adjustStock(string $delta): self
     {
-        $this->stock += $delta;
+        $this->stock = bcadd($this->stock, $delta, 3);
+
+        return $this;
+    }
+
+    public function getUomBase(): string
+    {
+        return $this->uomBase;
+    }
+
+    public function setUomBase(string $uomBase): self
+    {
+        $this->uomBase = $uomBase;
+        $this->applyFractionalDefaults();
+
+        return $this;
+    }
+
+    public function allowsFractionalQty(): bool
+    {
+        return $this->allowsFractionalQty;
+    }
+
+    public function setAllowsFractionalQty(bool $allowsFractionalQty): self
+    {
+        $this->allowsFractionalQty = $allowsFractionalQty;
+        $this->applyFractionalDefaults();
+
+        return $this;
+    }
+
+    public function getQtyStep(): ?string
+    {
+        return $this->qtyStep;
+    }
+
+    public function setQtyStep(?string $qtyStep): self
+    {
+        $this->qtyStep = $qtyStep !== null ? bcadd($qtyStep, '0', 3) : null;
+        $this->applyFractionalDefaults();
 
         return $this;
     }
@@ -223,5 +281,57 @@ class Product
         }
 
         return $this;
+    }
+
+    #[ORM\PrePersist]
+    #[ORM\PreUpdate]
+    public function applyFractionalDefaults(): void
+    {
+        if ($this->uomBase === self::UOM_UNIT) {
+            $this->allowsFractionalQty = false;
+            $this->qtyStep = null;
+
+            return;
+        }
+
+        if ($this->allowsFractionalQty === false) {
+            $this->qtyStep = null;
+        }
+
+        if ($this->allowsFractionalQty && ($this->qtyStep === null || bccomp($this->qtyStep, '0', 3) <= 0)) {
+            $this->qtyStep = '0.100';
+        }
+    }
+
+    #[Assert\Callback]
+    public function validateFractionalRules(ExecutionContextInterface $context): void
+    {
+        if ($this->uomBase === self::UOM_UNIT) {
+            if ($this->allowsFractionalQty) {
+                $context->buildViolation('Los productos por unidad no se pueden fraccionar.')
+                    ->atPath('allowsFractionalQty')
+                    ->addViolation();
+            }
+
+            if ($this->qtyStep !== null) {
+                $context->buildViolation('qtyStep debe quedar vacío para productos UNIT.')
+                    ->atPath('qtyStep')
+                    ->addViolation();
+            }
+
+            return;
+        }
+
+        if ($this->allowsFractionalQty === false && $this->qtyStep !== null) {
+            $context->buildViolation('Solo se define qtyStep cuando se permiten cantidades fraccionarias.')
+                ->atPath('qtyStep')
+                ->addViolation();
+        }
+
+        if ($this->allowsFractionalQty && ($this->qtyStep === null || bccomp($this->qtyStep, '0', 3) <= 0)) {
+            $context->buildViolation('qtyStep debe ser mayor a cero para productos fraccionables.')
+                ->atPath('qtyStep')
+                ->addViolation();
+        }
     }
 }

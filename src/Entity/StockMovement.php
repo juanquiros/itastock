@@ -25,8 +25,8 @@ class StockMovement
     #[Assert\Choice(choices: [self::TYPE_SALE, self::TYPE_ADJUST, self::TYPE_PURCHASE])]
     private ?string $type = null;
 
-    #[ORM\Column]
-    private int $qty = 0;
+    #[ORM\Column(type: 'decimal', precision: 10, scale: 3, options: ['default' => '0.000'])]
+    private string $qty = '0.000';
 
     #[ORM\Column(length: 255, nullable: true)]
     private ?string $reference = null;
@@ -64,14 +64,14 @@ class StockMovement
         return $this;
     }
 
-    public function getQty(): int
+    public function getQty(): string
     {
         return $this->qty;
     }
 
-    public function setQty(int $qty): self
+    public function setQty(string $qty): self
     {
-        $this->qty = $qty;
+        $this->qty = bcadd($qty, '0', 3);
 
         return $this;
     }

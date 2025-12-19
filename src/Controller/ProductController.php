@@ -119,7 +119,7 @@ class ProductController extends AbstractController
 
         if ($form->isSubmitted() && $form->isValid()) {
             $this->entityManager->persist($product);
-            $this->handleStockAdjustment($product, (int) $form->get('stockAdjustment')->getData());
+            $this->handleStockAdjustment($product, (string) $form->get('stockAdjustment')->getData());
 
             $this->entityManager->flush();
 
@@ -147,7 +147,7 @@ class ProductController extends AbstractController
         $form->handleRequest($request);
 
         if ($form->isSubmitted() && $form->isValid()) {
-            $this->handleStockAdjustment($product, (int) $form->get('stockAdjustment')->getData());
+            $this->handleStockAdjustment($product, (string) $form->get('stockAdjustment')->getData());
 
             $this->entityManager->flush();
 
@@ -178,18 +178,35 @@ class ProductController extends AbstractController
         return $this->redirectToRoute('app_product_index');
     }
 
-    private function handleStockAdjustment(Product $product, int $adjustment): void
+    private function handleStockAdjustment(Product $product, string $adjustment): void
     {
-        if ($adjustment === 0) {
+        $normalized = $adjustment === '' ? '0' : $adjustment;
+
+        if (!preg_match('/^-?\d+(?:\.\d{1,3})?$/', $normalized)) {
+            $this->addFlash('danger', 'Ingresá un número válido para el ajuste de stock.');
+
             return;
         }
 
-        $product->adjustStock($adjustment);
+        $normalized = bcadd($normalized, '0', 3);
+
+        if (bccomp($normalized, '0', 3) === 0) {
+            return;
+        }
+
+        $newStock = bcadd($product->getStock(), $normalized, 3);
+        if (bccomp($newStock, '0', 3) < 0) {
+            $this->addFlash('danger', 'El ajuste dejaría el stock en negativo.');
+
+            return;
+        }
+
+        $product->adjustStock($normalized);
 
         $movement = new StockMovement();
         $movement->setProduct($product);
         $movement->setType(StockMovement::TYPE_ADJUST);
-        $movement->setQty($adjustment);
+        $movement->setQty($normalized);
         $movement->setReference('Ajuste de stock');
         $movement->setCreatedBy($this->getUser());
 

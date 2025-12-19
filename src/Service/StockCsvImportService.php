@@ -80,9 +80,9 @@ class StockCsvImportService
 
             $productId = (int) $product->getId();
             $current = $runningStock[$productId] ?? $product->getStock();
-            $newStock = $current + $delta;
+            $newStock = bcadd($current, $delta, 3);
 
-            if ($newStock < 0) {
+            if (bccomp($newStock, '0', 3) < 0) {
                 $results['failed'][] = ['line' => $line, 'reason' => 'El ajuste dejaría el stock en negativo'];
                 continue;
             }
@@ -134,17 +134,17 @@ class StockCsvImportService
             ];
         }
 
-        $delta = filter_var($values['quantity_delta'], FILTER_VALIDATE_INT);
-        if ($delta === false && $delta !== 0) {
+        $delta = $this->parseQuantityDelta($values['quantity_delta']);
+        if ($delta === null) {
             return [
                 'identifier' => $values['identifier'],
-                'error' => 'quantity_delta debe ser un entero (positivo o negativo)',
+                'error' => 'quantity_delta debe ser un número con hasta 3 decimales',
             ];
         }
 
         return [
             'identifier' => $values['identifier'],
-            'quantity_delta' => (int) $delta,
+            'quantity_delta' => $delta,
             'note' => $values['note'] ?? '',
         ];
     }
@@ -174,5 +174,20 @@ class StockCsvImportService
     private function hasRequiredColumns(array $header): bool
     {
         return isset($header['identifier'], $header['quantity_delta']);
+    }
+
+    private function parseQuantityDelta(?string $value): ?string
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        $normalized = str_replace(',', '.', $value);
+
+        if (!preg_match('/^-?\d+(?:\.\d{1,3})?$/', $normalized)) {
+            return null;
+        }
+
+        return bcadd($normalized, '0', 3);
     }
 }
