@@ -3,8 +3,8 @@
 namespace App\Controller;
 
 use App\Entity\Business;
-use App\Repository\CustomerRepository;
-use App\Service\CustomerAccountService;
+use App\Service\ReportService;
+use App\Service\PdfService;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -17,9 +17,15 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
 class ReportController extends AbstractController
 {
     public function __construct(
-        private readonly CustomerAccountService $customerAccountService,
-        private readonly CustomerRepository $customerRepository,
+        private readonly ReportService $reportService,
+        private readonly PdfService $pdfService,
     ) {
+    }
+
+    #[Route('', name: 'index', methods: ['GET'])]
+    public function index(): Response
+    {
+        return $this->render('reports/index.html.twig');
     }
 
     #[Route('/debtors', name: 'debtors', methods: ['GET'])]
@@ -28,36 +34,42 @@ class ReportController extends AbstractController
         $business = $this->requireBusinessContext();
         $minBalance = max(0, (float) $request->query->get('min_balance', 0));
 
-        $rows = $this->customerAccountService->findDebtors($business, $minBalance);
-        $ids = array_map(static fn (array $row) => (int) $row['customerId'], $rows);
-        $customers = $ids ? $this->customerRepository->findBy(['id' => $ids]) : [];
-
-        $byId = [];
-        foreach ($customers as $customer) {
-            $byId[$customer->getId()] = $customer;
-        }
-
-        $report = [];
-        foreach ($rows as $row) {
-            $customer = $byId[$row['customerId']] ?? null;
-
-            if ($customer === null) {
-                continue;
-            }
-
-            $report[] = [
-                'customer' => $customer,
-                'balance' => number_format((float) $row['balance'], 2, '.', ''),
-                'lastMovement' => $row['lastMovement'] ? new \DateTimeImmutable($row['lastMovement']) : null,
-            ];
-        }
-
-        usort($report, static fn ($a, $b) => $b['balance'] <=> $a['balance']);
+        $report = $this->reportService->getDebtors($business, $minBalance);
 
         return $this->render('reports/debtors.html.twig', [
             'items' => $report,
             'minBalance' => $minBalance,
         ]);
+    }
+
+    #[Route('/debtors/pdf', name: 'debtors_pdf', methods: ['GET'])]
+    public function debtorsPdf(Request $request): Response
+    {
+        $business = $this->requireBusinessContext();
+        $minBalance = max(0, (float) $request->query->get('min', 0));
+        $report = $this->reportService->getDebtors($business, $minBalance);
+        $totalDebt = array_reduce($report, static fn ($carry, $row) => $carry + $row['balance'], 0.0);
+
+        return $this->pdfService->render('reports/debtors_pdf.html.twig', [
+            'business' => $business,
+            'items' => $report,
+            'minBalance' => $minBalance,
+            'generatedAt' => new \DateTimeImmutable(),
+            'totalDebt' => number_format($totalDebt, 2, '.', ''),
+        ], 'deudores.pdf');
+    }
+
+    #[Route('/stock-low/pdf', name: 'stock_low_pdf', methods: ['GET'])]
+    public function stockLowPdf(): Response
+    {
+        $business = $this->requireBusinessContext();
+        $products = $this->reportService->getLowStockProducts($business);
+
+        return $this->pdfService->render('reports/stock_low_pdf.html.twig', [
+            'business' => $business,
+            'products' => $products,
+            'generatedAt' => new \DateTimeImmutable(),
+        ], 'stock-bajo.pdf');
     }
 
     private function requireBusinessContext(): Business

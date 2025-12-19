@@ -97,6 +97,9 @@
 
     <div class="mt-4">
         <a class="btn btn-outline-secondary" href="{{ path('app_cash_status') }}">Volver a caja</a>
+        {% if is_granted('ROLE_ADMIN') %}
+            <a class="btn btn-outline-primary" href="{{ path('app_admin_cash_pdf', {id: cashSession.id}) }}">Descargar PDF</a>
+        {% endif %}
         {% if cashSession.isOpen %}
             <a class="btn btn-primary" href="{{ path('app_sale_new') }}">Seguir vendiendo</a>
         {% endif %}

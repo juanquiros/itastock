@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body { font-family: Arial, sans-serif; font-size: 12px; color: #222; }
+        h1 { font-size: 18px; margin-bottom: 4px; }
+        h2 { font-size: 14px; margin: 10px 0 6px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+        th, td { border: 1px solid #ddd; padding: 6px; }
+        th { background: #f5f5f5; }
+    </style>
+</head>
+<body>
+    <h1>Estado de cuenta</h1>
+    <div><strong>Negocio:</strong> {{ business.name }}</div>
+    <div><strong>Cliente:</strong> {{ customer.name }}</div>
+    <div><strong>Generado:</strong> {{ generatedAt|date('d/m/Y H:i') }}</div>
+    <div><strong>Rango:</strong> {{ from ? from|date('d/m/Y') : 'N/D' }} - {{ to ? to|date('d/m/Y') : 'N/D' }}</div>
+
+    <h2>Resumen</h2>
+    <table>
+        <tr><th>Saldo actual</th><td>${{ data.balance }}</td></tr>
+        <tr><th>Débitos período</th><td>${{ data.totalDebit }}</td></tr>
+        <tr><th>Créditos período</th><td>${{ data.totalCredit }}</td></tr>
+    </table>
+
+    <h2>Movimientos</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>Fecha</th>
+                <th>Tipo</th>
+                <th>Importe</th>
+                <th>Referencia</th>
+                <th>Nota</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for movement in data.movements %}
+                <tr>
+                    <td>{{ movement.createdAt|date('d/m/Y H:i') }}</td>
+                    <td>{{ movement.type }}</td>
+                    <td>${{ movement.amount }}</td>
+                    <td>{{ movement.referenceType }} {{ movement.referenceId ?? '' }}</td>
+                    <td>{{ movement.note ?? '' }}</td>
+                </tr>
+            {% else %}
+                <tr><td colspan="5">Sin movimientos en el período.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</body>
+</html>

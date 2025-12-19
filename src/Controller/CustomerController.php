@@ -9,6 +9,8 @@ use App\Form\CustomerType;
 use App\Repository\CustomerRepository;
 use App\Repository\PriceListRepository;
 use App\Service\CustomerAccountService;
+use App\Service\ReportService;
+use App\Service\PdfService;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
@@ -26,6 +28,8 @@ class CustomerController extends AbstractController
         private readonly EntityManagerInterface $entityManager,
         private readonly PriceListRepository $priceListRepository,
         private readonly CustomerAccountService $customerAccountService,
+        private readonly ReportService $reportService,
+        private readonly PdfService $pdfService,
     ) {
     }
 
@@ -159,6 +163,35 @@ class CustomerController extends AbstractController
         $response->headers->set('Content-Disposition', sprintf('attachment; filename="customer-%d-account.csv"', $customer->getId()));
 
         return $response;
+    }
+
+    #[Route('/{id}/account/pdf', name: 'account_pdf', methods: ['GET'])]
+    public function accountPdf(Request $request, Customer $customer): Response
+    {
+        $business = $this->requireBusinessContext();
+        $this->denyIfDifferentBusiness($customer, $business);
+
+        $fromInput = $request->query->get('from');
+        $toInput = $request->query->get('to');
+
+        if ($fromInput === null && $toInput === null) {
+            $fromDate = (new \DateTimeImmutable('first day of last month'))->setTime(0, 0, 0);
+            $toDate = (new \DateTimeImmutable('last day of last month'))->setTime(23, 59, 59);
+        } else {
+            $fromDate = $fromInput ? new \DateTimeImmutable($fromInput) : null;
+            $toDate = $toInput ? new \DateTimeImmutable($toInput.' 23:59:59') : null;
+        }
+
+        $data = $this->reportService->getCustomerAccountData($customer, $fromDate, $toDate);
+
+        return $this->pdfService->render('customer/account_pdf.html.twig', [
+            'business' => $business,
+            'customer' => $customer,
+            'data' => $data,
+            'from' => $fromDate,
+            'to' => $toDate,
+            'generatedAt' => new \DateTimeImmutable(),
+        ], sprintf('estado-cuenta-%d.pdf', $customer->getId()));
     }
 
     #[Route('/{id}/collect', name: 'collect', methods: ['GET', 'POST'])]

@@ -1,0 +1,56 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Centro de reportes · ItaStock{% endblock %}
+
+{% block body %}
+    <div class="mb-4">
+        <p class="text-uppercase text-muted mb-1 small fw-semibold">Reportes</p>
+        <h1 class="h4 mb-0">Centro de reportes</h1>
+        <p class="text-secondary mb-0">Exportá y descargá reportes clave del negocio.</p>
+    </div>
+
+    <div class="row g-3">
+        <div class="col-md-6 col-lg-4">
+            <div class="card shadow-sm h-100">
+                <div class="card-body">
+                    <h2 class="h6 fw-semibold">Ventas</h2>
+                    <p class="text-muted small mb-3">Exportá ventas por rango de fechas en CSV o PDF.</p>
+                    <div class="d-flex gap-2">
+                        <a class="btn btn-outline-secondary btn-sm" href="{{ path('app_admin_sales_export') }}">CSV</a>
+                        <a class="btn btn-primary btn-sm" href="{{ path('app_admin_sales_pdf') }}">PDF</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6 col-lg-4">
+            <div class="card shadow-sm h-100">
+                <div class="card-body">
+                    <h2 class="h6 fw-semibold">Cajas</h2>
+                    <p class="text-muted small mb-3">Descargá el PDF de cada cierre desde su reporte.</p>
+                    <a class="btn btn-outline-secondary btn-sm" href="{{ path('app_cash_status') }}">Ir a Cajas</a>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6 col-lg-4">
+            <div class="card shadow-sm h-100">
+                <div class="card-body">
+                    <h2 class="h6 fw-semibold">Stock bajo</h2>
+                    <p class="text-muted small mb-3">Listado de productos críticos para reposición.</p>
+                    <a class="btn btn-primary btn-sm" href="{{ path('app_reports_stock_low_pdf') }}">PDF</a>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6 col-lg-4">
+            <div class="card shadow-sm h-100">
+                <div class="card-body">
+                    <h2 class="h6 fw-semibold">Deudores</h2>
+                    <p class="text-muted small mb-3">Ver y exportar clientes con saldo pendiente.</p>
+                    <div class="d-flex gap-2">
+                        <a class="btn btn-outline-secondary btn-sm" href="{{ path('app_reports_debtors') }}">Ver</a>
+                        <a class="btn btn-primary btn-sm" href="{{ path('app_reports_debtors_pdf') }}">PDF</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+{% endblock %}

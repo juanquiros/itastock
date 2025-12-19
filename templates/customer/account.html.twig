@@ -54,7 +54,10 @@
                                 <button class="btn btn-outline-secondary" type="submit">Filtrar</button>
                             </div>
                         </form>
-                        <a class="btn btn-outline-primary" href="{{ path('app_customer_account_export', {id: customer.id, from: filters.from, to: filters.to}) }}">Exportar CSV</a>
+                        <div class="d-flex gap-2">
+                            <a class="btn btn-outline-primary" href="{{ path('app_customer_account_export', {id: customer.id, from: filters.from, to: filters.to}) }}">Exportar CSV</a>
+                            <a class="btn btn-primary" href="{{ path('app_customer_account_pdf', {id: customer.id, from: filters.from, to: filters.to}) }}">PDF</a>
+                        </div>
                     </div>
 
                     <div class="table-responsive">
