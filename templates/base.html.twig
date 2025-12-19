@@ -69,10 +69,11 @@
         {% block javascripts %}{% endblock %}
     </head>
     <body>
-        {% if app.user %}
+        {% set currentRoute = app.request.attributes.get('_route') %}
+        {% if app.user or currentRoute == 'app_login' %}
             <nav class="navbar navbar-expand-lg navbar-dark shadow-sm mb-4">
                 <div class="container-fluid">
-                    <a class="navbar-brand d-flex align-items-center gap-2" href="{{ path('app_dashboard') }}">
+                    <a class="navbar-brand d-flex align-items-center gap-2" href="{{ app.user ? path('app_dashboard') : path('public_home') }}">
                         <img src="{{ asset('brand/itastock-logo.svg') }}" alt="ItaStock" width="36" height="36">
                         <span>ItaStock Backoffice</span>
                     </a>
@@ -80,50 +81,67 @@
                         <span class="navbar-toggler-icon"></span>
                     </button>
                     <div class="collapse navbar-collapse" id="navbarNav">
-                        <ul class="navbar-nav me-auto mb-2 mb-lg-0">
-                            <li class="nav-item">
-                                <a class="nav-link" href="{{ path('app_dashboard') }}">Dashboard</a>
-                            </li>
-                            <li class="nav-item">
-                                <a class="nav-link" href="{{ path('app_sale_new') }}">Nueva venta</a>
-                            </li>
-                            <li class="nav-item">
-                                <a class="nav-link" href="{{ path('app_cash_status') }}">Caja</a>
-                            </li>
-                            {% if is_granted('ROLE_ADMIN') %}
+                        {% if app.user %}
+                            <ul class="navbar-nav me-auto mb-2 mb-lg-0">
                                 <li class="nav-item">
-                                    <a class="nav-link" href="{{ path('app_product_index') }}">Productos</a>
+                                    <a class="nav-link" href="{{ path('app_dashboard') }}">Dashboard</a>
                                 </li>
                                 <li class="nav-item">
-                                    <a class="nav-link" href="{{ path('app_category_index') }}">Categorías</a>
+                                    <a class="nav-link" href="{{ path('app_sale_new') }}">Nueva venta</a>
                                 </li>
                                 <li class="nav-item">
-                                    <a class="nav-link" href="{{ path('app_price_list_index') }}">Listas de precio</a>
+                                    <a class="nav-link" href="{{ path('app_cash_status') }}">Caja</a>
+                                </li>
+                                {% if is_granted('ROLE_ADMIN') %}
+                                    <li class="nav-item">
+                                        <a class="nav-link" href="{{ path('app_product_index') }}">Productos</a>
+                                    </li>
+                                    <li class="nav-item">
+                                        <a class="nav-link" href="{{ path('app_category_index') }}">Categorías</a>
+                                    </li>
+                                    <li class="nav-item">
+                                        <a class="nav-link" href="{{ path('app_price_list_index') }}">Listas de precio</a>
+                                    </li>
+                                    <li class="nav-item">
+                                        <a class="nav-link" href="{{ path('app_customer_index') }}">Clientes</a>
+                                    </li>
+                                    <li class="nav-item">
+                                        <a class="nav-link" href="{{ path('app_reports_index') }}">Reportes</a>
+                                    </li>
+                                    <li class="nav-item">
+                                        <a class="nav-link" href="{{ path('app_user_index') }}">Usuarios</a>
+                                    </li>
+                                {% endif %}
+                            </ul>
+                            <div class="d-flex align-items-center gap-3 text-white">
+                                {% set sub = subscriptionContext.getCurrentSubscription(app.user) %}
+                                {% if sub %}
+                                    <span class="badge rounded-pill bg-light text-dark">
+                                        {{ sub.status }}
+                                        {% if sub.status == 'TRIAL' and sub.trialEndsAt %}
+                                            · vence {{ sub.trialEndsAt|date('d/m') }}
+                                        {% endif %}
+                                    </span>
+                                {% endif %}
+                                <span class="fw-semibold">{{ app.user.fullName }}</span>
+                                <a class="btn btn-outline-light btn-sm" href="{{ path('app_logout') }}">Cerrar sesión</a>
+                            </div>
+                        {% else %}
+                            <ul class="navbar-nav ms-auto mb-2 mb-lg-0">
+                                <li class="nav-item">
+                                    <a class="nav-link" href="{{ path('public_home') }}">Home</a>
                                 </li>
                                 <li class="nav-item">
-                                    <a class="nav-link" href="{{ path('app_customer_index') }}">Clientes</a>
+                                    <a class="nav-link" href="{{ path('public_features') }}">Funcionalidades</a>
                                 </li>
                                 <li class="nav-item">
-                                    <a class="nav-link" href="{{ path('app_reports_index') }}">Reportes</a>
+                                    <a class="nav-link" href="{{ path('public_pricing') }}">Precios</a>
                                 </li>
                                 <li class="nav-item">
-                                    <a class="nav-link" href="{{ path('app_user_index') }}">Usuarios</a>
+                                    <a class="nav-link" href="{{ path('public_contact') }}">Contacto</a>
                                 </li>
-                            {% endif %}
-                        </ul>
-                        <div class="d-flex align-items-center gap-3 text-white">
-                            {% set sub = subscriptionContext.getCurrentSubscription(app.user) %}
-                            {% if sub %}
-                                <span class="badge rounded-pill bg-light text-dark">
-                                    {{ sub.status }}
-                                    {% if sub.status == 'TRIAL' and sub.trialEndsAt %}
-                                        · vence {{ sub.trialEndsAt|date('d/m') }}
-                                    {% endif %}
-                                </span>
-                            {% endif %}
-                            <span class="fw-semibold">{{ app.user.fullName }}</span>
-                            <a class="btn btn-outline-light btn-sm" href="{{ path('app_logout') }}">Cerrar sesión</a>
-                        </div>
+                            </ul>
+                        {% endif %}
                     </div>
                 </div>
             </nav>
