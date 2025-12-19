@@ -43,9 +43,11 @@ class ReportService
             ->andWhere('s.business = :business')
             ->andWhere('s.createdAt >= :from')
             ->andWhere('s.createdAt <= :to')
+            ->andWhere('s.status = :status')
             ->setParameter('business', $business)
             ->setParameter('from', $from)
             ->setParameter('to', $to)
+            ->setParameter('status', \App\Entity\Sale::STATUS_CONFIRMED)
             ->setParameter('defaultCustomer', 'Consumidor final')
             ->groupBy('s.id, u.email, c.name, s.total, s.createdAt')
             ->orderBy('s.createdAt', 'ASC');

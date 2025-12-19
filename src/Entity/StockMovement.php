@@ -13,6 +13,7 @@ use App\Entity\User;
 class StockMovement
 {
     public const TYPE_SALE = 'SALE';
+    public const TYPE_SALE_VOID = 'SALE_VOID';
     public const TYPE_ADJUST = 'ADJUST';
     public const TYPE_PURCHASE = 'PURCHASE';
 
@@ -22,7 +23,7 @@ class StockMovement
     private ?int $id = null;
 
     #[ORM\Column(length: 16)]
-    #[Assert\Choice(choices: [self::TYPE_SALE, self::TYPE_ADJUST, self::TYPE_PURCHASE])]
+    #[Assert\Choice(choices: [self::TYPE_SALE, self::TYPE_SALE_VOID, self::TYPE_ADJUST, self::TYPE_PURCHASE])]
     private ?string $type = null;
 
     #[ORM\Column(type: 'decimal', precision: 10, scale: 3, options: ['default' => '0.000'])]

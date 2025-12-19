@@ -14,6 +14,7 @@ class CustomerAccountMovement
     public const TYPE_CREDIT = 'CREDIT';
 
     public const REFERENCE_SALE = 'SALE';
+    public const REFERENCE_SALE_VOID = 'SALE_VOID';
     public const REFERENCE_PAYMENT = 'PAYMENT';
     public const REFERENCE_ADJUST = 'ADJUST';
 

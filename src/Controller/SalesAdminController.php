@@ -3,9 +3,11 @@
 namespace App\Controller;
 
 use App\Entity\Business;
+use App\Entity\Sale;
 use App\Repository\SaleRepository;
 use App\Service\PdfService;
 use App\Service\ReportService;
+use App\Service\SaleVoidService;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -22,6 +24,7 @@ class SalesAdminController extends AbstractController
         private readonly SaleRepository $saleRepository,
         private readonly ReportService $reportService,
         private readonly PdfService $pdfService,
+        private readonly SaleVoidService $saleVoidService,
     )
     {
     }
@@ -154,6 +157,41 @@ class SalesAdminController extends AbstractController
             'generatedAt' => new \DateTimeImmutable(),
             'total' => number_format($total, 2, '.', ''),
         ], 'ventas.pdf');
+    }
+
+    #[Route('/{id}/void', name: 'void', methods: ['POST'])]
+    public function voidSale(Request $request, Sale $sale): Response
+    {
+        $business = $this->requireBusinessContext();
+        $user = $this->getUser();
+
+        if (!$user instanceof \App\Entity\User) {
+            throw new AccessDeniedException('Debés iniciar sesión para anular ventas.');
+        }
+
+        if ($sale->getBusiness() !== $business) {
+            throw new AccessDeniedException('No podés anular ventas de otro comercio.');
+        }
+
+        if (!$this->isCsrfTokenValid('void_sale_'.$sale->getId(), (string) $request->request->get('_token'))) {
+            throw new AccessDeniedException('Token CSRF inválido.');
+        }
+
+        $reason = trim((string) $request->request->get('reason'));
+        if ($reason === '') {
+            $this->addFlash('danger', 'El motivo es obligatorio.');
+
+            return $this->redirectToRoute('app_sale_ticket', ['id' => $sale->getId()]);
+        }
+
+        try {
+            $this->saleVoidService->voidSale($sale, $user, $reason);
+            $this->addFlash('success', 'Venta anulada correctamente.');
+        } catch (\DomainException $exception) {
+            $this->addFlash('danger', $exception->getMessage());
+        }
+
+        return $this->redirectToRoute('app_sale_ticket', ['id' => $sale->getId()]);
     }
 
     private function requireBusinessContext(): Business

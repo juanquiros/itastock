@@ -9,6 +9,9 @@ use Doctrine\ORM\Mapping as ORM;
 #[ORM\Table(name: 'payments')]
 class Payment
 {
+    public const REFERENCE_SALE = 'SALE';
+    public const REFERENCE_SALE_VOID = 'SALE_VOID';
+
     #[ORM\Id]
     #[ORM\GeneratedValue]
     #[ORM\Column]
@@ -26,6 +29,12 @@ class Payment
 
     #[ORM\Column]
     private ?\DateTimeImmutable $createdAt = null;
+
+    #[ORM\Column(length: 32, nullable: true)]
+    private ?string $referenceType = null;
+
+    #[ORM\Column(nullable: true)]
+    private ?int $referenceId = null;
 
     public function __construct()
     {
@@ -81,6 +90,30 @@ class Payment
     public function setCreatedAt(\DateTimeImmutable $createdAt): self
     {
         $this->createdAt = $createdAt;
+
+        return $this;
+    }
+
+    public function getReferenceType(): ?string
+    {
+        return $this->referenceType;
+    }
+
+    public function setReferenceType(?string $referenceType): self
+    {
+        $this->referenceType = $referenceType;
+
+        return $this;
+    }
+
+    public function getReferenceId(): ?int
+    {
+        return $this->referenceId;
+    }
+
+    public function setReferenceId(?int $referenceId): self
+    {
+        $this->referenceId = $referenceId;
 
         return $this;
     }

@@ -237,6 +237,7 @@ class SaleController extends AbstractController
         $payment = new Payment();
         $payment->setAmount($sale->getTotal());
         $payment->setMethod($paymentMethod);
+        $payment->setReferenceType(Payment::REFERENCE_SALE);
         $sale->addPayment($payment);
 
         $connection = $this->entityManager->getConnection();

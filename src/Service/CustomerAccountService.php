@@ -77,6 +77,28 @@ class CustomerAccountService
         return $movement;
     }
 
+    public function addCreditForSaleVoid(Sale $sale, User $actor, string $reason): CustomerAccountMovement
+    {
+        $customer = $sale->getCustomer();
+        if (!$customer instanceof Customer) {
+            throw new AccessDeniedException('La venta no tiene cliente asignado para revertir cuenta corriente.');
+        }
+
+        $movement = new CustomerAccountMovement();
+        $movement->setBusiness($sale->getBusiness());
+        $movement->setCustomer($customer);
+        $movement->setType(CustomerAccountMovement::TYPE_CREDIT);
+        $movement->setAmount($sale->getTotal());
+        $movement->setReferenceType(CustomerAccountMovement::REFERENCE_SALE_VOID);
+        $movement->setReferenceId($sale->getId());
+        $movement->setCreatedBy($actor);
+        $movement->setNote(trim(sprintf('Anulación de venta%s', $reason !== '' ? ': '.$reason : '')));
+
+        $this->entityManager->persist($movement);
+
+        return $movement;
+    }
+
     /**
      * @return array<int, array<string, mixed>>
      */

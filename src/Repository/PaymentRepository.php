@@ -4,6 +4,7 @@ namespace App\Repository;
 
 use App\Entity\Business;
 use App\Entity\Payment;
+use App\Entity\Sale;
 use App\Entity\User;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
@@ -27,9 +28,11 @@ class PaymentRepository extends ServiceEntityRepository
             ->select('p.method AS method', 'SUM(p.amount) AS total')
             ->join('p.sale', 's')
             ->where('s.business = :business')
+            ->andWhere('s.status = :status')
             ->andWhere('p.createdAt >= :from')
             ->setParameter('business', $business)
-            ->setParameter('from', $from);
+            ->setParameter('from', $from)
+            ->setParameter('status', Sale::STATUS_CONFIRMED);
 
         if ($to !== null) {
             $qb->andWhere('p.createdAt <= :to')
@@ -57,11 +60,13 @@ class PaymentRepository extends ServiceEntityRepository
             ->select('p.method AS method', 'COALESCE(SUM(p.amount), 0) AS total')
             ->join('p.sale', 's')
             ->where('s.business = :business')
+            ->andWhere('s.status = :status')
             ->andWhere('p.createdAt >= :from')
             ->andWhere('p.createdAt < :to')
             ->setParameter('business', $business)
             ->setParameter('from', $from)
-            ->setParameter('to', $to);
+            ->setParameter('to', $to)
+            ->setParameter('status', Sale::STATUS_CONFIRMED);
 
         if ($seller !== null) {
             $qb->andWhere('s.createdBy = :seller')->setParameter('seller', $seller);

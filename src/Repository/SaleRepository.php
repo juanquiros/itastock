@@ -38,11 +38,13 @@ class SaleRepository extends ServiceEntityRepository
             ->andWhere('s.business = :business')
             ->andWhere('s.createdAt >= :from')
             ->andWhere('s.createdAt <= :to')
+            ->andWhere('s.status = :status')
             ->groupBy('s.id, u.email, c.name, s.total, s.createdAt')
             ->orderBy('s.createdAt', 'ASC')
             ->setParameter('business', $business)
             ->setParameter('from', $from)
             ->setParameter('to', $to)
+            ->setParameter('status', Sale::STATUS_CONFIRMED)
             ->setParameter('defaultCustomer', 'Consumidor final');
 
         return $qb->getQuery()->getArrayResult();
@@ -60,9 +62,11 @@ class SaleRepository extends ServiceEntityRepository
             ->andWhere('s.business = :business')
             ->andWhere('s.createdAt >= :from')
             ->andWhere('s.createdAt < :to')
+            ->andWhere('s.status = :status')
             ->setParameter('business', $business)
             ->setParameter('from', $from)
-            ->setParameter('to', $to);
+            ->setParameter('to', $to)
+            ->setParameter('status', Sale::STATUS_CONFIRMED);
 
         if ($seller !== null) {
             $qb->andWhere('s.createdBy = :seller')->setParameter('seller', $seller);
@@ -96,6 +100,7 @@ class SaleRepository extends ServiceEntityRepository
             WHERE s.business_id = :businessId
               AND s.created_at >= :from
               AND s.created_at < :to
+              AND s.status = 'CONFIRMED'
         SQL;
 
         if ($seller !== null) {
@@ -127,6 +132,7 @@ class SaleRepository extends ServiceEntityRepository
                 WHERE s.business_id = :businessId
                   AND s.created_at >= :from
                   AND s.created_at < :to
+                  AND s.status = 'CONFIRMED'
                 GROUP BY date
                 ORDER BY date ASC
             SQL,
@@ -151,11 +157,13 @@ class SaleRepository extends ServiceEntityRepository
             ->andWhere('s.business = :business')
             ->andWhere('s.createdAt >= :from')
             ->andWhere('s.createdAt < :to')
+            ->andWhere('s.status = :status')
             ->andWhere('c IS NOT NULL')
             ->andWhere('c.isActive = true')
             ->setParameter('business', $business)
             ->setParameter('from', $from)
-            ->setParameter('to', $to);
+            ->setParameter('to', $to)
+            ->setParameter('status', Sale::STATUS_CONFIRMED);
 
         return (int) $qb->getQuery()->getSingleScalarResult();
     }
@@ -174,7 +182,9 @@ class SaleRepository extends ServiceEntityRepository
             ->leftJoin('s.customer', 'c')
             ->leftJoin('s.payments', 'p')
             ->andWhere('s.business = :business')
+            ->andWhere('s.status = :status')
             ->setParameter('business', $business)
+            ->setParameter('status', Sale::STATUS_CONFIRMED)
             ->setParameter('defaultCustomer', 'Consumidor final')
             ->groupBy('s.id, c.name, s.createdAt, s.total')
             ->orderBy('s.createdAt', 'DESC')

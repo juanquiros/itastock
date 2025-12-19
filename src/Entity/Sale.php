@@ -11,6 +11,9 @@ use Doctrine\ORM\Mapping as ORM;
 #[ORM\Entity(repositoryClass: SaleRepository::class)]
 class Sale
 {
+    public const STATUS_CONFIRMED = 'CONFIRMED';
+    public const STATUS_VOIDED = 'VOIDED';
+
     #[ORM\Id]
     #[ORM\GeneratedValue]
     #[ORM\Column]
@@ -26,13 +29,26 @@ class Sale
 
     #[ORM\ManyToOne]
     #[ORM\JoinColumn(onDelete: 'SET NULL')]
+    private ?User $voidedBy = null;
+
+    #[ORM\ManyToOne]
+    #[ORM\JoinColumn(onDelete: 'SET NULL')]
     private ?Customer $customer = null;
 
     #[ORM\Column(type: 'decimal', precision: 10, scale: 2)]
     private ?string $total = '0.00';
 
+    #[ORM\Column(length: 16, options: ['default' => self::STATUS_CONFIRMED])]
+    private string $status = self::STATUS_CONFIRMED;
+
     #[ORM\Column]
     private ?\DateTimeImmutable $createdAt = null;
+
+    #[ORM\Column(nullable: true)]
+    private ?\DateTimeImmutable $voidedAt = null;
+
+    #[ORM\Column(type: 'text', nullable: true)]
+    private ?string $voidReason = null;
 
     /** @var Collection<int, SaleItem> */
     #[ORM\OneToMany(mappedBy: 'sale', targetEntity: SaleItem::class, cascade: ['persist'], orphanRemoval: true)]
@@ -78,6 +94,18 @@ class Sale
         return $this;
     }
 
+    public function getVoidedBy(): ?User
+    {
+        return $this->voidedBy;
+    }
+
+    public function setVoidedBy(?User $voidedBy): self
+    {
+        $this->voidedBy = $voidedBy;
+
+        return $this;
+    }
+
     public function getCustomer(): ?Customer
     {
         return $this->customer;
@@ -102,6 +130,18 @@ class Sale
         return $this;
     }
 
+    public function getStatus(): string
+    {
+        return $this->status;
+    }
+
+    public function setStatus(string $status): self
+    {
+        $this->status = $status;
+
+        return $this;
+    }
+
     public function getCreatedAt(): ?\DateTimeImmutable
     {
         return $this->createdAt;
@@ -110,6 +150,30 @@ class Sale
     public function setCreatedAt(\DateTimeImmutable $createdAt): self
     {
         $this->createdAt = $createdAt;
+
+        return $this;
+    }
+
+    public function getVoidedAt(): ?\DateTimeImmutable
+    {
+        return $this->voidedAt;
+    }
+
+    public function setVoidedAt(?\DateTimeImmutable $voidedAt): self
+    {
+        $this->voidedAt = $voidedAt;
+
+        return $this;
+    }
+
+    public function getVoidReason(): ?string
+    {
+        return $this->voidReason;
+    }
+
+    public function setVoidReason(?string $voidReason): self
+    {
+        $this->voidReason = $voidReason;
 
         return $this;
     }
