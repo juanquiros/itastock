@@ -83,7 +83,7 @@ class SaleRepository extends ServiceEntityRepository
     public function aggregateByHour(Business $business, \DateTimeImmutable $from, \DateTimeImmutable $to, ?User $seller = null): array
     {
         $qb = $this->createQueryBuilder('s')
-            ->select("FUNCTION('HOUR', s.createdAt) AS hour")
+            ->select("DATE_FORMAT(s.createdAt, '%H') AS hour")
             ->addSelect('COALESCE(SUM(s.total), 0) AS amount')
             ->andWhere('s.business = :business')
             ->andWhere('s.createdAt >= :from')
@@ -110,7 +110,7 @@ class SaleRepository extends ServiceEntityRepository
     public function aggregateByDate(Business $business, \DateTimeImmutable $from, \DateTimeImmutable $to): array
     {
         $qb = $this->createQueryBuilder('s')
-            ->select("FUNCTION('DATE_FORMAT', s.createdAt, '%Y-%m-%d') AS date")
+            ->select('DATE(s.createdAt) AS date')
             ->addSelect('COALESCE(SUM(s.total), 0) AS amount')
             ->andWhere('s.business = :business')
             ->andWhere('s.createdAt >= :from')
