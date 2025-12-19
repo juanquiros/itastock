@@ -63,11 +63,6 @@ class CustomerAccountService
             throw new AccessDeniedException('No podés registrar pagos para un cliente inactivo.');
         }
 
-        $currentBalance = (float) $this->getBalance($customer);
-        if ($value > $currentBalance) {
-            throw new AccessDeniedException('El pago no puede superar el saldo pendiente.');
-        }
-
         $movement = new CustomerAccountMovement();
         $movement->setBusiness($customer->getBusiness());
         $movement->setCustomer($customer);
