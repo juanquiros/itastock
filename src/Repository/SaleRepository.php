@@ -82,26 +82,35 @@ class SaleRepository extends ServiceEntityRepository
      */
     public function aggregateByHour(Business $business, \DateTimeImmutable $from, \DateTimeImmutable $to, ?User $seller = null): array
     {
-        $qb = $this->createQueryBuilder('s')
-            ->select("DATE_FORMAT(s.createdAt, '%H') AS hour")
-            ->addSelect('COALESCE(SUM(s.total), 0) AS amount')
-            ->andWhere('s.business = :business')
-            ->andWhere('s.createdAt >= :from')
-            ->andWhere('s.createdAt < :to')
-            ->setParameter('business', $business)
-            ->setParameter('from', $from)
-            ->setParameter('to', $to)
-            ->groupBy('hour')
-            ->orderBy('hour', 'ASC');
+        $connection = $this->getEntityManager()->getConnection();
+
+        $params = [
+            'businessId' => $business->getId(),
+            'from' => $from->format('Y-m-d H:i:s'),
+            'to' => $to->format('Y-m-d H:i:s'),
+        ];
+
+        $sql = <<<SQL
+            SELECT DATE_FORMAT(s.created_at, '%H') AS hour, COALESCE(SUM(s.total), 0) AS amount
+            FROM sales s
+            WHERE s.business_id = :businessId
+              AND s.created_at >= :from
+              AND s.created_at < :to
+        SQL;
 
         if ($seller !== null) {
-            $qb->andWhere('s.createdBy = :seller')->setParameter('seller', $seller);
+            $sql .= ' AND s.created_by_id = :sellerId';
+            $params['sellerId'] = $seller->getId();
         }
+
+        $sql .= ' GROUP BY hour ORDER BY hour ASC';
+
+        $rows = $connection->fetchAllAssociative($sql, $params);
 
         return array_map(static fn (array $row) => [
             'hour' => (int) $row['hour'],
             'amount' => (float) $row['amount'],
-        ], $qb->getQuery()->getArrayResult());
+        ], $rows);
     }
 
     /**
@@ -109,22 +118,29 @@ class SaleRepository extends ServiceEntityRepository
      */
     public function aggregateByDate(Business $business, \DateTimeImmutable $from, \DateTimeImmutable $to): array
     {
-        $qb = $this->createQueryBuilder('s')
-            ->select('DATE(s.createdAt) AS date')
-            ->addSelect('COALESCE(SUM(s.total), 0) AS amount')
-            ->andWhere('s.business = :business')
-            ->andWhere('s.createdAt >= :from')
-            ->andWhere('s.createdAt < :to')
-            ->setParameter('business', $business)
-            ->setParameter('from', $from)
-            ->setParameter('to', $to)
-            ->groupBy('date')
-            ->orderBy('date', 'ASC');
+        $connection = $this->getEntityManager()->getConnection();
+
+        $rows = $connection->fetchAllAssociative(
+            <<<SQL
+                SELECT DATE_FORMAT(s.created_at, '%Y-%m-%d') AS date, COALESCE(SUM(s.total), 0) AS amount
+                FROM sales s
+                WHERE s.business_id = :businessId
+                  AND s.created_at >= :from
+                  AND s.created_at < :to
+                GROUP BY date
+                ORDER BY date ASC
+            SQL,
+            [
+                'businessId' => $business->getId(),
+                'from' => $from->format('Y-m-d H:i:s'),
+                'to' => $to->format('Y-m-d H:i:s'),
+            ]
+        );
 
         return array_map(static fn (array $row) => [
             'date' => (string) $row['date'],
             'amount' => (float) $row['amount'],
-        ], $qb->getQuery()->getArrayResult());
+        ], $rows);
     }
 
     public function countActiveCustomers(Business $business, \DateTimeImmutable $from, \DateTimeImmutable $to): int
