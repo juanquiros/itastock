@@ -45,9 +45,9 @@ class Product
     #[Assert\PositiveOrZero]
     private ?string $basePrice = '0.00';
 
-    #[ORM\Column]
+    #[ORM\Column(type: 'decimal', precision: 10, scale: 3, options: ['default' => '0.000'])]
     #[Assert\PositiveOrZero]
-    private int $stockMin = 0;
+    private string $stockMin = '0.000';
 
     #[ORM\Column(type: 'decimal', precision: 10, scale: 3, options: ['default' => '0.000'])]
     #[Assert\PositiveOrZero]
@@ -148,14 +148,14 @@ class Product
         return $this;
     }
 
-    public function getStockMin(): int
+    public function getStockMin(): string
     {
         return $this->stockMin;
     }
 
-    public function setStockMin(int $stockMin): self
+    public function setStockMin(string $stockMin): self
     {
-        $this->stockMin = $stockMin;
+        $this->stockMin = bcadd($stockMin, '0', 3);
 
         return $this;
     }

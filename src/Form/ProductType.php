@@ -67,8 +67,12 @@ class ProductType extends AbstractType
                 'attr' => ['step' => '0.001', 'min' => '0.001'],
                 'help' => 'Se usa como step mínimo en POS cuando el producto admite fraccionar.',
             ])
-            ->add('stockMin', IntegerType::class, [
+            ->add('stockMin', NumberType::class, [
                 'label' => 'Stock mínimo',
+                'scale' => 3,
+                'html5' => true,
+                'attr' => ['step' => '0.001', 'min' => '0'],
+                'help' => 'Permite decimales para productos fraccionables (ej. 0.250 kg).',
             ])
             ->add('category', EntityType::class, [
                 'label' => 'Categoría',

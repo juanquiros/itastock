@@ -40,7 +40,7 @@ class ProductRepository extends ServiceEntityRepository
     }
 
     /**
-     * @return array<int, array{productId: int, sku: string, name: string, stock: float, min: int}>
+     * @return array<int, array{productId: int, sku: string, name: string, stock: float, min: float}>
      */
     public function findLowStockTop(Business $business, int $limit = 5): array
     {
@@ -64,7 +64,7 @@ class ProductRepository extends ServiceEntityRepository
             'sku' => (string) $row['sku'],
             'name' => (string) $row['name'],
             'stock' => (float) $row['stock'],
-            'min' => (int) $row['min'],
+            'min' => (float) $row['min'],
         ], $rows);
     }
 }

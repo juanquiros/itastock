@@ -56,7 +56,7 @@ class ProductController extends AbstractController
                     $product->getName(),
                     number_format((float) $product->getCost(), 2, '.', ''),
                     number_format((float) $product->getBasePrice(), 2, '.', ''),
-                    $product->getStockMin(),
+                    number_format((float) $product->getStockMin(), 3, '.', ''),
                     $product->isActive() ? '1' : '0',
                 ], ';');
             }

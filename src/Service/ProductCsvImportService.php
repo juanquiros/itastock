@@ -186,11 +186,11 @@ class ProductCsvImportService
         }
 
         if ($row['stockMin'] !== null) {
-            if (!ctype_digit((string) $row['stockMin'])) {
-                return 'stockMin debe ser un entero mayor o igual a cero';
+            if (!$this->isNonNegativeDecimal($row['stockMin'])) {
+                return 'stockMin debe ser un número mayor o igual a cero (hasta 3 decimales)';
             }
 
-            $row['stockMin'] = (int) $row['stockMin'];
+            $row['stockMin'] = number_format((float) $row['stockMin'], 3, '.', '');
         }
 
         if (array_key_exists('invalid', $row)) {
@@ -241,5 +241,20 @@ class ProductCsvImportService
     private function isNonNegativeNumber(string $value): bool
     {
         return is_numeric($value) && (float) $value >= 0;
+    }
+
+    private function isNonNegativeDecimal(string $value): bool
+    {
+        if (!is_numeric($value)) {
+            return false;
+        }
+
+        if ((float) $value < 0) {
+            return false;
+        }
+
+        $parts = explode('.', $value);
+
+        return count($parts) === 1 || strlen($parts[1]) <= 3;
     }
 }
