@@ -8,6 +8,10 @@
 # https://symfony.com/doc/current/best_practices.html#use-parameters-for-application-configuration
 parameters:
     app.trial_duration_days: 30
+    app.mercadopago.access_token: '%env(MERCADOPAGO_ACCESS_TOKEN)%'
+    app.mercadopago.mode: '%env(MERCADOPAGO_MODE)%'
+    app.mercadopago.webhook_secret: '%env(MERCADOPAGO_WEBHOOK_SECRET)%'
+    app.billing.enabled: '%env(bool:APP_BILLING_ENABLED)%'
 
 services:
     # default configuration for services in *this* file
@@ -25,6 +29,12 @@ services:
 
     App\Service\SubscriptionContext:
         public: true
+
+    App\Service\MercadoPagoClient:
+        arguments:
+            $accessToken: '%app.mercadopago.access_token%'
+            $mode: '%app.mercadopago.mode%'
+            $webhookSecret: '%app.mercadopago.webhook_secret%'
 
     # add more service definitions when explicit configuration is needed
     # please note that last definitions always *replace* previous ones
