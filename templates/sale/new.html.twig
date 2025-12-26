@@ -17,21 +17,26 @@
             <div class="card shadow-sm p-4 mb-4" id="customer-step">
                 <form method="post" id="sale-form">
                     <div class="mb-4">
-                        <div class="d-flex justify-content-between align-items-center mb-2">
-                            <label class="form-label fw-semibold mb-0" for="customer-search">Cliente</label>
-                            <button type="button" class="btn btn-link p-0" id="customer-clear">Consumidor final</button>
-                        </div>
-                        <input type="search" id="customer-search" class="form-control" placeholder="Nombre o documento" autocomplete="off">
                         <input type="hidden" name="customer_id" id="customer-id" value="">
                         <input type="hidden" name="payment_method" id="payment-method" value="CASH">
                         <input type="hidden" name="cash_given" id="cash-given-input" value="">
-                        <div class="form-text">Elegí un cliente activo o continuá como consumidor final.</div>
-                        <div class="mt-2" id="customer-selection"></div>
-                        <div class="mt-3 list-group" id="customer-results"></div>
+                        <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 border rounded-3 px-3 py-2 bg-light">
+                            <div class="d-flex align-items-center gap-2" id="customer-selection"></div>
+                            <div class="d-flex align-items-center gap-2">
+                                <button type="button" class="btn btn-outline-primary btn-sm" id="customer-edit">Modificar cliente</button>
+                                <button type="button" class="btn btn-link btn-sm text-muted" id="customer-clear">Consumidor final</button>
+                            </div>
+                        </div>
                     </div>
 
-                    <div class="text-end">
-                        <button type="button" class="btn btn-primary" id="customer-continue">Continuar</button>
+                    <div class="mb-4 d-none" id="customer-panel">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <label class="form-label fw-semibold mb-0" for="customer-search">Seleccionar cliente</label>
+                            <button type="button" class="btn btn-link p-0" id="customer-cancel">Cerrar</button>
+                        </div>
+                        <input type="search" id="customer-search" class="form-control" placeholder="Nombre o documento" autocomplete="off">
+                        <div class="form-text">Elegí un cliente activo o continuá como consumidor final.</div>
+                        <div class="mt-3 list-group" id="customer-results"></div>
                     </div>
 
                     <div class="mt-4 d-none" id="sale-workspace">
@@ -86,7 +91,7 @@
                                         </div>
                                         <div class="d-flex justify-content-between gap-2">
                                             <a class="btn btn-outline-secondary" href="{{ path('app_dashboard') }}">Cancelar</a>
-                                            <button type="button" class="btn btn-primary btn-lg" id="confirm-sale" data-bs-toggle="modal" data-bs-target="#paymentModal">Confirmar venta</button>
+                                            <button type="button" class="btn btn-primary btn-lg" id="confirm-sale" data-bs-toggle="modal" data-bs-target="#paymentModal">Continuar al pago</button>
                                         </div>
                                     </div>
                                 </div>
@@ -153,6 +158,9 @@
             const customerSelection = document.getElementById('customer-selection');
             const customerField = document.getElementById('customer-id');
             const customerClear = document.getElementById('customer-clear');
+            const customerEdit = document.getElementById('customer-edit');
+            const customerPanel = document.getElementById('customer-panel');
+            const customerCancel = document.getElementById('customer-cancel');
             const paymentMethod = document.getElementById('payment-method');
             const paymentMethodModal = document.getElementById('payment-method-modal');
             const paymentHelp = document.getElementById('payment-help');
@@ -162,7 +170,6 @@
             const cashChange = document.getElementById('cash-change');
             const customerStep = document.getElementById('customer-step');
             const saleWorkspace = document.getElementById('sale-workspace');
-            const customerContinue = document.getElementById('customer-continue');
             const confirmSale = document.getElementById('confirm-sale');
             const finalizeSale = document.getElementById('finalize-sale');
             let currentTotal = 0;
@@ -215,7 +222,10 @@
 
             function renderCustomerSelection() {
                 if (!selectedCustomer) {
-                    customerSelection.innerHTML = '<span class="badge text-bg-secondary">Consumidor final</span>';
+                    customerSelection.innerHTML = `
+                        <span class="fw-semibold">Consumidor final</span>
+                        <span class="text-muted small">Sin cliente asignado</span>
+                    `;
                     customerField.value = '';
                     if (paymentMethodModal.value === 'ACCOUNT') {
                         paymentMethodModal.value = 'CASH';
@@ -226,26 +236,15 @@
                 }
 
                 customerSelection.innerHTML = `
-                    <div class="d-inline-flex align-items-center gap-2 px-3 py-2 rounded bg-light border">
-                        <div>
-                            <div class="fw-semibold">${selectedCustomer.name}</div>
-                            <div class="text-muted small">${selectedCustomer.document ? selectedCustomer.document : 'Sin documento'}</div>
-                        </div>
-                        <span class="badge text-bg-primary text-uppercase">${selectedCustomer.type.replace('_', ' ')}</span>
-                        <button type="button" class="btn btn-sm btn-link text-danger" id="customer-remove">Quitar</button>
+                    <div>
+                        <div class="fw-semibold">${selectedCustomer.name}</div>
+                        <div class="text-muted small">${selectedCustomer.document ? selectedCustomer.document : 'Sin documento'}</div>
                     </div>
+                    <span class="badge text-bg-primary text-uppercase">${selectedCustomer.type.replace('_', ' ')}</span>
                 `;
                 customerField.value = selectedCustomer.id;
                 paymentMethodModal.querySelector('option[value="ACCOUNT"]').disabled = false;
                 paymentHelp.textContent = 'Usá cuenta corriente solo con clientes activos.';
-
-                const removeBtn = document.getElementById('customer-remove');
-                if (removeBtn) {
-                    removeBtn.addEventListener('click', () => {
-                        selectedCustomer = null;
-                        renderCustomerSelection();
-                    });
-                }
             }
 
             function renderCustomerResults(term = '') {
@@ -475,10 +474,18 @@
                 customerResults.innerHTML = '';
                 renderCustomerSelection();
                 recalculatePrices();
+                customerPanel.classList.add('d-none');
             });
 
-            customerContinue.addEventListener('click', () => {
-                showWorkspace();
+            customerEdit.addEventListener('click', () => {
+                customerPanel.classList.toggle('d-none');
+                if (!customerPanel.classList.contains('d-none')) {
+                    customerSearch.focus();
+                }
+            });
+
+            customerCancel.addEventListener('click', () => {
+                customerPanel.classList.add('d-none');
             });
 
             searchInput.addEventListener('input', (event) => {
@@ -536,6 +543,7 @@
             renderCustomerSelection();
             renderResults('');
             syncPaymentMethod();
+            showWorkspace();
         });
     </script>
 {% endblock %}
