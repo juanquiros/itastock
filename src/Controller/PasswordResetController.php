@@ -6,6 +6,7 @@ use App\Entity\User;
 use App\Form\RequestPasswordResetType;
 use App\Form\ResetPasswordType;
 use App\Repository\UserRepository;
+use App\Service\TrialSubscriptionService;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bridge\Twig\Mime\TemplatedEmail;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -73,6 +74,7 @@ class PasswordResetController extends AbstractController
         UserRepository $userRepository,
         EntityManagerInterface $entityManager,
         UserPasswordHasherInterface $passwordHasher,
+        TrialSubscriptionService $trialSubscriptionService,
     ): Response {
         $user = $userRepository->findOneByResetToken($token);
 
@@ -90,6 +92,7 @@ class PasswordResetController extends AbstractController
             $user->setPassword($hashedPassword);
             $user->setResetToken(null);
             $user->setResetRequestedAt(null);
+            $trialSubscriptionService->startTrialIfNeeded($user);
 
             $entityManager->flush();
 

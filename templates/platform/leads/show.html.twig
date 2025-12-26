@@ -5,6 +5,11 @@
 {% block body %}
     <div class="mb-3">
         <a class="btn btn-outline-secondary" href="{{ path('platform_leads_index') }}">Volver</a>
+        {% if lead.source == 'demo' and not lead.isArchived %}
+            <form method="post" action="{{ path('platform_leads_create_demo', {id: lead.id}) }}" class="d-inline">
+                <button class="btn btn-primary" type="submit">Crear demo</button>
+            </form>
+        {% endif %}
     </div>
     <dl class="row">
         <dt class="col-sm-3">Fecha</dt><dd class="col-sm-9">{{ lead.createdAt|date('Y-m-d H:i') }}</dd>

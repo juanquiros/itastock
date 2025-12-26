@@ -22,6 +22,13 @@
                 {% endfor %}
             </select>
         </div>
+        <div class="col-md-2">
+            <label class="form-label">Requiere acción</label>
+            <div class="form-check mt-1">
+                <input class="form-check-input" type="checkbox" name="requires_action" value="1" id="requires_action" {{ filters.requires_action ? 'checked' : '' }}>
+                <label class="form-check-label" for="requires_action">Sí</label>
+            </div>
+        </div>
         <div class="col-md-2 d-grid">
             <button class="btn btn-outline-primary" type="submit">Filtrar</button>
         </div>
@@ -36,19 +43,25 @@
                     <th>Estado</th>
                     <th>Inicio</th>
                     <th>Trial hasta</th>
+                    <th>Fin</th>
+                    <th>READONLY efectivo</th>
                 </tr>
             </thead>
             <tbody>
                 {% for subscription in subscriptions %}
+                    {% set readonlyEffective = subscription.status in ['PAST_DUE', 'SUSPENDED', 'CANCELED']
+                        or (subscription.status == 'TRIAL' and subscription.trialEndsAt and subscription.trialEndsAt <= now) %}
                     <tr>
                         <td><a href="{{ path('platform_business_show', {id: subscription.business.id}) }}">{{ subscription.business.name }}</a></td>
                         <td>{{ subscription.plan.name }}</td>
                         <td>{{ subscription.status }}</td>
                         <td>{{ subscription.startAt|date('Y-m-d') }}</td>
                         <td>{{ subscription.trialEndsAt ? subscription.trialEndsAt|date('Y-m-d') : '—' }}</td>
+                        <td>{{ subscription.endAt ? subscription.endAt|date('Y-m-d') : '—' }}</td>
+                        <td>{{ readonlyEffective ? 'Sí' : 'No' }}</td>
                     </tr>
                 {% else %}
-                    <tr><td colspan="5">Sin suscripciones.</td></tr>
+                    <tr><td colspan="7">Sin suscripciones.</td></tr>
                 {% endfor %}
             </tbody>
         </table>

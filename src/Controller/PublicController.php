@@ -5,7 +5,9 @@ namespace App\Controller;
 use App\Entity\Lead;
 use App\Entity\Plan;
 use App\Entity\PublicPage;
+use App\Form\LeadDemoType;
 use App\Form\LeadType;
+use App\Repository\LeadRepository;
 use App\Repository\PlanRepository;
 use App\Repository\PublicPageRepository;
 use Doctrine\ORM\EntityManagerInterface;
@@ -20,15 +22,57 @@ class PublicController extends AbstractController
         private readonly PublicPageRepository $publicPageRepository,
         private readonly PlanRepository $planRepository,
         private readonly EntityManagerInterface $entityManager,
+        private readonly LeadRepository $leadRepository,
     ) {
     }
 
-    #[Route('/', name: 'public_home', methods: ['GET'])]
-    public function home(): Response
+    #[Route('/', name: 'public_home', methods: ['GET', 'POST'])]
+    public function home(Request $request): Response
     {
         $page = $this->publicPageRepository->findPublishedBySlug('home');
+        if ($page === null) {
+            $response = $this->render('public/page_placeholder.html.twig', [
+                'title' => 'Home',
+                'message' => 'En construcción',
+            ]);
+            $response->setStatusCode(Response::HTTP_NOT_FOUND);
 
-        return $this->renderPublicPage($page, 'Home');
+            return $response;
+        }
+
+        $lead = new Lead();
+        $form = $this->createForm(LeadDemoType::class, $lead);
+        $form->handleRequest($request);
+        $demoSubmitted = false;
+
+        if ($form->isSubmitted() && $form->isValid()) {
+            $email = mb_strtolower((string) $lead->getEmail());
+            $existing = $this->leadRepository->findOneBy([
+                'email' => $email,
+                'source' => 'demo',
+                'isArchived' => false,
+            ]);
+
+            if ($existing) {
+                $this->addFlash('info', 'Ya recibimos tu solicitud. Revisá tu correo.');
+            } else {
+                $lead->setEmail($email);
+                $lead->setSource('demo');
+                $lead->setMessage('Solicitud de demo desde la landing.');
+                $lead->setCreatedAt(new \DateTimeImmutable());
+                $lead->setName($this->resolveLeadName($lead, $email));
+                $this->entityManager->persist($lead);
+                $this->entityManager->flush();
+                $this->addFlash('success', '¡Gracias! Recibimos tu solicitud de demo.');
+                $demoSubmitted = true;
+            }
+        }
+
+        return $this->render('public/home.html.twig', [
+            'page' => $page,
+            'demoForm' => $form->createView(),
+            'demoSubmitted' => $demoSubmitted,
+        ]);
     }
 
     #[Route('/features', name: 'public_features', methods: ['GET'])]
@@ -121,5 +165,17 @@ class PublicController extends AbstractController
         return $this->render('public/page.html.twig', [
             'page' => $page,
         ]);
+    }
+
+    private function resolveLeadName(Lead $lead, string $email): string
+    {
+        $name = trim((string) $lead->getName());
+        if ($name !== '') {
+            return $name;
+        }
+
+        $prefix = strstr($email, '@', true);
+
+        return $prefix ? ucfirst($prefix) : 'Demo';
     }
 }

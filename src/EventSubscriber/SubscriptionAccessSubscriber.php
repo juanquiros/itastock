@@ -2,8 +2,8 @@
 
 namespace App\EventSubscriber;
 
-use App\Entity\Subscription;
 use App\Service\SubscriptionContext;
+use App\Service\SubscriptionAccessResolver;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -17,10 +17,6 @@ use Symfony\Component\Routing\RouterInterface;
 
 class SubscriptionAccessSubscriber implements EventSubscriberInterface
 {
-    public const MODE_FULL = 'FULL';
-    public const MODE_READONLY = 'READONLY';
-    public const MODE_BLOCKED = 'BLOCKED';
-
     private const BYPASS_ROUTES = [
         'public_home',
         'public_features',
@@ -57,6 +53,7 @@ class SubscriptionAccessSubscriber implements EventSubscriberInterface
 
     public function __construct(
         private readonly SubscriptionContext $subscriptionContext,
+        private readonly SubscriptionAccessResolver $accessResolver,
         private readonly RouterInterface $router,
         private readonly Security $security,
         private readonly string $environment,
@@ -86,14 +83,17 @@ class SubscriptionAccessSubscriber implements EventSubscriberInterface
         }
 
         $subscription = $this->subscriptionContext->getCurrentSubscription($user);
-        $mode = $this->resolveMode($subscription);
+        $access = $this->accessResolver->resolve($subscription);
+        $mode = $access['mode'];
         $request->attributes->set('_subscription_access_mode', $mode);
+        $request->attributes->set('_subscription_access_reason', $access['reason']);
+        $request->attributes->set('_subscription_access_ends_at', $access['endsAt']);
 
-        if ($mode === self::MODE_FULL) {
+        if ($mode === SubscriptionAccessResolver::MODE_FULL) {
             return;
         }
 
-        if ($mode === self::MODE_READONLY && in_array($route, self::READONLY_ALLOWED_ROUTES, true)) {
+        if ($mode === SubscriptionAccessResolver::MODE_READONLY && in_array($route, self::READONLY_ALLOWED_ROUTES, true)) {
             return;
         }
 
@@ -143,38 +143,6 @@ class SubscriptionAccessSubscriber implements EventSubscriberInterface
         return in_array($route, self::BYPASS_ROUTES, true);
     }
 
-    private function resolveMode(?Subscription $subscription): string
-    {
-        if (!$subscription) {
-            return self::MODE_BLOCKED;
-        }
-
-        $status = $subscription->getStatus();
-        if ($status === Subscription::STATUS_TRIAL) {
-            $trialEndsAt = $subscription->getTrialEndsAt();
-            if (!$trialEndsAt) {
-                return self::MODE_BLOCKED;
-            }
-
-            return $trialEndsAt > new \DateTimeImmutable() ? self::MODE_FULL : self::MODE_READONLY;
-        }
-
-        if ($status === Subscription::STATUS_ACTIVE) {
-            return self::MODE_FULL;
-        }
-
-        // For past-due or canceled states, default to READONLY even if endAt is missing.
-        if (in_array(
-            $status,
-            [Subscription::STATUS_PAST_DUE, Subscription::STATUS_SUSPENDED, Subscription::STATUS_CANCELED],
-            true
-        )) {
-            return self::MODE_READONLY;
-        }
-
-        return self::MODE_BLOCKED;
-    }
-
     private function shouldReturnForbidden(Request $request): bool
     {
         if ($request->isXmlHttpRequest()) {
@@ -189,8 +157,8 @@ class SubscriptionAccessSubscriber implements EventSubscriberInterface
         if ($request->isXmlHttpRequest() || str_contains((string) $request->headers->get('Accept'), 'application/json')) {
             return new JsonResponse(
                 [
-                    'error' => $mode === self::MODE_READONLY ? 'subscription_readonly' : 'subscription_blocked',
-                    'message' => $mode === self::MODE_READONLY
+                    'error' => $mode === SubscriptionAccessResolver::MODE_READONLY ? 'subscription_readonly' : 'subscription_blocked',
+                    'message' => $mode === SubscriptionAccessResolver::MODE_READONLY
                         ? 'La cuenta está en modo solo lectura.'
                         : 'La cuenta está bloqueada.',
                 ],
@@ -203,7 +171,7 @@ class SubscriptionAccessSubscriber implements EventSubscriberInterface
 
     private function addReadonlyFlash(Request $request, string $mode): void
     {
-        if ($mode !== self::MODE_READONLY) {
+        if ($mode !== SubscriptionAccessResolver::MODE_READONLY) {
             return;
         }
 

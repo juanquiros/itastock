@@ -2,12 +2,22 @@
 
 namespace App\Controller\Platform;
 
+use App\Entity\Business;
+use App\Entity\Subscription;
+use App\Entity\User;
 use App\Repository\LeadRepository;
+use App\Repository\PlanRepository;
+use App\Repository\UserRepository;
 use Doctrine\ORM\EntityManagerInterface;
+use Symfony\Bridge\Twig\Mime\TemplatedEmail;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\Mailer\MailerInterface;
+use Symfony\Component\Mime\Address;
 use Symfony\Component\Routing\Annotation\Route;
+use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
+use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 
 #[IsGranted('ROLE_PLATFORM_ADMIN')]
@@ -62,5 +72,120 @@ class PlatformLeadController extends AbstractController
         return $this->render('platform/leads/show.html.twig', [
             'lead' => $lead,
         ]);
+    }
+
+    #[Route('/{id}/create-demo', name: 'platform_leads_create_demo', methods: ['POST'])]
+    public function createDemo(
+        int $id,
+        LeadRepository $leadRepository,
+        UserRepository $userRepository,
+        PlanRepository $planRepository,
+        EntityManagerInterface $entityManager,
+        UserPasswordHasherInterface $passwordHasher,
+        MailerInterface $mailer,
+        UrlGeneratorInterface $urlGenerator,
+    ): Response {
+        $lead = $leadRepository->find($id);
+        if (!$lead || $lead->getSource() !== 'demo' || $lead->isArchived()) {
+            $this->addFlash('danger', 'No se puede crear la demo para este lead.');
+
+            return $this->redirectToRoute('platform_leads_index');
+        }
+
+        $email = mb_strtolower((string) $lead->getEmail());
+        $existingUser = $userRepository->findOneBy(['email' => $email]);
+        if ($existingUser) {
+            $lead->setIsArchived(true);
+            $entityManager->flush();
+            $this->addFlash('danger', 'Ya existe un usuario con este correo.');
+
+            return $this->redirectToRoute('platform_leads_show', ['id' => $lead->getId()]);
+        }
+
+        $plan = $this->resolveDemoPlan($planRepository);
+        if (!$plan) {
+            $this->addFlash('danger', 'No hay planes activos para asignar la demo.');
+
+            return $this->redirectToRoute('platform_leads_show', ['id' => $lead->getId()]);
+        }
+
+        $business = new Business();
+        $business->setName($this->resolveBusinessName($lead, $email));
+
+        $user = new User();
+        $user->setEmail($email);
+        $user->setFullName($lead->getName() ?: $business->getName());
+        $user->setRoles(['ROLE_ADMIN']);
+        $user->setBusiness($business);
+        $temporaryPassword = bin2hex(random_bytes(16));
+        $user->setPassword($passwordHasher->hashPassword($user, $temporaryPassword));
+
+        $token = bin2hex(random_bytes(32));
+        $user->setResetToken($token);
+        $user->setResetRequestedAt(new \DateTimeImmutable());
+
+        $subscription = new Subscription();
+        $subscription->setBusiness($business);
+        $subscription->setPlan($plan);
+        $subscription->setStatus(Subscription::STATUS_TRIAL);
+        $subscription->setStartAt(new \DateTimeImmutable());
+        $subscription->setTrialEndsAt(null);
+
+        $business->setSubscription($subscription);
+        $lead->setIsArchived(true);
+
+        $entityManager->persist($business);
+        $entityManager->persist($user);
+        $entityManager->persist($subscription);
+        $entityManager->flush();
+
+        $resetUrl = $urlGenerator->generate('app_password_reset', ['token' => $token], UrlGeneratorInterface::ABSOLUTE_URL);
+
+        $emailMessage = (new TemplatedEmail())
+            ->from(new Address('no-reply@itastock.test', 'ItaStock'))
+            ->to($email)
+            ->subject('Tu demo de ItaStock: configurá tu contraseña')
+            ->htmlTemplate('emails/demo_set_password.html.twig')
+            ->context([
+                'resetUrl' => $resetUrl,
+                'user' => $user,
+                'business' => $business,
+            ]);
+
+        $mailer->send($emailMessage);
+
+        $this->addFlash('success', 'Demo creada y email enviado.');
+
+        return $this->redirectToRoute('platform_leads_show', ['id' => $lead->getId()]);
+    }
+
+    private function resolveDemoPlan(PlanRepository $planRepository): ?\App\Entity\Plan
+    {
+        $plan = $planRepository->findOneBy(['code' => 'demo']);
+        if ($plan) {
+            return $plan;
+        }
+
+        $plan = $planRepository->findOneBy(['code' => 'trial']);
+        if ($plan) {
+            return $plan;
+        }
+
+        $activePlans = $planRepository->findActiveOrdered();
+
+        // Fall back to the cheapest active plan (first in ordered list) when no demo/trial plan exists.
+        return $activePlans[0] ?? null;
+    }
+
+    private function resolveBusinessName(\App\Entity\Lead $lead, string $email): string
+    {
+        $name = trim((string) $lead->getName());
+        if ($name !== '') {
+            return $name;
+        }
+
+        $prefix = strstr($email, '@', true);
+
+        return $prefix ? ucfirst($prefix) : 'Demo';
     }
 }

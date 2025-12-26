@@ -22,6 +22,8 @@ class PlatformSubscriptionController extends AbstractController
     {
         $status = $request->query->get('status');
         $planId = $request->query->get('plan');
+        $requiresAction = $request->query->getBoolean('requires_action');
+        $now = new \DateTimeImmutable();
 
         $qb = $subscriptionRepository->createQueryBuilder('s')
             ->leftJoin('s.plan', 'p')->addSelect('p')
@@ -34,11 +36,22 @@ class PlatformSubscriptionController extends AbstractController
         if ($planId) {
             $qb->andWhere('p.id = :planId')->setParameter('planId', $planId);
         }
+        if ($requiresAction) {
+            $qb->andWhere('(s.status IN (:readonlyStatuses)) OR (s.status = :trialStatus AND s.trialEndsAt <= :now)')
+                ->setParameter('readonlyStatuses', [
+                    Subscription::STATUS_PAST_DUE,
+                    Subscription::STATUS_SUSPENDED,
+                    Subscription::STATUS_CANCELED,
+                ])
+                ->setParameter('trialStatus', Subscription::STATUS_TRIAL)
+                ->setParameter('now', $now);
+        }
 
         return $this->render('platform/subscriptions/index.html.twig', [
             'subscriptions' => $qb->getQuery()->getResult(),
-            'filters' => ['status' => $status, 'plan' => $planId],
+            'filters' => ['status' => $status, 'plan' => $planId, 'requires_action' => $requiresAction],
             'plans' => $planRepository->findBy([], ['name' => 'ASC']),
+            'now' => $now,
         ]);
     }
 

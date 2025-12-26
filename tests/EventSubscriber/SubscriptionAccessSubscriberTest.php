@@ -5,6 +5,7 @@ namespace App\Tests\EventSubscriber;
 use App\Entity\Subscription;
 use App\Entity\User;
 use App\EventSubscriber\SubscriptionAccessSubscriber;
+use App\Service\SubscriptionAccessResolver;
 use App\Service\SubscriptionContext;
 use PHPUnit\Framework\TestCase;
 use Symfony\Bundle\SecurityBundle\Security;
@@ -97,7 +98,9 @@ class SubscriptionAccessSubscriberTest extends TestCase
             ->with('app_subscription_blocked')
             ->willReturn('/app/subscription/blocked');
 
-        return new SubscriptionAccessSubscriber($subscriptionContext, $router, $security, 'test');
+        $accessResolver = new SubscriptionAccessResolver();
+
+        return new SubscriptionAccessSubscriber($subscriptionContext, $accessResolver, $router, $security, 'test');
     }
 
     private function createRequest(string $route, string $method): Request
