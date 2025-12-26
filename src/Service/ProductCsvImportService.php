@@ -127,7 +127,9 @@ class ProductCsvImportService
             $values[$name] = $row[$index] !== null ? trim((string) $row[$index]) : null;
         }
 
-        if ($values['sku'] === null || $values['name'] === null || $values['basePrice'] === null) {
+        $basePrice = $values['basePrice'] ?? null;
+
+        if ($values['sku'] === null || $values['name'] === null || $basePrice === null) {
             return null;
         }
 
@@ -156,7 +158,7 @@ class ProductCsvImportService
             'name' => $values['name'],
             'barcode' => $values['barcode'] ?: null,
             'cost' => $values['cost'] !== null && $values['cost'] !== '' ? $values['cost'] : null,
-            'basePrice' => $values['basePrice'],
+            'basePrice' => $basePrice,
             'stockMin' => $values['stockMin'] !== null && $values['stockMin'] !== '' ? $values['stockMin'] : null,
             'isActive' => $isActive,
         ];
@@ -224,7 +226,19 @@ class ProductCsvImportService
                 continue;
             }
 
-            $map[strtolower(trim((string) $column))] = $index;
+            $normalized = strtolower(trim((string) $column));
+            $key = match ($normalized) {
+                'sku' => 'sku',
+                'barcode', 'bar_code' => 'barcode',
+                'name' => 'name',
+                'cost' => 'cost',
+                'baseprice', 'base_price', 'base price' => 'basePrice',
+                'stockmin', 'stock_min', 'stock min' => 'stockMin',
+                'isactive', 'is_active', 'active' => 'isActive',
+                default => $normalized,
+            };
+
+            $map[$key] = $index;
         }
 
         return $map;
@@ -235,7 +249,7 @@ class ProductCsvImportService
      */
     private function hasRequiredColumns(array $header): bool
     {
-        return isset($header['sku'], $header['name'], $header['baseprice']);
+        return isset($header['sku'], $header['name'], $header['basePrice']);
     }
 
     private function isNonNegativeNumber(string $value): bool
