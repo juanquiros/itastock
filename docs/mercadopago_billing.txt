@@ -1,0 +1,13 @@
+Mercado Pago billing
+
+Variables de entorno:
+- MERCADOPAGO_ACCESS_TOKEN
+- MERCADOPAGO_MODE (sandbox|prod)
+- MERCADOPAGO_WEBHOOK_SECRET
+- APP_BILLING_ENABLED (1/0)
+
+Flujo de planes:
+1) Crear un plan de billing desde Plataforma > Planes billing.
+2) Si el plan se crea como activo, se envía a Mercado Pago para generar el preapproval_plan.
+3) Si la sincronización falla, el plan queda inactivo y sin mpPreapprovalPlanId.
+4) El listado muestra el estado de sincronización (Sincronizado/Pendiente).
