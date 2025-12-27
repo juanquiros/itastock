@@ -1,0 +1,21 @@
+Mercado Pago webhooks
+
+Endpoint:
+- POST /webhooks/mercadopago (public_mercadopago_webhook)
+
+Notas:
+- El webhook guarda el evento y consulta el preapproval real con Mercado Pago.
+- El estado interno se actualiza según el status recibido (ACTIVE, CANCELED, SUSPENDED, PAST_DUE).
+
+Ejemplos de prueba (simulación local):
+
+1) Evento simple con resource_id
+curl -X POST http://localhost:8000/webhooks/mercadopago \
+  -H 'Content-Type: application/json' \
+  -d '{"id": "evt_123", "resource_id": "preapproval_456"}'
+
+2) Evento estándar con data.id
+curl -X POST http://localhost:8000/webhooks/mercadopago \
+  -H 'Content-Type: application/json' \
+  -H 'X-Request-Id: test-req' \
+  -d '{"id": "evt_999", "type": "preapproval", "data": {"id": "preapproval_789"}}'

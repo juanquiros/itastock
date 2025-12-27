@@ -1,0 +1,53 @@
+{% extends 'platform/base_platform.html.twig' %}
+
+{% block header_title %}Planes de billing{% endblock %}
+
+{% block body %}
+    <div class="mb-3">
+        <a class="btn btn-primary" href="{{ path('platform_billing_plans_new') }}">Nuevo plan</a>
+    </div>
+    <div class="table-responsive">
+        <table class="table align-middle">
+            <thead>
+                <tr>
+                    <th>Nombre</th>
+                    <th>Precio</th>
+                    <th>Moneda</th>
+                    <th>Frecuencia</th>
+                    <th>Activo</th>
+                    <th>Sync MP</th>
+                    <th class="text-end">Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for plan in plans %}
+                    <tr>
+                        <td>{{ plan.name }}</td>
+                        <td>${{ plan.price|number_format(2, ',', '.') }}</td>
+                        <td>{{ plan.currency }}</td>
+                        <td>{{ plan.frequency }} {{ plan.frequencyType }}</td>
+                        <td>{{ plan.isActive ? 'Sí' : 'No' }}</td>
+                        <td>
+                            {% if plan.mpPreapprovalPlanId %}
+                                <span class="badge text-bg-success">Sincronizado</span>
+                            {% else %}
+                                <span class="badge text-bg-secondary">Pendiente</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-end d-flex gap-2 justify-content-end">
+                            <a class="btn btn-sm btn-outline-secondary" href="{{ path('platform_billing_plans_edit', {id: plan.id}) }}">Editar</a>
+                            <form method="post" action="{{ path('platform_billing_plans_toggle', {id: plan.id}) }}">
+                                <input type="hidden" name="_token" value="{{ csrf_token('toggle_billing_plan_' ~ plan.id) }}">
+                                <button class="btn btn-sm btn-outline-{{ plan.isActive ? 'warning' : 'success' }}" type="submit">
+                                    {{ plan.isActive ? 'Desactivar' : 'Activar' }}
+                                </button>
+                            </form>
+                        </td>
+                    </tr>
+                {% else %}
+                    <tr><td colspan="7">Sin planes.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+{% endblock %}

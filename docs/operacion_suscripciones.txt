@@ -1,0 +1,14 @@
+Operación de suscripciones
+
+Acciones self-service (Mi suscripción):
+- Pausar: envía update de preapproval con status=paused y sincroniza el estado local.
+- Reactivar: envía update de preapproval con status=authorized y sincroniza el estado local.
+- Cancelar: envía cancelación de preapproval y sincroniza el estado local.
+
+Backoffice (Plataforma > Suscripciones):
+- Resync: consulta Mercado Pago por preapprovalId y actualiza status/payer/plan/local.
+- Override: fuerza el modo de acceso (FULL/READONLY/BLOCKED) hasta una fecha determinada.
+
+Notas:
+- El override tiene prioridad sobre el status mientras la fecha de override_until sea futura.
+- El status se actualiza solo con datos verificados desde Mercado Pago.

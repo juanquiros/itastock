@@ -31,6 +31,13 @@ class SubscriptionAccessSubscriber implements EventSubscriberInterface
         'app_password_request',
         'app_password_reset',
         'app_subscription_blocked',
+        'app_billing_subscription_show',
+        'app_billing_subscription_choose',
+        'app_billing_return',
+        'app_billing_pause',
+        'app_billing_reactivate',
+        'app_billing_cancel',
+        'public_mercadopago_webhook',
         '_wdt',
         '_profiler',
     ];

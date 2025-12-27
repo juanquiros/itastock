@@ -1,0 +1,115 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Mi suscripción{% endblock %}
+
+{% block body %}
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h3 mb-1">Mi suscripción</h1>
+            <p class="text-muted mb-0">Estado actual y planes disponibles.</p>
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <div class="col-lg-5">
+            <div class="card shadow-sm">
+                <div class="card-body">
+                    <h2 class="h5">Estado actual</h2>
+                    {% if subscription %}
+                        <dl class="row mb-0">
+                            <dt class="col-5">Plan actual</dt>
+                            <dd class="col-7">{{ subscription.plan.name }}</dd>
+                            <dt class="col-5">Estado</dt>
+                            <dd class="col-7">{{ subscription.status }}</dd>
+                            <dt class="col-5">Trial hasta</dt>
+                            <dd class="col-7">
+                                {% if subscription.trialEndsAt %}
+                                    {{ subscription.trialEndsAt|date('d/m/Y') }}
+                                {% else %}
+                                    —
+                                {% endif %}
+                            </dd>
+                            <dt class="col-5">Fin del ciclo</dt>
+                            <dd class="col-7">
+                                {% if subscription.endAt %}
+                                    {{ subscription.endAt|date('d/m/Y') }}
+                                {% else %}
+                                    —
+                                {% endif %}
+                            </dd>
+                            <dt class="col-5">Modo acceso</dt>
+                            <dd class="col-7">
+                                <span class="badge text-bg-{{ access.mode == 'FULL' ? 'success' : (access.mode == 'READONLY' ? 'warning' : 'danger') }}">
+                                    {{ access.mode }}
+                                </span>
+                            </dd>
+                        </dl>
+                        <div class="d-flex flex-wrap gap-2 mt-3">
+                            <form method="post" action="{{ path('app_billing_pause') }}">
+                                <input type="hidden" name="_token" value="{{ csrf_token('billing_subscription_action') }}">
+                                <button class="btn btn-outline-warning btn-sm" type="submit">Pausar</button>
+                            </form>
+                            <form method="post" action="{{ path('app_billing_reactivate') }}">
+                                <input type="hidden" name="_token" value="{{ csrf_token('billing_subscription_action') }}">
+                                <button class="btn btn-outline-success btn-sm" type="submit">Reactivar</button>
+                            </form>
+                            <form method="post" action="{{ path('app_billing_cancel') }}">
+                                <input type="hidden" name="_token" value="{{ csrf_token('billing_subscription_action') }}">
+                                <button class="btn btn-outline-danger btn-sm" type="submit">Cancelar</button>
+                            </form>
+                        </div>
+                    {% else %}
+                        <p class="mb-0">No hay suscripción asociada al comercio.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-7">
+            <div class="card shadow-sm">
+                <div class="card-body">
+                    <h2 class="h5">Planes disponibles</h2>
+                    <p class="text-muted">Elegí un plan para iniciar el alta en Mercado Pago.</p>
+                    <div class="table-responsive">
+                        <table class="table align-middle">
+                            <thead>
+                                <tr>
+                                    <th>Plan</th>
+                                    <th>Precio</th>
+                                    <th>Frecuencia</th>
+                                    <th>Sync MP</th>
+                                    <th class="text-end">Acción</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for plan in billingPlans %}
+                                    <tr>
+                                        <td>{{ plan.name }}</td>
+                                        <td>${{ plan.price|number_format(2, ',', '.') }} {{ plan.currency }}</td>
+                                        <td>{{ plan.frequency }} {{ plan.frequencyType }}</td>
+                                        <td>
+                                            {% if plan.mpPreapprovalPlanId %}
+                                                <span class="badge text-bg-success">Listo</span>
+                                            {% else %}
+                                                <span class="badge text-bg-secondary">Pendiente</span>
+                                            {% endif %}
+                                        </td>
+                                        <td class="text-end">
+                                            <form method="post" action="{{ path('app_billing_subscription_choose', {id: plan.id}) }}">
+                                                <input type="hidden" name="_token" value="{{ csrf_token('choose_billing_plan_' ~ plan.id) }}">
+                                                <button class="btn btn-sm btn-primary" type="submit" {% if not plan.mpPreapprovalPlanId %}disabled{% endif %}>
+                                                    Elegir plan
+                                                </button>
+                                            </form>
+                                        </td>
+                                    </tr>
+                                {% else %}
+                                    <tr><td colspan="5">No hay planes activos disponibles.</td></tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+{% endblock %}
