@@ -81,6 +81,16 @@ class MercadoPagoWebhookController extends AbstractController
                 $payment = $mercadoPagoClient->getPayment($resourceId);
                 $preapprovalId = $this->extractPreapprovalIdFromPayment($payment);
                 if (!$preapprovalId) {
+                    $externalReference = $payment['external_reference'] ?? null;
+                    if (is_string($externalReference) && ctype_digit($externalReference)) {
+                        $subscription = $subscriptionRepository->find((int) $externalReference);
+                        if ($subscription?->getMpPreapprovalId()) {
+                            $preapprovalId = $subscription->getMpPreapprovalId();
+                        }
+                    }
+                }
+
+                if (!$preapprovalId) {
                     $event->setProcessedAt(new \DateTimeImmutable());
                     $entityManager->flush();
 
