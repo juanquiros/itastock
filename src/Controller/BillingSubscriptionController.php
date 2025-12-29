@@ -72,10 +72,9 @@ class BillingSubscriptionController extends AbstractController
         $payerEmail = $this->getUser()?->getUserIdentifier();
 
         try {
-            $response = $mercadoPagoClient->createPreapproval([
+            $response = $mercadoPagoClient->createPreapprovalCheckout([
                 'preapproval_plan_id' => $billingPlan->getMpPreapprovalPlanId(),
                 'reason' => $billingPlan->getName(),
-                'status' => 'pending',
                 'payer_email' => $payerEmail,
                 'external_reference' => (string) $subscription->getId(),
                 'back_url' => $this->generateUrl('app_billing_return', [], UrlGeneratorInterface::ABSOLUTE_URL),

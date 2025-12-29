@@ -35,6 +35,11 @@ class MercadoPagoClient
         return $this->request('POST', '/preapproval', $payload);
     }
 
+    public function createPreapprovalCheckout(array $payload): array
+    {
+        return $this->request('POST', '/preapproval/checkout', $payload);
+    }
+
     public function getPreapproval(string $preapprovalId): array
     {
         return $this->request('GET', sprintf('/preapproval/%s', $preapprovalId));
