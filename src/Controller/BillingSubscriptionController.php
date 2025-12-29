@@ -78,15 +78,19 @@ class BillingSubscriptionController extends AbstractController
 
         try {
             $response = $mercadoPagoClient->createPreapproval([
-                'preapproval_plan_id' => $billingPlan->getMpPreapprovalPlanId(),
                 'reason' => $billingPlan->getName(),
-                'status' => 'pending',
                 'payer_email' => $payerEmail,
                 'payer' => [
                     'email' => $payerEmail,
                 ],
                 'external_reference' => (string) $subscription->getId(),
                 'back_url' => $this->generateUrl('app_billing_return', [], UrlGeneratorInterface::ABSOLUTE_URL),
+                'auto_recurring' => [
+                    'frequency' => $billingPlan->getFrequency(),
+                    'frequency_type' => $billingPlan->getFrequencyType(),
+                    'transaction_amount' => (float) $billingPlan->getPrice(),
+                    'currency_id' => $billingPlan->getCurrency(),
+                ],
             ]);
         } catch (MercadoPagoApiException $exception) {
             $this->addFlash('danger', sprintf('Error al iniciar la suscripción en Mercado Pago: %s', $exception->getMessage()));
@@ -112,7 +116,6 @@ class BillingSubscriptionController extends AbstractController
 
         $subscription
             ->setMpPreapprovalId((string) $response['id'])
-            ->setMpPreapprovalPlanId($billingPlan->getMpPreapprovalPlanId())
             ->setPayerEmail($payerEmail)
             ->setLastSyncedAt(new \DateTimeImmutable())
             ->setStatus(Subscription::STATUS_PENDING)
