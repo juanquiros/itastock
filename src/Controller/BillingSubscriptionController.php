@@ -70,6 +70,11 @@ class BillingSubscriptionController extends AbstractController
         }
 
         $payerEmail = $this->getUser()?->getUserIdentifier();
+        if (!$payerEmail) {
+            $this->addFlash('danger', 'No se pudo determinar el email del pagador.');
+
+            return $this->redirectToRoute('app_billing_subscription_show');
+        }
 
         try {
             $response = $mercadoPagoClient->createPreapproval([
@@ -77,6 +82,9 @@ class BillingSubscriptionController extends AbstractController
                 'reason' => $billingPlan->getName(),
                 'status' => 'pending',
                 'payer_email' => $payerEmail,
+                'payer' => [
+                    'email' => $payerEmail,
+                ],
                 'external_reference' => (string) $subscription->getId(),
                 'back_url' => $this->generateUrl('app_billing_return', [], UrlGeneratorInterface::ABSOLUTE_URL),
             ]);
