@@ -13,6 +13,7 @@ use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Annotation\Route;
+use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 
 #[IsGranted('ROLE_PLATFORM_ADMIN')]
@@ -32,6 +33,7 @@ class PlatformBillingPlanController extends AbstractController
         Request $request,
         EntityManagerInterface $entityManager,
         MercadoPagoClient $mercadoPagoClient,
+        UrlGeneratorInterface $urlGenerator,
     ): Response {
         $plan = new BillingPlan();
         $form = $this->createForm(BillingPlanType::class, $plan);
@@ -42,6 +44,7 @@ class PlatformBillingPlanController extends AbstractController
                 try {
                     $response = $mercadoPagoClient->createPreapprovalPlan([
                         'reason' => $plan->getName(),
+                        'back_url' => $urlGenerator->generate('app_billing_return', [], UrlGeneratorInterface::ABSOLUTE_URL),
                         'auto_recurring' => [
                             'frequency' => $plan->getFrequency(),
                             'frequency_type' => $plan->getFrequencyType(),
