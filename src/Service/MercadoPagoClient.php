@@ -37,7 +37,7 @@ class MercadoPagoClient
 
     public function createPreapprovalCheckout(string $planId, array $payload): array
     {
-        return $this->request('PUT', sprintf('/preapproval_plan/%s/checkout', $planId), $payload);
+        return $this->request('GET', sprintf('/preapproval_plan/%s/checkout', $planId), null, $payload);
     }
 
     public function getPreapproval(string $preapprovalId): array
@@ -55,7 +55,7 @@ class MercadoPagoClient
         return $this->updatePreapproval($preapprovalId, ['status' => 'cancelled']);
     }
 
-    private function request(string $method, string $path, ?array $payload = null): array
+    private function request(string $method, string $path, ?array $payload = null, ?array $query = null): array
     {
         $correlationId = bin2hex(random_bytes(16));
         $url = sprintf('%s%s', self::BASE_URL, $path);
@@ -69,6 +69,10 @@ class MercadoPagoClient
 
         if ($payload !== null) {
             $options['json'] = $payload;
+        }
+
+        if ($query !== null) {
+            $options['query'] = $query;
         }
 
         $this->logger->info('Mercado Pago request', [
