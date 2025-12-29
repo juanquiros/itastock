@@ -80,6 +80,7 @@ class MercadoPagoWebhookController extends AbstractController
             if ($resourceType === 'payment') {
                 $payment = $mercadoPagoClient->getPayment($resourceId);
                 $preapprovalId = $this->extractPreapprovalIdFromPayment($payment);
+                $subscription = null;
                 if (!$preapprovalId) {
                     $externalReference = $payment['external_reference'] ?? null;
                     if (is_string($externalReference) && ctype_digit($externalReference)) {
@@ -88,6 +89,21 @@ class MercadoPagoWebhookController extends AbstractController
                             $preapprovalId = $subscription->getMpPreapprovalId();
                         }
                     }
+                }
+
+                if (!$preapprovalId && $subscription) {
+                    $paymentStatus = $payment['status'] ?? null;
+                    if ($paymentStatus === 'approved') {
+                        $subscription->setStatus(Subscription::STATUS_ACTIVE);
+                    }
+                    if (is_string($payment['payer_email'] ?? null)) {
+                        $subscription->setPayerEmail($payment['payer_email']);
+                    }
+                    $subscription->setLastSyncedAt(new \DateTimeImmutable());
+                    $event->setProcessedAt(new \DateTimeImmutable());
+                    $entityManager->flush();
+
+                    return new Response('payment_synced', Response::HTTP_OK);
                 }
 
                 if (!$preapprovalId) {
