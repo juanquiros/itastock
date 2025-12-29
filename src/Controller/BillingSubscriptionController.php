@@ -105,7 +105,7 @@ class BillingSubscriptionController extends AbstractController
         }
 
         $initPoint = $mercadoPagoMode === 'sandbox'
-            ? ($response['sandbox_init_point'] ?? null)
+            ? ($response['sandbox_init_point'] ?? $response['init_point'] ?? null)
             : ($response['init_point'] ?? null);
 
         if (!$initPoint) {
