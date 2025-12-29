@@ -118,6 +118,13 @@ class MercadoPagoClient
         $data = json_decode($body, true);
 
         if (is_array($data)) {
+            if (isset($data['response_content']) && is_string($data['response_content'])) {
+                $nested = json_decode($data['response_content'], true);
+                if (is_array($nested)) {
+                    return $nested;
+                }
+            }
+
             return $data;
         }
 
