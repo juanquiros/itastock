@@ -117,11 +117,19 @@ class MercadoPagoClient
 
         $data = json_decode($body, true);
 
-        if (!is_array($data)) {
-            return ['raw' => $body];
+        if (is_array($data)) {
+            return $data;
         }
 
-        return $data;
+        $trimmedBody = trim($body);
+        if ($trimmedBody !== '' && $trimmedBody !== $body) {
+            $data = json_decode($trimmedBody, true);
+            if (is_array($data)) {
+                return $data;
+            }
+        }
+
+        return ['raw' => $body];
     }
 
     private function summarizeResponse(string $body): string
