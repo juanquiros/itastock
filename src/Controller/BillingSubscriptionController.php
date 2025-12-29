@@ -72,15 +72,13 @@ class BillingSubscriptionController extends AbstractController
         $payerEmail = $this->getUser()?->getUserIdentifier();
 
         try {
-            $response = $mercadoPagoClient->createPreapprovalCheckout(
-                $billingPlan->getMpPreapprovalPlanId(),
-                [
-                    'reason' => $billingPlan->getName(),
-                    'payer_email' => $payerEmail,
-                    'external_reference' => (string) $subscription->getId(),
-                    'back_url' => $this->generateUrl('app_billing_return', [], UrlGeneratorInterface::ABSOLUTE_URL),
-                ]
-            );
+            $response = $mercadoPagoClient->createPreapproval([
+                'preapproval_plan_id' => $billingPlan->getMpPreapprovalPlanId(),
+                'reason' => $billingPlan->getName(),
+                'payer_email' => $payerEmail,
+                'external_reference' => (string) $subscription->getId(),
+                'back_url' => $this->generateUrl('app_billing_return', [], UrlGeneratorInterface::ABSOLUTE_URL),
+            ]);
         } catch (MercadoPagoApiException $exception) {
             $this->addFlash('danger', sprintf('Error al iniciar la suscripción en Mercado Pago: %s', $exception->getMessage()));
 
