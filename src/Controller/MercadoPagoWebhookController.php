@@ -69,7 +69,7 @@ class MercadoPagoWebhookController extends AbstractController
             return new Response('missing_resource', Response::HTTP_OK);
         }
 
-        if ($resourceType !== null && !in_array($resourceType, ['preapproval', 'subscription'], true)) {
+        if ($resourceType !== null && !in_array($resourceType, ['preapproval', 'subscription', 'payment'], true)) {
             $event->setProcessedAt(new \DateTimeImmutable());
             $entityManager->flush();
 
@@ -77,6 +77,19 @@ class MercadoPagoWebhookController extends AbstractController
         }
 
         try {
+            if ($resourceType === 'payment') {
+                $payment = $mercadoPagoClient->getPayment($resourceId);
+                $preapprovalId = $payment['preapproval_id'] ?? $payment['subscription_id'] ?? null;
+                if (!$preapprovalId) {
+                    $event->setProcessedAt(new \DateTimeImmutable());
+                    $entityManager->flush();
+
+                    return new Response('missing_preapproval', Response::HTTP_OK);
+                }
+
+                $resourceId = (string) $preapprovalId;
+            }
+
             $preapproval = $mercadoPagoClient->getPreapproval($resourceId);
         } catch (MercadoPagoApiException $exception) {
             $logger->error('Mercado Pago webhook processing failed', [

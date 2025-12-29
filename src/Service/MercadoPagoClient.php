@@ -55,6 +55,11 @@ class MercadoPagoClient
         return $this->updatePreapproval($preapprovalId, ['status' => 'cancelled']);
     }
 
+    public function getPayment(string $paymentId): array
+    {
+        return $this->request('GET', sprintf('/v1/payments/%s', $paymentId));
+    }
+
     private function request(string $method, string $path, ?array $payload = null, ?array $query = null): array
     {
         $correlationId = bin2hex(random_bytes(16));
