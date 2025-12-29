@@ -1,0 +1,25 @@
+# Use the front controller as index file. It serves as the fallback file for all requests
+# when no physical file exists. It's also possible to use a 404 page:
+# ErrorDocument 404 /index.php
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    # Enforce HTTPS
+    RewriteCond %{HTTPS} !=on
+    RewriteCond %{HTTP:X-Forwarded-Proto} !https
+    RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [R=301,L]
+
+    # Redirect to URI without front controller to prevent duplicate content
+    RewriteCond %{THE_REQUEST} \s/+index\.php[\s?] [NC]
+    RewriteRule ^index\.php(?:/(.*))?$ /$1 [R=301,L]
+
+    # Set the front controller as index file
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteRule ^ index.php [L]
+</IfModule>
+
+<IfModule mod_negotiation.c>
+    Options -MultiViews
+</IfModule>
