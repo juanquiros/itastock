@@ -38,6 +38,10 @@ class MercadoPagoWebhookController extends AbstractController
         if ($resourceId === null && is_string($resource)) {
             $resourceId = trim((string) basename($resource)) ?: null;
         }
+        $resourceType = $payload['type'] ?? $payload['topic'] ?? null;
+        if (!$resourceType && is_string($resource)) {
+            $resourceType = str_contains($resource, '/preapproval') ? 'preapproval' : null;
+        }
 
         if ($eventRepository->findProcessedByEventOrResource($eventId, $resourceId)) {
             return new Response('already_processed', Response::HTTP_OK);
@@ -63,6 +67,13 @@ class MercadoPagoWebhookController extends AbstractController
             $entityManager->flush();
 
             return new Response('missing_resource', Response::HTTP_OK);
+        }
+
+        if ($resourceType !== null && !in_array($resourceType, ['preapproval', 'subscription'], true)) {
+            $event->setProcessedAt(new \DateTimeImmutable());
+            $entityManager->flush();
+
+            return new Response('ignored_resource', Response::HTTP_OK);
         }
 
         try {
