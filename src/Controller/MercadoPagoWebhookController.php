@@ -79,7 +79,7 @@ class MercadoPagoWebhookController extends AbstractController
         try {
             if ($resourceType === 'payment') {
                 $payment = $mercadoPagoClient->getPayment($resourceId);
-                $preapprovalId = $payment['preapproval_id'] ?? $payment['subscription_id'] ?? null;
+                $preapprovalId = $this->extractPreapprovalIdFromPayment($payment);
                 if (!$preapprovalId) {
                     $event->setProcessedAt(new \DateTimeImmutable());
                     $entityManager->flush();
@@ -113,6 +113,32 @@ class MercadoPagoWebhookController extends AbstractController
         $entityManager->flush();
 
         return new Response('ok', Response::HTTP_OK);
+    }
+
+    private function extractPreapprovalIdFromPayment(array $payment): ?string
+    {
+        $candidate = $payment['preapproval_id'] ?? $payment['subscription_id'] ?? null;
+        if (is_string($candidate) && $candidate !== '') {
+            return $candidate;
+        }
+
+        $metadata = $payment['metadata'] ?? null;
+        if (is_array($metadata)) {
+            $candidate = $metadata['preapproval_id'] ?? $metadata['subscription_id'] ?? null;
+            if (is_string($candidate) && $candidate !== '') {
+                return $candidate;
+            }
+        }
+
+        $additionalInfo = $payment['additional_info'] ?? null;
+        if (is_array($additionalInfo)) {
+            $candidate = $additionalInfo['preapproval_id'] ?? $additionalInfo['subscription_id'] ?? null;
+            if (is_string($candidate) && $candidate !== '') {
+                return $candidate;
+            }
+        }
+
+        return null;
     }
 
     private function mapStatus(?string $status): string
