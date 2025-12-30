@@ -33,6 +33,7 @@ class EmailDispatchCommand extends Command
         private readonly ReportNotificationService $reportNotificationService,
         private readonly PlatformNotificationService $platformNotificationService,
         private readonly EmailSender $emailSender,
+        private readonly bool $emailsEnabled,
     ) {
         parent::__construct();
     }
@@ -53,6 +54,13 @@ class EmailDispatchCommand extends Command
         $now = $this->resolveNow($input->getOption('date'));
 
         $counts = [];
+
+        if (!$this->emailsEnabled) {
+            $output->writeln('Envios deshabilitados por APP_EMAILS_ENABLED=0.');
+            $this->renderSummary($output, $counts);
+
+            return Command::SUCCESS;
+        }
 
         if ($type === 'all' || $type === 'subscriptions') {
             $this->dispatchSubscriptionNotifications($now, $dryRun, $output, $counts);

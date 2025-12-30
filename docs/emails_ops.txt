@@ -1,0 +1,25 @@
+Emails ops
+
+Variables env
+- APP_MAIL_FROM
+- APP_PLATFORM_NOTIFY_EMAILS
+- APP_BILLING_ENABLED
+- APP_EMAILS_ENABLED
+
+Defaults de horarios
+- EmailPreference: 08:00 (hora/minuto 8:00, zona America/Argentina/Buenos_Aires).
+
+Como probar
+- Simular: php bin/console app:emails:dispatch --type=all --dry-run=1
+- Fecha fija: php bin/console app:emails:dispatch --type=reports --date=2024-01-01
+
+Logs
+- EmailNotificationLog (tabla email_notification_log)
+
+Definition of Done (DoD)
+- Admin comercio gestiona preferencias desde su panel.
+- Se envian: demo + suscripcion + cobros + proximos cobros + expiraciones (segun reglas).
+- Se envian reportes: semanal/mensual (daily/anual opcionales) segun toggles.
+- Plataforma recibe: nuevas suscripciones, cancelaciones, solicitudes demo + digest semanal/mensual.
+- Cron unico ejecuta todo, con idempotencia y logs.
+- No se filtra informacion sensible; policy bloquea y tests lo garantizan.
