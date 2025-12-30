@@ -1,0 +1,9 @@
+Cron de emails
+
+Ejemplo:
+0 * * * * php bin/console app:emails:dispatch --type=all
+
+Opciones
+- --type=all|subscriptions|reports|platform
+- --dry-run=1 (simula y no escribe logs en DB)
+- --date=YYYY-MM-DD (para pruebas)

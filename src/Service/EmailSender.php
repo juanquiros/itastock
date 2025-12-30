@@ -33,7 +33,7 @@ class EmailSender
         ?Subscription $subscription,
         ?\DateTimeImmutable $periodStart,
         ?\DateTimeImmutable $periodEnd,
-    ): bool {
+    ): string {
         $recipientEmail = mb_strtolower($to);
         $sanitizedContext = $this->contentPolicy->sanitizeContext($role, $type, $context);
         $log = (new EmailNotificationLog())
@@ -55,7 +55,7 @@ class EmailSender
             $this->entityManager->persist($log);
             $this->entityManager->flush();
 
-            return false;
+            return EmailNotificationLog::STATUS_SKIPPED;
         }
 
         if ($this->isDuplicate($type, $recipientEmail, $subscription, $periodStart, $periodEnd)) {
@@ -65,7 +65,7 @@ class EmailSender
             $this->entityManager->persist($log);
             $this->entityManager->flush();
 
-            return false;
+            return EmailNotificationLog::STATUS_SKIPPED;
         }
 
         $email = (new TemplatedEmail())
@@ -87,7 +87,7 @@ class EmailSender
         $this->entityManager->persist($log);
         $this->entityManager->flush();
 
-        return $log->getStatus() === EmailNotificationLog::STATUS_SENT;
+        return $log->getStatus();
     }
 
     private function isDuplicate(

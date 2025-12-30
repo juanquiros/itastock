@@ -3,6 +3,7 @@
 namespace App\Service;
 
 use App\Entity\Business;
+use App\Entity\EmailNotificationLog;
 use App\Entity\Lead;
 use App\Entity\Subscription;
 use App\Entity\User;
@@ -17,7 +18,7 @@ class PlatformNotificationService
     ) {
     }
 
-    public function notifyNewSubscription(Business $business, Subscription $subscription): void
+    public function notifyNewSubscription(Business $business, Subscription $subscription): array
     {
         $context = [
             'businessName' => $business->getName(),
@@ -25,7 +26,7 @@ class PlatformNotificationService
             'planName' => $subscription->getPlan()?->getName(),
         ];
 
-        $this->notifyPlatformAdmins(
+        return $this->notifyPlatformAdmins(
             'PLATFORM_NEW_SUBSCRIPTION',
             'Nueva suscripción',
             'emails/platform/platform_new_subscription.html.twig',
@@ -36,7 +37,7 @@ class PlatformNotificationService
         );
     }
 
-    public function notifyCancellation(Business $business, Subscription $subscription): void
+    public function notifyCancellation(Business $business, Subscription $subscription): array
     {
         $context = [
             'businessName' => $business->getName(),
@@ -44,7 +45,7 @@ class PlatformNotificationService
             'endsAt' => $subscription->getEndAt(),
         ];
 
-        $this->notifyPlatformAdmins(
+        return $this->notifyPlatformAdmins(
             'PLATFORM_CANCELLATION',
             'Suscripción cancelada',
             'emails/platform/platform_cancellation.html.twig',
@@ -55,14 +56,14 @@ class PlatformNotificationService
         );
     }
 
-    public function notifyDemoRequest(Lead $lead): void
+    public function notifyDemoRequest(Lead $lead): array
     {
         $context = [
             'businessName' => $lead->getName(),
             'contactEmail' => $lead->getEmail(),
         ];
 
-        $this->notifyPlatformAdmins(
+        return $this->notifyPlatformAdmins(
             'PLATFORM_DEMO_REQUEST',
             'Nueva solicitud de demo',
             'emails/platform/platform_demo_request.html.twig',
@@ -73,11 +74,11 @@ class PlatformNotificationService
         );
     }
 
-    public function sendWeeklyPlatformDigest(\DateTimeImmutable $start, \DateTimeImmutable $end): void
+    public function sendWeeklyPlatformDigest(\DateTimeImmutable $start, \DateTimeImmutable $end): array
     {
         $digest = $this->buildDigestContext($start, $end);
 
-        $this->notifyPlatformAdmins(
+        return $this->notifyPlatformAdmins(
             'PLATFORM_DIGEST_WEEKLY',
             'Digest semanal plataforma',
             'emails/platform/platform_digest_weekly.html.twig',
@@ -88,11 +89,11 @@ class PlatformNotificationService
         );
     }
 
-    public function sendMonthlyPlatformDigest(\DateTimeImmutable $start, \DateTimeImmutable $end): void
+    public function sendMonthlyPlatformDigest(\DateTimeImmutable $start, \DateTimeImmutable $end): array
     {
         $digest = $this->buildDigestContext($start, $end);
 
-        $this->notifyPlatformAdmins(
+        return $this->notifyPlatformAdmins(
             'PLATFORM_DIGEST_MONTHLY',
             'Digest mensual plataforma',
             'emails/platform/platform_digest_monthly.html.twig',
@@ -114,9 +115,15 @@ class PlatformNotificationService
         ?Subscription $subscription,
         ?\DateTimeImmutable $periodStart,
         ?\DateTimeImmutable $periodEnd,
-    ): void {
+    ): array {
+        $counts = [
+            EmailNotificationLog::STATUS_SENT => 0,
+            EmailNotificationLog::STATUS_SKIPPED => 0,
+            EmailNotificationLog::STATUS_FAILED => 0,
+        ];
+
         foreach ($this->getPlatformRecipients() as $recipientEmail) {
-            $this->emailSender->sendTemplatedEmail(
+            $status = $this->emailSender->sendTemplatedEmail(
                 $type,
                 $recipientEmail,
                 'PLATFORM',
@@ -128,7 +135,11 @@ class PlatformNotificationService
                 $periodStart,
                 $periodEnd,
             );
+
+            $counts[$status] = ($counts[$status] ?? 0) + 1;
         }
+
+        return $counts;
     }
 
     /**

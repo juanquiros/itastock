@@ -41,6 +41,31 @@ class ReportNotificationService
         $this->sendIfEnabled($business, $digest, 'REPORT_ANNUAL', 'emails/reports/report_annual.html.twig', $start, $end);
     }
 
+    public function buildReportContext(ReportDigest $digest, User $user): array
+    {
+        $salesCount = $digest->getSalesCount();
+        $salesTotal = $digest->getSalesTotal();
+        $averageTicket = null;
+        if ($salesCount && $salesTotal !== null && $salesCount > 0) {
+            $averageTicket = round($salesTotal / $salesCount, 2);
+        }
+
+        $lowStock = $digest->getLowStock();
+
+        return [
+            'userName' => $user->getFullName() ?? $user->getUserIdentifier(),
+            'businessName' => $digest->getBusinessName(),
+            'periodStart' => $digest->getPeriodStart(),
+            'periodEnd' => $digest->getPeriodEnd(),
+            'totalSales' => $salesTotal,
+            'totalOrders' => $salesCount,
+            'averageTicket' => $averageTicket,
+            'debtorsCount' => $digest->getDebtorsCount(),
+            'lowStockCount' => is_array($lowStock) ? count($lowStock) : null,
+            'notes' => $digest->getNotes(),
+        ];
+    }
+
     private function sendIfEnabled(
         Business $business,
         ReportDigest $digest,
@@ -71,7 +96,7 @@ class ReportNotificationService
                 continue;
             }
 
-            $context = $this->buildContext($digest, $user);
+            $context = $this->buildReportContext($digest, $user);
 
             $this->emailSender->sendTemplatedEmail(
                 $type,
@@ -101,26 +126,6 @@ class ReportNotificationService
 
     private function buildContext(ReportDigest $digest, User $user): array
     {
-        $salesCount = $digest->getSalesCount();
-        $salesTotal = $digest->getSalesTotal();
-        $averageTicket = null;
-        if ($salesCount && $salesTotal !== null && $salesCount > 0) {
-            $averageTicket = round($salesTotal / $salesCount, 2);
-        }
-
-        $lowStock = $digest->getLowStock();
-
-        return [
-            'userName' => $user->getFullName() ?? $user->getUserIdentifier(),
-            'businessName' => $digest->getBusinessName(),
-            'periodStart' => $digest->getPeriodStart(),
-            'periodEnd' => $digest->getPeriodEnd(),
-            'totalSales' => $salesTotal,
-            'totalOrders' => $salesCount,
-            'averageTicket' => $averageTicket,
-            'debtorsCount' => $digest->getDebtorsCount(),
-            'lowStockCount' => is_array($lowStock) ? count($lowStock) : null,
-            'notes' => $digest->getNotes(),
-        ];
+        return $this->buildReportContext($digest, $user);
     }
 }
