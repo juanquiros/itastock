@@ -1,0 +1,30 @@
+Catálogo de templates de emails
+
+DEMO (ADMIN)
+- emails/demo/demo_enabled.html.twig -> Demo habilitada -> Admin comercio
+- emails/demo/demo_expiring_3_days.html.twig -> Demo por vencer -> Admin comercio
+- emails/demo/demo_expired.html.twig -> Demo finalizada -> Admin comercio
+
+SUSCRIPCIÓN (ADMIN)
+- emails/subscription/subscription_activated.html.twig -> Suscripción activa -> Admin comercio
+- emails/subscription/subscription_next_charge_7_days.html.twig -> Próximo cobro -> Admin comercio
+- emails/subscription/subscription_payment_received.html.twig -> Pago recibido -> Admin comercio
+- emails/subscription/subscription_payment_failed.html.twig -> Pago rechazado -> Admin comercio
+- emails/subscription/subscription_canceled_or_expiring_7_days.html.twig -> Suscripción por expirar/cancelada -> Admin comercio
+- emails/subscription/subscription_no_subscription.html.twig -> Sin suscripción -> Admin comercio
+
+OPERATIVO (SELLER)
+- emails/reports/store_mode_changed.html.twig -> Cambio de modo de tienda -> Vendedor
+
+REPORTES COMERCIO (ADMIN)
+- emails/reports/report_daily.html.twig -> Reporte diario -> Admin comercio
+- emails/reports/report_weekly.html.twig -> Reporte semanal -> Admin comercio
+- emails/reports/report_monthly.html.twig -> Reporte mensual -> Admin comercio
+- emails/reports/report_annual.html.twig -> Reporte anual -> Admin comercio
+
+PLATAFORMA (PLATFORM)
+- emails/platform/platform_new_subscription.html.twig -> Nueva suscripción -> Plataforma
+- emails/platform/platform_cancellation.html.twig -> Cancelación -> Plataforma
+- emails/platform/platform_demo_request.html.twig -> Solicitud demo -> Plataforma
+- emails/platform/platform_digest_weekly.html.twig -> Digest semanal -> Plataforma
+- emails/platform/platform_digest_monthly.html.twig -> Digest mensual -> Plataforma

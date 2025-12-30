@@ -1,0 +1,38 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Preferencias de emails{% endblock %}
+
+{% block body %}
+    <div class="d-flex align-items-center justify-content-between mb-4">
+        <h1 class="h3 mb-0">Preferencias de emails</h1>
+    </div>
+
+    <div class="card shadow-sm">
+        <div class="card-body">
+            {{ form_start(form) }}
+                <div class="row">
+                    <div class="col-lg-6">
+                        {{ form_row(form.enabled) }}
+                        {{ form_row(form.subscriptionAlertsEnabled) }}
+                        {{ form_row(form.reportDailyEnabled) }}
+                        {{ form_row(form.reportWeeklyEnabled) }}
+                        {{ form_row(form.reportMonthlyEnabled) }}
+                        {{ form_row(form.reportAnnualEnabled) }}
+                    </div>
+                    <div class="col-lg-6">
+                        <div class="row">
+                            <div class="col-md-6">
+                                {{ form_row(form.deliveryHour) }}
+                            </div>
+                            <div class="col-md-6">
+                                {{ form_row(form.deliveryMinute) }}
+                            </div>
+                        </div>
+                        {{ form_row(form.timezone) }}
+                    </div>
+                </div>
+                <button class="btn btn-primary mt-3">Guardar preferencias</button>
+            {{ form_end(form) }}
+        </div>
+    </div>
+{% endblock %}

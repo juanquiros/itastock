@@ -1,0 +1,13 @@
+{% extends 'emails/_layout.html.twig' %}
+
+{% block title %}Tu demo termina pronto{% endblock %}
+
+{% block content %}
+    <h2 style="margin-top: 0;">Tu demo está por terminar</h2>
+    <p>Hola {{ userName|default('') }}, quedan pocos días para el fin de la demo de ItaStock.</p>
+    <p>Comercio: <strong>{{ businessName|default('N/D') }}</strong></p>
+    <p>Fin de demo: <strong>{{ trialEndsAt is defined and trialEndsAt ? trialEndsAt|date('d/m/Y') : 'N/D' }}</strong></p>
+    <p style="margin: 24px 0;">
+        <a href="{{ absolute_url(path('app_billing_subscription_show')) }}" style="background-color: #C62828; color: #ffffff; padding: 12px 18px; text-decoration: none; border-radius: 6px;">Ver planes disponibles</a>
+    </p>
+{% endblock %}

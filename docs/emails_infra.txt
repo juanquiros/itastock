@@ -1,0 +1,16 @@
+Infraestructura de emails
+
+Tipos de email (ejemplos):
+- SUB_TRIAL_EXPIRING
+- REPORT_WEEKLY
+- PLATFORM_WEEKLY
+
+Reglas de idempotencia:
+- Se evita enviar duplicados por (type, recipientEmail, periodStart, periodEnd) cuando periodStart/End no son null.
+- Se evita enviar duplicados por (type, recipientEmail, subscription) cuando subscription no es null y periodStart/End son null.
+- Se registra siempre un log con status SENT, SKIPPED o FAILED.
+- Se almacena contextHash (hash del context serializado) para detectar duplicados finos sin persistir datos sensibles.
+
+Variables de entorno:
+- APP_MAIL_FROM
+- APP_NAME

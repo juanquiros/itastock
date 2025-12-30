@@ -1,0 +1,18 @@
+Política de contenido para emails
+
+Matriz rol x tipo
+
+ADMIN (comercio)
+- Puede recibir reportes y alertas con métricas de su negocio (ventas, caja, movimientos, deudores, stock bajo, fechas de cobro).
+
+SELLER
+- Solo operativo sin montos ni métricas sensibles.
+- Por defecto NO se envían reportes (REPORT_* bloqueado).
+
+PLATFORM
+- Recibe métricas agregadas multi-business.
+- Nunca incluye totales por comercio ni detalles de ventas/caja por negocio.
+- Puede incluir identificación mínima (nombre del comercio o email admin).
+
+PUBLIC
+- Solo comunicaciones básicas de alta/demo sin datos de negocio.
