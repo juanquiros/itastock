@@ -27,6 +27,7 @@
                 <tr>
                     <th>Fecha</th>
                     <th>Nombre</th>
+                    <th>Comercio</th>
                     <th>Email</th>
                     <th>Teléfono</th>
                     <th>Fuente</th>
@@ -40,6 +41,7 @@
                     <tr>
                         <td>{{ lead.createdAt|date('Y-m-d H:i') }}</td>
                         <td>{{ lead.name }}</td>
+                        <td>{{ lead.businessName ?: '—' }}</td>
                         <td>{{ lead.email }}</td>
                         <td>{{ lead.phone ?: '—' }}</td>
                         <td>{{ lead.source ?: 'web' }}</td>
@@ -64,7 +66,7 @@
                         </td>
                     </tr>
                 {% else %}
-                    <tr><td colspan="8">Sin leads.</td></tr>
+                    <tr><td colspan="9">Sin leads.</td></tr>
                 {% endfor %}
             </tbody>
         </table>

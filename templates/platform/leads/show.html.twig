@@ -14,6 +14,7 @@
     <dl class="row">
         <dt class="col-sm-3">Fecha</dt><dd class="col-sm-9">{{ lead.createdAt|date('Y-m-d H:i') }}</dd>
         <dt class="col-sm-3">Email</dt><dd class="col-sm-9">{{ lead.email }}</dd>
+        <dt class="col-sm-3">Comercio</dt><dd class="col-sm-9">{{ lead.businessName ?: '—' }}</dd>
         <dt class="col-sm-3">Teléfono</dt><dd class="col-sm-9">{{ lead.phone ?: '—' }}</dd>
         <dt class="col-sm-3">Fuente</dt><dd class="col-sm-9">{{ lead.source ?: 'web' }}</dd>
         <dt class="col-sm-3">Archivado</dt><dd class="col-sm-9">{{ lead.isArchived ? 'Sí' : 'No' }}</dd>

@@ -183,6 +183,11 @@ class PlatformLeadController extends AbstractController
 
     private function resolveBusinessName(\App\Entity\Lead $lead, string $email): string
     {
+        $businessName = trim((string) $lead->getBusinessName());
+        if ($businessName !== '') {
+            return $businessName;
+        }
+
         $name = trim((string) $lead->getName());
         if ($name !== '') {
             return $name;

@@ -18,10 +18,19 @@ class LeadDemoType extends AbstractType
     {
         $builder
             ->add('name', TextType::class, [
-                'label' => 'Nombre',
-                'required' => false,
+                'label' => 'Nombre de contacto',
+                'required' => true,
                 'attr' => [
-                    'placeholder' => 'Opcional',
+                    'placeholder' => 'Tu nombre',
+                ],
+            ])
+            ->add('businessName', TextType::class, [
+                'label' => 'Nombre del comercio',
+                'constraints' => [
+                    new NotBlank(message: 'El nombre del comercio es requerido.'),
+                ],
+                'attr' => [
+                    'placeholder' => 'Nombre del comercio',
                 ],
             ])
             ->add('email', EmailType::class, [

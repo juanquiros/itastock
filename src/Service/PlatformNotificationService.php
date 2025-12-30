@@ -59,7 +59,7 @@ class PlatformNotificationService
     public function notifyDemoRequest(Lead $lead): array
     {
         $context = [
-            'businessName' => $lead->getName(),
+            'businessName' => $lead->getBusinessName() ?? $lead->getName(),
             'contactEmail' => $lead->getEmail(),
         ];
 

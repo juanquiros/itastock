@@ -18,6 +18,9 @@ class Lead
     #[ORM\Column(length: 150)]
     private ?string $name = null;
 
+    #[ORM\Column(length: 255, nullable: true)]
+    private ?string $businessName = null;
+
     #[ORM\Column(length: 180)]
     private ?string $email = null;
 
@@ -54,6 +57,18 @@ class Lead
     public function setName(string $name): self
     {
         $this->name = $name;
+
+        return $this;
+    }
+
+    public function getBusinessName(): ?string
+    {
+        return $this->businessName;
+    }
+
+    public function setBusinessName(?string $businessName): self
+    {
+        $this->businessName = $businessName;
 
         return $this;
     }
