@@ -5,18 +5,18 @@ namespace App\Service;
 use App\Entity\Business;
 use App\Entity\EmailNotificationLog;
 use App\Entity\Subscription;
+use App\Security\EmailContentPolicy;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bridge\Twig\Mime\TemplatedEmail;
 use Symfony\Component\Mailer\MailerInterface;
 use Symfony\Component\Mime\Address;
-use Twig\Environment;
 
 class EmailSender
 {
     public function __construct(
         private readonly MailerInterface $mailer,
-        private readonly Environment $twig,
         private readonly EntityManagerInterface $entityManager,
+        private readonly EmailContentPolicy $contentPolicy,
         private readonly string $mailFrom,
         private readonly string $appName,
     ) {
@@ -35,6 +35,7 @@ class EmailSender
         ?\DateTimeImmutable $periodEnd,
     ): bool {
         $recipientEmail = mb_strtolower($to);
+        $sanitizedContext = $this->contentPolicy->sanitizeContext($role, $type, $context);
         $log = (new EmailNotificationLog())
             ->setType($type)
             ->setRecipientEmail($recipientEmail)
@@ -43,7 +44,19 @@ class EmailSender
             ->setSubscription($subscription)
             ->setPeriodStart($periodStart)
             ->setPeriodEnd($periodEnd)
-            ->setContextHash($this->hashContext($context));
+            ->setContextHash($this->hashContext($sanitizedContext));
+
+        try {
+            $this->contentPolicy->assertAllowedRecipientRole($role, $type);
+        } catch (\DomainException $exception) {
+            $log->setStatus(EmailNotificationLog::STATUS_SKIPPED)
+                ->setErrorMessage($exception->getMessage());
+
+            $this->entityManager->persist($log);
+            $this->entityManager->flush();
+
+            return false;
+        }
 
         if ($this->isDuplicate($type, $recipientEmail, $subscription, $periodStart, $periodEnd)) {
             $log->setStatus(EmailNotificationLog::STATUS_SKIPPED)
@@ -60,7 +73,7 @@ class EmailSender
             ->to($recipientEmail)
             ->subject($subject)
             ->htmlTemplate($template)
-            ->context($context);
+            ->context($sanitizedContext);
 
         try {
             $this->mailer->send($email);
