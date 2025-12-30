@@ -1,0 +1,14 @@
+{% extends 'emails/_layout.html.twig' %}
+
+{% block title %}Pago recibido{% endblock %}
+
+{% block content %}
+    <h2 style="margin-top: 0;">Pago recibido</h2>
+    <p>Hola {{ userName|default('') }}, recibimos el pago de tu suscripción.</p>
+    <p>Plan: <strong>{{ planName|default('N/D') }}</strong></p>
+    <p>Monto: <strong>{{ amount|default('N/D') }}</strong></p>
+    <p>Fecha de pago: <strong>{{ paidAt is defined and paidAt ? paidAt|date('d/m/Y') : 'N/D' }}</strong></p>
+    <p style="margin: 24px 0;">
+        <a href="{{ absolute_url(path('app_billing_subscription_show')) }}" style="background-color: #C62828; color: #ffffff; padding: 12px 18px; text-decoration: none; border-radius: 6px;">Ver detalles</a>
+    </p>
+{% endblock %}
