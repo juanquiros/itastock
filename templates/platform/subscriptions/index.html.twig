@@ -44,6 +44,7 @@
                     <th>Inicio</th>
                     <th>Trial hasta</th>
                     <th>Fin</th>
+                    <th>Próximo cobro</th>
                     <th>READONLY efectivo</th>
                     <th>Override</th>
                     <th class="text-end">Acciones</th>
@@ -60,6 +61,7 @@
                         <td>{{ subscription.startAt|date('Y-m-d') }}</td>
                         <td>{{ subscription.trialEndsAt ? subscription.trialEndsAt|date('Y-m-d') : '—' }}</td>
                         <td>{{ subscription.endAt ? subscription.endAt|date('Y-m-d') : '—' }}</td>
+                        <td>{{ subscription.nextPaymentAt ? subscription.nextPaymentAt|date('Y-m-d') : '—' }}</td>
                         <td>{{ readonlyEffective ? 'Sí' : 'No' }}</td>
                         <td>
                             {% if subscription.overrideMode %}
@@ -90,7 +92,7 @@
                         </td>
                     </tr>
                 {% else %}
-                    <tr><td colspan="9">Sin suscripciones.</td></tr>
+                    <tr><td colspan="10">Sin suscripciones.</td></tr>
                 {% endfor %}
             </tbody>
         </table>

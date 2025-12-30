@@ -1,0 +1,44 @@
+{% extends 'platform/base_platform.html.twig' %}
+
+{% block header_title %}Reportes{% endblock %}
+
+{% block body %}
+    <div class="row g-3">
+        <div class="col-md-4">
+            <div class="card shadow-sm">
+                <div class="card-body">
+                    <div class="text-muted">Suscripciones registradas</div>
+                    <div class="h4 mb-0">{{ subscriptionsTotal }}</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card shadow-sm">
+                <div class="card-body">
+                    <div class="text-muted">Webhooks procesados</div>
+                    <div class="h4 mb-0">{{ webhookProcessed }}</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card shadow-sm">
+                <div class="card-body">
+                    <div class="text-muted">Webhooks pendientes</div>
+                    <div class="h4 mb-0">{{ webhookPending }}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card shadow-sm mt-3">
+        <div class="card-body">
+            <h2 class="h6">Informes sugeridos</h2>
+            <ul class="mb-0">
+                <li>Pagos aprobados vs. pendientes por semana.</li>
+                <li>Suscriptores activos por plan.</li>
+                <li>Ingresos estimados del próximo cobro.</li>
+                <li>Seguimiento de cuentas en periodo de gracia.</li>
+            </ul>
+        </div>
+    </div>
+{% endblock %}
