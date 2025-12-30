@@ -8,6 +8,7 @@ use App\Exception\MercadoPagoApiException;
 use App\Repository\BillingWebhookEventRepository;
 use App\Repository\SubscriptionRepository;
 use App\Service\MercadoPagoClient;
+use App\Service\SubscriptionNotificationService;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Log\LoggerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -24,6 +25,7 @@ class MercadoPagoWebhookController extends AbstractController
         SubscriptionRepository $subscriptionRepository,
         MercadoPagoClient $mercadoPagoClient,
         EntityManagerInterface $entityManager,
+        SubscriptionNotificationService $subscriptionNotificationService,
         LoggerInterface $logger,
     ): Response {
         $payloadRaw = $request->getContent();
@@ -77,9 +79,11 @@ class MercadoPagoWebhookController extends AbstractController
         }
 
         try {
+            $paymentStatus = null;
             if ($resourceType === 'payment') {
                 $payment = $mercadoPagoClient->getPayment($resourceId);
                 $this->storePaymentDetails($event, $payload, $payment);
+                $paymentStatus = is_string($payment['status'] ?? null) ? $payment['status'] : null;
                 $preapprovalId = $this->extractPreapprovalIdFromPayment($payment);
                 $subscription = null;
                 if (!$preapprovalId) {
@@ -93,9 +97,11 @@ class MercadoPagoWebhookController extends AbstractController
                 }
 
                 if (!$preapprovalId && $subscription) {
-                    $paymentStatus = $payment['status'] ?? null;
                     if ($paymentStatus === 'approved') {
                         $subscription->setStatus(Subscription::STATUS_ACTIVE);
+                    }
+                    if ($paymentStatus === 'rejected' || $paymentStatus === 'cancelled') {
+                        $subscription->setStatus(Subscription::STATUS_PAST_DUE);
                     }
                     if (is_string($payment['payer_email'] ?? null)) {
                         $subscription->setPayerEmail($payment['payer_email']);
@@ -103,6 +109,13 @@ class MercadoPagoWebhookController extends AbstractController
                     $subscription->setLastSyncedAt(new \DateTimeImmutable());
                     $event->setProcessedAt(new \DateTimeImmutable());
                     $entityManager->flush();
+
+                    if ($paymentStatus === 'approved') {
+                        $subscriptionNotificationService->onPaymentReceived($subscription);
+                    }
+                    if ($paymentStatus === 'rejected' || $paymentStatus === 'cancelled') {
+                        $subscriptionNotificationService->onPaymentFailed($subscription);
+                    }
 
                     return new Response('payment_synced', Response::HTTP_OK);
                 }
@@ -130,11 +143,25 @@ class MercadoPagoWebhookController extends AbstractController
 
         $subscription = $subscriptionRepository->findOneBy(['mpPreapprovalId' => $resourceId]);
         if ($subscription instanceof Subscription) {
+            $previousStatus = $subscription->getStatus();
             $subscription->setStatus($this->mapStatus($preapproval['status'] ?? null));
             $subscription->setMpPreapprovalPlanId($preapproval['preapproval_plan_id'] ?? $subscription->getMpPreapprovalPlanId());
             $subscription->setPayerEmail($preapproval['payer_email'] ?? $subscription->getPayerEmail());
             $subscription->setLastSyncedAt(new \DateTimeImmutable());
             $subscription->setNextPaymentAt($this->parseMpDate($preapproval['next_payment_date'] ?? null));
+
+            if ($previousStatus !== $subscription->getStatus() && $subscription->getStatus() === Subscription::STATUS_ACTIVE) {
+                $subscriptionNotificationService->onSubscriptionActivated($subscription);
+            }
+            if ($subscription->getStatus() === Subscription::STATUS_CANCELED) {
+                $subscriptionNotificationService->onCanceled($subscription);
+            }
+            if ($paymentStatus === 'approved') {
+                $subscriptionNotificationService->onPaymentReceived($subscription, $subscription->getNextPaymentAt());
+            }
+            if ($paymentStatus === 'rejected' || $paymentStatus === 'cancelled' || $subscription->getStatus() === Subscription::STATUS_PAST_DUE) {
+                $subscriptionNotificationService->onPaymentFailed($subscription);
+            }
         }
 
         $event->setProcessedAt(new \DateTimeImmutable());

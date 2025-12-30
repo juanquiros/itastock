@@ -1,0 +1,13 @@
+{% extends 'emails/_layout.html.twig' %}
+
+{% block title %}Suscripción activada{% endblock %}
+
+{% block content %}
+    <h2 style="margin-top: 0;">Suscripción activada</h2>
+    <p>Hola {{ userName|default('') }}, tu suscripción se encuentra activa.</p>
+    <p>Plan: <strong>{{ planName|default('N/D') }}</strong></p>
+    <p>Próximo cobro: <strong>{{ nextChargeAt is defined and nextChargeAt ? nextChargeAt|date('d/m/Y') : 'N/D' }}</strong></p>
+    <p style="margin: 24px 0;">
+        <a href="{{ absolute_url(path('app_billing_subscription_show')) }}" style="background-color: #C62828; color: #ffffff; padding: 12px 18px; text-decoration: none; border-radius: 6px;">Ver suscripción</a>
+    </p>
+{% endblock %}

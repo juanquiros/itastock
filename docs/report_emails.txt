@@ -1,0 +1,14 @@
+Reportes por email (comercio)
+
+Reglas
+- Se envía solo a usuarios con ROLE_ADMIN del negocio.
+- Se respeta EmailPreference efectivo (user override > business).
+- Si enabled=false o el toggle del tipo está apagado, no se envía.
+- Se usa idempotencia por periodStart/periodEnd.
+
+Contenido del reporte
+- Período desde/hasta.
+- Ventas totales y cantidad de ventas.
+- Ticket promedio (si aplica).
+- Cantidad de deudores y alertas de stock bajo (si aplica).
+- Notas "N/D" cuando una sección no tiene datos.

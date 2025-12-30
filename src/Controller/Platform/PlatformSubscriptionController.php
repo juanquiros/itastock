@@ -8,6 +8,7 @@ use App\Form\SubscriptionType;
 use App\Repository\PlanRepository;
 use App\Repository\SubscriptionRepository;
 use App\Service\MercadoPagoClient;
+use App\Service\SubscriptionNotificationService;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\RedirectResponse;
@@ -91,6 +92,7 @@ class PlatformSubscriptionController extends AbstractController
         Subscription $subscription,
         Request $request,
         EntityManagerInterface $entityManager,
+        SubscriptionNotificationService $subscriptionNotificationService,
     ): RedirectResponse {
         if (!$this->isCsrfTokenValid('platform_subscription_action_'.$subscription->getId(), (string) $request->request->get('_token'))) {
             return $this->redirectToRoute('platform_subscriptions_index', $request->query->all());
@@ -100,11 +102,15 @@ class PlatformSubscriptionController extends AbstractController
         $untilRaw = $request->request->get('override_until');
         $graceDays = $request->request->get('grace_period_days');
 
+        $previousMode = $subscription->getOverrideMode();
         $subscription->setOverrideMode($mode !== '' ? $mode : null);
         $subscription->setOverrideUntil($untilRaw ? new \DateTimeImmutable($untilRaw) : null);
         $subscription->setGracePeriodDays($this->parseGraceDays($graceDays));
 
         $entityManager->flush();
+        if ($previousMode !== $subscription->getOverrideMode() && $subscription->getOverrideMode() !== null) {
+            $subscriptionNotificationService->onStoreModeChanged($subscription, $subscription->getOverrideMode(), new \DateTimeImmutable());
+        }
         $this->addFlash('success', 'Override actualizado.');
 
         return $this->redirectToRoute('platform_subscriptions_index', $request->query->all());

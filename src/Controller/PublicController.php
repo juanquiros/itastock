@@ -10,6 +10,7 @@ use App\Form\LeadType;
 use App\Repository\LeadRepository;
 use App\Repository\PlanRepository;
 use App\Repository\PublicPageRepository;
+use App\Service\PlatformNotificationService;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
@@ -27,7 +28,7 @@ class PublicController extends AbstractController
     }
 
     #[Route('/', name: 'public_home', methods: ['GET', 'POST'])]
-    public function home(Request $request): Response
+    public function home(Request $request, PlatformNotificationService $platformNotificationService): Response
     {
         $page = $this->publicPageRepository->findPublishedBySlug('home');
         if ($page === null) {
@@ -63,6 +64,7 @@ class PublicController extends AbstractController
                 $lead->setName($this->resolveLeadName($lead, $email));
                 $this->entityManager->persist($lead);
                 $this->entityManager->flush();
+                $platformNotificationService->notifyDemoRequest($lead);
                 $this->addFlash('success', '¡Gracias! Recibimos tu solicitud de demo.');
                 $demoSubmitted = true;
             }

@@ -8,6 +8,7 @@ use App\Entity\User;
 use App\Repository\LeadRepository;
 use App\Repository\PlanRepository;
 use App\Repository\UserRepository;
+use App\Service\SubscriptionNotificationService;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bridge\Twig\Mime\TemplatedEmail;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -81,6 +82,7 @@ class PlatformLeadController extends AbstractController
         UserRepository $userRepository,
         PlanRepository $planRepository,
         EntityManagerInterface $entityManager,
+        SubscriptionNotificationService $subscriptionNotificationService,
         UserPasswordHasherInterface $passwordHasher,
         MailerInterface $mailer,
         UrlGeneratorInterface $urlGenerator,
@@ -138,6 +140,8 @@ class PlatformLeadController extends AbstractController
         $entityManager->persist($user);
         $entityManager->persist($subscription);
         $entityManager->flush();
+
+        $subscriptionNotificationService->onDemoEnabled($subscription);
 
         $resetUrl = $urlGenerator->generate('app_password_reset', ['token' => $token], UrlGeneratorInterface::ABSOLUTE_URL);
 

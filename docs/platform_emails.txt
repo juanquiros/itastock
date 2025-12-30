@@ -1,0 +1,23 @@
+Emails de plataforma
+
+Destinatarios
+- Usuarios con ROLE_PLATFORM_ADMIN.
+- Fallback: APP_PLATFORM_NOTIFY_EMAILS (separado por comas).
+
+Eventos
+- PLATFORM_NEW_SUBSCRIPTION: nueva suscripción activada.
+- PLATFORM_CANCELLATION: cancelación de suscripción.
+- PLATFORM_DEMO_REQUEST: solicitud de demo.
+
+Digests (agregados)
+- PLATFORM_DIGEST_WEEKLY / PLATFORM_DIGEST_MONTHLY
+  - nuevas suscripciones
+  - cancelaciones
+  - demos solicitadas
+  - demos activas
+  - demos por vencer
+  - demos vencidas
+  - past due / suspendidas
+  - MRR estimado (sumatoria de planes activos; si no hay precio, N/D)
+  - no incluye ventas/caja ni montos por comercio
+  - no incluye IDs MP

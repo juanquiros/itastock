@@ -1,0 +1,13 @@
+{% extends 'emails/_layout.html.twig' %}
+
+{% block title %}Nueva solicitud de demo{% endblock %}
+
+{% block content %}
+    <h2 style="margin-top: 0;">Nueva solicitud de demo</h2>
+    <p>Se registró una nueva solicitud de demo.</p>
+    <p>Comercio: <strong>{{ businessName|default('N/D') }}</strong></p>
+    <p>Contacto: <strong>{{ contactEmail|default('N/D') }}</strong></p>
+    <p style="margin: 24px 0;">
+        <a href="{{ absolute_url(path('platform_leads_index')) }}" style="background-color: #C62828; color: #ffffff; padding: 12px 18px; text-decoration: none; border-radius: 6px;">Ver leads</a>
+    </p>
+{% endblock %}

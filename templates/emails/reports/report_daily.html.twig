@@ -1,0 +1,18 @@
+{% extends 'emails/_layout.html.twig' %}
+
+{% block title %}Reporte diario{% endblock %}
+
+{% block content %}
+    <h2 style="margin-top: 0;">Reporte diario</h2>
+    <p>Resumen del período:</p>
+    <ul style="padding-left: 18px;">
+        <li>Desde: {{ periodStart is defined and periodStart ? periodStart|date('d/m/Y') : 'N/D' }}</li>
+        <li>Hasta: {{ periodEnd is defined and periodEnd ? periodEnd|date('d/m/Y') : 'N/D' }}</li>
+    </ul>
+    <p><strong>Ventas totales:</strong> {{ totalSales|default('N/D') }}</p>
+    <p><strong>Cantidad de ventas:</strong> {{ totalOrders|default('N/D') }}</p>
+    <p><strong>Productos con stock bajo:</strong> {{ lowStockCount|default('N/D') }}</p>
+    <p style="margin: 24px 0;">
+        <a href="{{ absolute_url(path('app_reports_index')) }}" style="background-color: #C62828; color: #ffffff; padding: 12px 18px; text-decoration: none; border-radius: 6px;">Ver reportes</a>
+    </p>
+{% endblock %}

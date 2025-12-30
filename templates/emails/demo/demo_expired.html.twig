@@ -1,0 +1,13 @@
+{% extends 'emails/_layout.html.twig' %}
+
+{% block title %}Demo finalizada{% endblock %}
+
+{% block content %}
+    <h2 style="margin-top: 0;">Tu demo finalizó</h2>
+    <p>Hola {{ userName|default('') }}, la demo de ItaStock ya terminó.</p>
+    <p>Comercio: <strong>{{ businessName|default('N/D') }}</strong></p>
+    <p>Para seguir operando, elegí un plan y activá tu suscripción.</p>
+    <p style="margin: 24px 0;">
+        <a href="{{ absolute_url(path('app_billing_subscription_show')) }}" style="background-color: #C62828; color: #ffffff; padding: 12px 18px; text-decoration: none; border-radius: 6px;">Activar suscripción</a>
+    </p>
+{% endblock %}
