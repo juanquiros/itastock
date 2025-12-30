@@ -85,6 +85,9 @@ class Subscription
     #[ORM\Column(type: Types::DATETIME_IMMUTABLE, nullable: true)]
     private ?\DateTimeImmutable $nextPaymentAt = null;
 
+    #[ORM\Column(options: ['default' => 0])]
+    private int $gracePeriodDays = 0;
+
     #[ORM\Column(type: Types::DATETIME_IMMUTABLE)]
     private ?\DateTimeImmutable $createdAt = null;
 
@@ -268,6 +271,18 @@ class Subscription
     public function setNextPaymentAt(?\DateTimeImmutable $nextPaymentAt): self
     {
         $this->nextPaymentAt = $nextPaymentAt;
+
+        return $this;
+    }
+
+    public function getGracePeriodDays(): int
+    {
+        return $this->gracePeriodDays;
+    }
+
+    public function setGracePeriodDays(int $gracePeriodDays): self
+    {
+        $this->gracePeriodDays = $gracePeriodDays;
 
         return $this;
     }

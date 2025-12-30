@@ -98,9 +98,11 @@ class PlatformSubscriptionController extends AbstractController
 
         $mode = $request->request->get('override_mode');
         $untilRaw = $request->request->get('override_until');
+        $graceDays = $request->request->get('grace_period_days');
 
         $subscription->setOverrideMode($mode !== '' ? $mode : null);
         $subscription->setOverrideUntil($untilRaw ? new \DateTimeImmutable($untilRaw) : null);
+        $subscription->setGracePeriodDays($this->parseGraceDays($graceDays));
 
         $entityManager->flush();
         $this->addFlash('success', 'Override actualizado.');
@@ -164,5 +166,14 @@ class PlatformSubscriptionController extends AbstractController
         } catch (\Throwable) {
             return null;
         }
+    }
+
+    private function parseGraceDays(mixed $value): int
+    {
+        if (is_numeric($value)) {
+            return max(0, (int) $value);
+        }
+
+        return 0;
     }
 }

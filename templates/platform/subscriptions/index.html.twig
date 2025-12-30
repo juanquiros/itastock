@@ -83,6 +83,7 @@
                                         {% endfor %}
                                     </select>
                                     <input class="form-control form-control-sm" type="date" name="override_until" value="{{ subscription.overrideUntil ? subscription.overrideUntil|date('Y-m-d') : '' }}">
+                                    <input class="form-control form-control-sm" type="number" name="grace_period_days" min="0" max="30" placeholder="Gracia" value="{{ subscription.gracePeriodDays }}">
                                     <button class="btn btn-sm btn-outline-secondary" type="submit">Guardar</button>
                                 </form>
                             </div>

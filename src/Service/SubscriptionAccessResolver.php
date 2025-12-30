@@ -89,6 +89,27 @@ class SubscriptionAccessResolver
         }
 
         if ($status === Subscription::STATUS_CANCELED) {
+            $nextPaymentAt = $subscription->getNextPaymentAt();
+            if ($nextPaymentAt instanceof \DateTimeImmutable) {
+                $graceDays = max(0, $subscription->getGracePeriodDays());
+                if ($nextPaymentAt > new \DateTimeImmutable()) {
+                    return [
+                        'mode' => self::MODE_FULL,
+                        'reason' => 'canceled_pending',
+                        'endsAt' => $nextPaymentAt,
+                    ];
+                }
+
+                $graceEndsAt = $nextPaymentAt->modify(sprintf('+%d days', $graceDays));
+                if ($graceEndsAt > new \DateTimeImmutable()) {
+                    return [
+                        'mode' => self::MODE_READONLY,
+                        'reason' => 'grace_period',
+                        'endsAt' => $graceEndsAt,
+                    ];
+                }
+            }
+
             return [
                 'mode' => self::MODE_READONLY,
                 'reason' => 'canceled',
