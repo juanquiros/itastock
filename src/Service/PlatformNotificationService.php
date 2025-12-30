@@ -1,0 +1,365 @@
+<?php
+
+namespace App\Service;
+
+use App\Entity\Business;
+use App\Entity\Lead;
+use App\Entity\Subscription;
+use App\Entity\User;
+use Doctrine\ORM\EntityManagerInterface;
+
+class PlatformNotificationService
+{
+    public function __construct(
+        private readonly EntityManagerInterface $entityManager,
+        private readonly EmailSender $emailSender,
+        private readonly string $platformNotifyEmails,
+    ) {
+    }
+
+    public function notifyNewSubscription(Business $business, Subscription $subscription): void
+    {
+        $context = [
+            'businessName' => $business->getName(),
+            'adminEmail' => $this->findBusinessAdminEmail($business),
+            'planName' => $subscription->getPlan()?->getName(),
+        ];
+
+        $this->notifyPlatformAdmins(
+            'PLATFORM_NEW_SUBSCRIPTION',
+            'Nueva suscripción',
+            'emails/platform/platform_new_subscription.html.twig',
+            $context,
+            $subscription,
+            null,
+            null,
+        );
+    }
+
+    public function notifyCancellation(Business $business, Subscription $subscription): void
+    {
+        $context = [
+            'businessName' => $business->getName(),
+            'adminEmail' => $this->findBusinessAdminEmail($business),
+            'endsAt' => $subscription->getEndAt(),
+        ];
+
+        $this->notifyPlatformAdmins(
+            'PLATFORM_CANCELLATION',
+            'Suscripción cancelada',
+            'emails/platform/platform_cancellation.html.twig',
+            $context,
+            $subscription,
+            null,
+            null,
+        );
+    }
+
+    public function notifyDemoRequest(Lead $lead): void
+    {
+        $context = [
+            'businessName' => $lead->getName(),
+            'contactEmail' => $lead->getEmail(),
+        ];
+
+        $this->notifyPlatformAdmins(
+            'PLATFORM_DEMO_REQUEST',
+            'Nueva solicitud de demo',
+            'emails/platform/platform_demo_request.html.twig',
+            $context,
+            null,
+            null,
+            null,
+        );
+    }
+
+    public function sendWeeklyPlatformDigest(\DateTimeImmutable $start, \DateTimeImmutable $end): void
+    {
+        $digest = $this->buildDigestContext($start, $end);
+
+        $this->notifyPlatformAdmins(
+            'PLATFORM_DIGEST_WEEKLY',
+            'Digest semanal plataforma',
+            'emails/platform/platform_digest_weekly.html.twig',
+            $digest,
+            null,
+            $start,
+            $end,
+        );
+    }
+
+    public function sendMonthlyPlatformDigest(\DateTimeImmutable $start, \DateTimeImmutable $end): void
+    {
+        $digest = $this->buildDigestContext($start, $end);
+
+        $this->notifyPlatformAdmins(
+            'PLATFORM_DIGEST_MONTHLY',
+            'Digest mensual plataforma',
+            'emails/platform/platform_digest_monthly.html.twig',
+            $digest,
+            null,
+            $start,
+            $end,
+        );
+    }
+
+    /**
+     * @param array<string, mixed> $context
+     */
+    private function notifyPlatformAdmins(
+        string $type,
+        string $subject,
+        string $template,
+        array $context,
+        ?Subscription $subscription,
+        ?\DateTimeImmutable $periodStart,
+        ?\DateTimeImmutable $periodEnd,
+    ): void {
+        foreach ($this->getPlatformRecipients() as $recipientEmail) {
+            $this->emailSender->sendTemplatedEmail(
+                $type,
+                $recipientEmail,
+                'PLATFORM',
+                $subject,
+                $template,
+                $context,
+                null,
+                $subscription,
+                $periodStart,
+                $periodEnd,
+            );
+        }
+    }
+
+    /**
+     * @return string[]
+     */
+    private function getPlatformRecipients(): array
+    {
+        $recipients = [];
+
+        $qb = $this->entityManager->createQueryBuilder();
+        $users = $qb
+            ->select('u')
+            ->from(User::class, 'u')
+            ->where('u.roles LIKE :role')
+            ->setParameter('role', '%ROLE_PLATFORM_ADMIN%')
+            ->getQuery()
+            ->getResult();
+
+        foreach ($users as $user) {
+            if (!$user instanceof User) {
+                continue;
+            }
+
+            $recipients[] = $user->getEmail() ?? $user->getUserIdentifier();
+        }
+
+        if ($this->platformNotifyEmails !== '') {
+            $fallbacks = array_filter(array_map('trim', explode(',', $this->platformNotifyEmails)));
+            $recipients = array_merge($recipients, $fallbacks);
+        }
+
+        $recipients = array_values(array_unique(array_filter($recipients)));
+
+        return $recipients;
+    }
+
+    private function findBusinessAdminEmail(Business $business): ?string
+    {
+        foreach ($business->getUsers() as $user) {
+            if (!$user instanceof User || !in_array('ROLE_ADMIN', $user->getRoles(), true)) {
+                continue;
+            }
+
+            return $user->getEmail() ?? $user->getUserIdentifier();
+        }
+
+        return null;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function buildDigestContext(\DateTimeImmutable $start, \DateTimeImmutable $end): array
+    {
+        $now = $end;
+        $notes = [];
+
+        $newSubscriptions = $this->countSubscriptionsByPeriod($start, $end);
+        $cancellations = $this->countSubscriptionsByStatusInPeriod(Subscription::STATUS_CANCELED, $start, $end);
+        $demoRequests = $this->countLeadsByPeriod($start, $end);
+        $activeTrials = $this->countTrialsActiveAt($now);
+        $trialsExpiring = $this->countTrialsExpiringSoon($now);
+        $expiredTrials = $this->countTrialsExpiredBefore($now);
+        $pastDueSuspended = $this->countSubscriptionsByStatuses([
+            Subscription::STATUS_PAST_DUE,
+            Subscription::STATUS_SUSPENDED,
+        ]);
+        $newBusinesses = $this->countBusinessesByPeriod($start, $end);
+
+        $mrr = $this->calculateEstimatedMrr();
+        if ($mrr === null) {
+            $notes[] = 'N/D: MRR estimado';
+        }
+
+        return [
+            'periodStart' => $start,
+            'periodEnd' => $end,
+            'newSubscriptions' => $newSubscriptions,
+            'canceledSubscriptions' => $cancellations,
+            'newBusinesses' => $newBusinesses,
+            'activeSubscriptions' => $this->countSubscriptionsByStatus(Subscription::STATUS_ACTIVE),
+            'demoRequests' => $demoRequests,
+            'activeTrials' => $activeTrials,
+            'trialsExpiring' => $trialsExpiring,
+            'expiredTrials' => $expiredTrials,
+            'pastDueSuspended' => $pastDueSuspended,
+            'estimatedMrr' => $mrr,
+            'notes' => $notes,
+        ];
+    }
+
+    private function countSubscriptionsByPeriod(\DateTimeImmutable $start, \DateTimeImmutable $end): int
+    {
+        $qb = $this->entityManager->createQueryBuilder();
+
+        return (int) $qb
+            ->select('COUNT(s.id)')
+            ->from(Subscription::class, 's')
+            ->where('s.createdAt BETWEEN :start AND :end')
+            ->setParameter('start', $start)
+            ->setParameter('end', $end)
+            ->getQuery()
+            ->getSingleScalarResult();
+    }
+
+    private function countSubscriptionsByStatusInPeriod(string $status, \DateTimeImmutable $start, \DateTimeImmutable $end): int
+    {
+        $qb = $this->entityManager->createQueryBuilder();
+
+        return (int) $qb
+            ->select('COUNT(s.id)')
+            ->from(Subscription::class, 's')
+            ->where('s.status = :status')
+            ->andWhere('s.updatedAt BETWEEN :start AND :end')
+            ->setParameter('status', $status)
+            ->setParameter('start', $start)
+            ->setParameter('end', $end)
+            ->getQuery()
+            ->getSingleScalarResult();
+    }
+
+    private function countSubscriptionsByStatuses(array $statuses): int
+    {
+        $qb = $this->entityManager->createQueryBuilder();
+
+        return (int) $qb
+            ->select('COUNT(s.id)')
+            ->from(Subscription::class, 's')
+            ->where('s.status IN (:statuses)')
+            ->setParameter('statuses', $statuses)
+            ->getQuery()
+            ->getSingleScalarResult();
+    }
+
+    private function countSubscriptionsByStatus(string $status): int
+    {
+        return $this->countSubscriptionsByStatuses([$status]);
+    }
+
+    private function countLeadsByPeriod(\DateTimeImmutable $start, \DateTimeImmutable $end): int
+    {
+        $qb = $this->entityManager->createQueryBuilder();
+
+        return (int) $qb
+            ->select('COUNT(l.id)')
+            ->from(Lead::class, 'l')
+            ->where('l.createdAt BETWEEN :start AND :end')
+            ->setParameter('start', $start)
+            ->setParameter('end', $end)
+            ->getQuery()
+            ->getSingleScalarResult();
+    }
+
+    private function countBusinessesByPeriod(\DateTimeImmutable $start, \DateTimeImmutable $end): int
+    {
+        $qb = $this->entityManager->createQueryBuilder();
+
+        return (int) $qb
+            ->select('COUNT(b.id)')
+            ->from(Business::class, 'b')
+            ->where('b.createdAt BETWEEN :start AND :end')
+            ->setParameter('start', $start)
+            ->setParameter('end', $end)
+            ->getQuery()
+            ->getSingleScalarResult();
+    }
+
+    private function countTrialsActiveAt(\DateTimeImmutable $now): int
+    {
+        $qb = $this->entityManager->createQueryBuilder();
+
+        return (int) $qb
+            ->select('COUNT(s.id)')
+            ->from(Subscription::class, 's')
+            ->where('s.status = :status')
+            ->andWhere('s.trialEndsAt >= :now')
+            ->setParameter('status', Subscription::STATUS_TRIAL)
+            ->setParameter('now', $now)
+            ->getQuery()
+            ->getSingleScalarResult();
+    }
+
+    private function countTrialsExpiringSoon(\DateTimeImmutable $now): int
+    {
+        $windowEnd = $now->modify('+3 days');
+
+        $qb = $this->entityManager->createQueryBuilder();
+
+        return (int) $qb
+            ->select('COUNT(s.id)')
+            ->from(Subscription::class, 's')
+            ->where('s.status = :status')
+            ->andWhere('s.trialEndsAt BETWEEN :start AND :end')
+            ->setParameter('status', Subscription::STATUS_TRIAL)
+            ->setParameter('start', $now)
+            ->setParameter('end', $windowEnd)
+            ->getQuery()
+            ->getSingleScalarResult();
+    }
+
+    private function countTrialsExpiredBefore(\DateTimeImmutable $now): int
+    {
+        $qb = $this->entityManager->createQueryBuilder();
+
+        return (int) $qb
+            ->select('COUNT(s.id)')
+            ->from(Subscription::class, 's')
+            ->where('s.status = :status')
+            ->andWhere('s.trialEndsAt < :now')
+            ->setParameter('status', Subscription::STATUS_TRIAL)
+            ->setParameter('now', $now)
+            ->getQuery()
+            ->getSingleScalarResult();
+    }
+
+    private function calculateEstimatedMrr(): ?float
+    {
+        $qb = $this->entityManager->createQueryBuilder();
+        $result = $qb
+            ->select('SUM(p.price) as total')
+            ->from(Subscription::class, 's')
+            ->join('s.plan', 'p')
+            ->where('s.status = :status')
+            ->setParameter('status', Subscription::STATUS_ACTIVE)
+            ->getQuery()
+            ->getSingleScalarResult();
+
+        if ($result === null) {
+            return null;
+        }
+
+        return (float) $result;
+    }
+}

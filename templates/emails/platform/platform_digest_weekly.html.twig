@@ -10,8 +10,13 @@
         <li>Hasta: {{ periodEnd is defined and periodEnd ? periodEnd|date('d/m/Y') : 'N/D' }}</li>
     </ul>
     <p><strong>Nuevas suscripciones:</strong> {{ newSubscriptions|default('N/D') }}</p>
+    <p><strong>Cancelaciones:</strong> {{ canceledSubscriptions|default('N/D') }}</p>
+    <p><strong>Demos solicitadas:</strong> {{ demoRequests|default('N/D') }}</p>
     <p><strong>Suscripciones activas:</strong> {{ activeSubscriptions|default('N/D') }}</p>
     <p><strong>Demos activas:</strong> {{ activeTrials|default('N/D') }}</p>
+    <p><strong>Demos por vencer:</strong> {{ trialsExpiring|default('N/D') }}</p>
+    <p><strong>Past due / suspendidas:</strong> {{ pastDueSuspended|default('N/D') }}</p>
+    <p><strong>MRR estimado:</strong> {{ estimatedMrr|default('N/D') }}</p>
     <p style="margin: 24px 0;">
         <a href="{{ absolute_url(path('platform_reports_index')) }}" style="background-color: #C62828; color: #ffffff; padding: 12px 18px; text-decoration: none; border-radius: 6px;">Ver reportes</a>
     </p>
