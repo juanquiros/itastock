@@ -1,0 +1,6 @@
+Preferencias de emails (Admin Comercio)
+
+Overrides:
+- Si existe preferencia para el usuario, se aplica sobre la del negocio.
+- Si no hay preferencia del usuario, se usa la del negocio (user = null).
+- Si no hay preferencia creada, se usan los valores por defecto y se crea al ingresar.
