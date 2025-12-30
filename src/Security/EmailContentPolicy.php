@@ -6,6 +6,9 @@ class EmailContentPolicy
 {
     private const SENSITIVE_KEYS = [
         'mppreapprovalid',
+        'mp_preapproval_id',
+        'card_token_id',
+        'cardtokenid',
         'card_token',
         'access_token',
     ];

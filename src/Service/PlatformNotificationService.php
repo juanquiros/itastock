@@ -192,7 +192,7 @@ class PlatformNotificationService
     /**
      * @return array<string, mixed>
      */
-    private function buildDigestContext(\DateTimeImmutable $start, \DateTimeImmutable $end): array
+    protected function buildDigestContext(\DateTimeImmutable $start, \DateTimeImmutable $end): array
     {
         $now = $end;
         $notes = [];
@@ -231,7 +231,7 @@ class PlatformNotificationService
         ];
     }
 
-    private function countSubscriptionsByPeriod(\DateTimeImmutable $start, \DateTimeImmutable $end): int
+    protected function countSubscriptionsByPeriod(\DateTimeImmutable $start, \DateTimeImmutable $end): int
     {
         $qb = $this->entityManager->createQueryBuilder();
 
@@ -245,7 +245,7 @@ class PlatformNotificationService
             ->getSingleScalarResult();
     }
 
-    private function countSubscriptionsByStatusInPeriod(string $status, \DateTimeImmutable $start, \DateTimeImmutable $end): int
+    protected function countSubscriptionsByStatusInPeriod(string $status, \DateTimeImmutable $start, \DateTimeImmutable $end): int
     {
         $qb = $this->entityManager->createQueryBuilder();
 
@@ -261,7 +261,7 @@ class PlatformNotificationService
             ->getSingleScalarResult();
     }
 
-    private function countSubscriptionsByStatuses(array $statuses): int
+    protected function countSubscriptionsByStatuses(array $statuses): int
     {
         $qb = $this->entityManager->createQueryBuilder();
 
@@ -274,12 +274,12 @@ class PlatformNotificationService
             ->getSingleScalarResult();
     }
 
-    private function countSubscriptionsByStatus(string $status): int
+    protected function countSubscriptionsByStatus(string $status): int
     {
         return $this->countSubscriptionsByStatuses([$status]);
     }
 
-    private function countLeadsByPeriod(\DateTimeImmutable $start, \DateTimeImmutable $end): int
+    protected function countLeadsByPeriod(\DateTimeImmutable $start, \DateTimeImmutable $end): int
     {
         $qb = $this->entityManager->createQueryBuilder();
 
@@ -293,7 +293,7 @@ class PlatformNotificationService
             ->getSingleScalarResult();
     }
 
-    private function countBusinessesByPeriod(\DateTimeImmutable $start, \DateTimeImmutable $end): int
+    protected function countBusinessesByPeriod(\DateTimeImmutable $start, \DateTimeImmutable $end): int
     {
         $qb = $this->entityManager->createQueryBuilder();
 
@@ -307,7 +307,7 @@ class PlatformNotificationService
             ->getSingleScalarResult();
     }
 
-    private function countTrialsActiveAt(\DateTimeImmutable $now): int
+    protected function countTrialsActiveAt(\DateTimeImmutable $now): int
     {
         $qb = $this->entityManager->createQueryBuilder();
 
@@ -322,7 +322,7 @@ class PlatformNotificationService
             ->getSingleScalarResult();
     }
 
-    private function countTrialsExpiringSoon(\DateTimeImmutable $now): int
+    protected function countTrialsExpiringSoon(\DateTimeImmutable $now): int
     {
         $windowEnd = $now->modify('+3 days');
 
@@ -340,7 +340,7 @@ class PlatformNotificationService
             ->getSingleScalarResult();
     }
 
-    private function countTrialsExpiredBefore(\DateTimeImmutable $now): int
+    protected function countTrialsExpiredBefore(\DateTimeImmutable $now): int
     {
         $qb = $this->entityManager->createQueryBuilder();
 
@@ -355,7 +355,7 @@ class PlatformNotificationService
             ->getSingleScalarResult();
     }
 
-    private function calculateEstimatedMrr(): ?float
+    protected function calculateEstimatedMrr(): ?float
     {
         $qb = $this->entityManager->createQueryBuilder();
         $result = $qb

@@ -40,6 +40,7 @@ class EmailContentPolicyTest extends TestCase
 
         $context = [
             'mpPreapprovalId' => 'preapproval',
+            'card_token_id' => 'card-token',
             'card_token' => 'token',
             'access_token' => 'secret',
             'nested' => [
@@ -51,6 +52,7 @@ class EmailContentPolicyTest extends TestCase
         $sanitized = $policy->sanitizeContext('ADMIN', 'REPORT_WEEKLY', $context);
 
         self::assertArrayNotHasKey('mpPreapprovalId', $sanitized);
+        self::assertArrayNotHasKey('card_token_id', $sanitized);
         self::assertArrayNotHasKey('card_token', $sanitized);
         self::assertArrayNotHasKey('access_token', $sanitized);
         self::assertArrayHasKey('nested', $sanitized);

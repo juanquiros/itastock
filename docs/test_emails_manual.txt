@@ -1,0 +1,6 @@
+Checklist manual de emails
+
+- Demo habilitada -> llega email al admin comercio.
+- Trial por vencer (3 días) -> llega email al admin comercio.
+- Payment received -> llega email al admin comercio.
+- Weekly digest plataforma -> llega email a admins plataforma.
