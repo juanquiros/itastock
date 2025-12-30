@@ -1,0 +1,25 @@
+Notificaciones de suscripción (comercio)
+
+Reglas
+- Se envía solo a usuarios con ROLE_ADMIN del negocio.
+- Se respeta EmailPreference.enabled y EmailPreference.subscriptionAlertsEnabled.
+- Se usa EmailSender con política de contenido para sanitizar el contexto.
+- Idempotencia por periodo cuando aplica (trial/next charge/end) y por suscripción en eventos.
+
+Scheduled
+- demo_expiring_3_days: trialEndsAt entre now+3d y now+4d.
+- demo_expired: trialEndsAt < now (una vez por suscripción).
+- subscription_next_charge_7_days: nextPaymentAt (o endAt) entre now+7d y now+8d.
+- subscription_canceled_or_expiring_7_days: endAt entre now+7d y now+8d.
+- subscription_no_subscription: estado CANCELED y endAt null o < now.
+
+Eventos
+- demo_enabled
+- subscription_activated
+- subscription_payment_received
+- subscription_payment_failed
+- subscription_canceled_or_expiring_7_days
+
+Notas
+- Si no hay nextPaymentAt, se usa endAt como proxy.
+- No se incluyen IDs internos ni datos sensibles.
