@@ -1,0 +1,13 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Estamos verificando{% endblock %}
+
+{% block body %}
+    <div class="card shadow-sm">
+        <div class="card-body">
+            <h1 class="h4">Estamos verificando tu suscripción</h1>
+            <p class="text-muted">En breve confirmaremos el estado con Mercado Pago.</p>
+            <a class="btn btn-primary" href="{{ path('app_billing_subscription_show') }}">Volver a Mi suscripción</a>
+        </div>
+    </div>
+{% endblock %}

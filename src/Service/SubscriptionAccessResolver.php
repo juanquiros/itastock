@@ -20,6 +20,16 @@ class SubscriptionAccessResolver
             ];
         }
 
+        $overrideUntil = $subscription->getOverrideUntil();
+        $overrideMode = $subscription->getOverrideMode();
+        if ($overrideMode && $overrideUntil instanceof \DateTimeImmutable && $overrideUntil > new \DateTimeImmutable()) {
+            return [
+                'mode' => $this->normalizeOverrideMode($overrideMode),
+                'reason' => 'override',
+                'endsAt' => $overrideUntil,
+            ];
+        }
+
         $status = $subscription->getStatus();
         if ($status === Subscription::STATUS_TRIAL) {
             $trialEndsAt = $subscription->getTrialEndsAt();
@@ -62,6 +72,14 @@ class SubscriptionAccessResolver
             ];
         }
 
+        if ($status === Subscription::STATUS_PENDING) {
+            return [
+                'mode' => self::MODE_BLOCKED,
+                'reason' => 'pending',
+                'endsAt' => null,
+            ];
+        }
+
         if ($status === Subscription::STATUS_SUSPENDED) {
             return [
                 'mode' => self::MODE_READONLY,
@@ -83,5 +101,15 @@ class SubscriptionAccessResolver
             'reason' => 'unknown',
             'endsAt' => $subscription->getEndAt(),
         ];
+    }
+
+    private function normalizeOverrideMode(string $overrideMode): string
+    {
+        return match ($overrideMode) {
+            Subscription::OVERRIDE_FULL => self::MODE_FULL,
+            Subscription::OVERRIDE_READONLY => self::MODE_READONLY,
+            Subscription::OVERRIDE_BLOCKED => self::MODE_BLOCKED,
+            default => self::MODE_BLOCKED,
+        };
     }
 }
