@@ -76,6 +76,13 @@ class BillingWebhookEvent
         return $this->payload;
     }
 
+    public function setPayload(string $payload): self
+    {
+        $this->payload = $payload;
+
+        return $this;
+    }
+
     public function getHeaders(): string
     {
         return $this->headers;

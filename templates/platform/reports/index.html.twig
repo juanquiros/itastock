@@ -33,12 +33,68 @@
     <div class="card shadow-sm mt-3">
         <div class="card-body">
             <h2 class="h6">Informes sugeridos</h2>
-            <ul class="mb-0">
-                <li>Pagos aprobados vs. pendientes por semana.</li>
-                <li>Suscriptores activos por plan.</li>
-                <li>Ingresos estimados del próximo cobro.</li>
-                <li>Seguimiento de cuentas en periodo de gracia.</li>
-            </ul>
+            <div class="row g-3">
+                <div class="col-lg-6">
+                    <h3 class="h6">Pagos aprobados vs. pendientes (últimas semanas)</h3>
+                    <div class="table-responsive">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Semana</th>
+                                    <th>Aprobados</th>
+                                    <th>Pendientes</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for row in weeklyPayments %}
+                                    <tr>
+                                        <td>{{ row.label }}</td>
+                                        <td>{{ row.approved }}</td>
+                                        <td>{{ row.pending }}</td>
+                                    </tr>
+                                {% else %}
+                                    <tr><td colspan="3">Sin datos.</td></tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="col-lg-6">
+                    <h3 class="h6">Suscriptores activos por plan</h3>
+                    <div class="table-responsive">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Plan</th>
+                                    <th>Activos</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for row in activeByPlan %}
+                                    <tr>
+                                        <td>{{ row.name }}</td>
+                                        <td>{{ row.total }}</td>
+                                    </tr>
+                                {% else %}
+                                    <tr><td colspan="2">Sin datos.</td></tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row g-3 mt-2">
+                <div class="col-lg-6">
+                    <h3 class="h6">Ingresos estimados del próximo cobro</h3>
+                    <p class="mb-1">Suscripciones consideradas: <strong>{{ estimatedRevenue.count }}</strong></p>
+                    <p class="mb-0">Monto estimado: <strong>${{ estimatedRevenue.amount|number_format(2, ',', '.') }}</strong></p>
+                </div>
+                <div class="col-lg-6">
+                    <h3 class="h6">Cuentas en período de gracia</h3>
+                    <p class="mb-0">Total: <strong>{{ graceAccounts }}</strong></p>
+                </div>
+            </div>
         </div>
     </div>
 {% endblock %}

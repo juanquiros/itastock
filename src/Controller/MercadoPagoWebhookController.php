@@ -79,6 +79,7 @@ class MercadoPagoWebhookController extends AbstractController
         try {
             if ($resourceType === 'payment') {
                 $payment = $mercadoPagoClient->getPayment($resourceId);
+                $this->storePaymentDetails($event, $payload, $payment);
                 $preapprovalId = $this->extractPreapprovalIdFromPayment($payment);
                 $subscription = null;
                 if (!$preapprovalId) {
@@ -190,5 +191,19 @@ class MercadoPagoWebhookController extends AbstractController
         } catch (\Throwable) {
             return null;
         }
+    }
+
+    private function storePaymentDetails(BillingWebhookEvent $event, array $payload, array $payment): void
+    {
+        $payload['payment'] = [
+            'id' => $payment['id'] ?? null,
+            'status' => $payment['status'] ?? null,
+            'status_detail' => $payment['status_detail'] ?? null,
+            'external_reference' => $payment['external_reference'] ?? null,
+            'preapproval_id' => $payment['preapproval_id'] ?? $payment['subscription_id'] ?? null,
+            'date_created' => $payment['date_created'] ?? null,
+        ];
+
+        $event->setPayload(json_encode($payload, JSON_UNESCAPED_UNICODE));
     }
 }
