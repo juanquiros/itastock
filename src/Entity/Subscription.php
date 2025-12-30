@@ -9,6 +9,7 @@ use Symfony\Component\Validator\Constraints as Assert;
 
 #[ORM\Entity(repositoryClass: SubscriptionRepository::class)]
 #[ORM\Table(name: 'subscriptions')]
+#[ORM\Index(name: 'idx_subscription_mp_plan', columns: ['mp_preapproval_plan_id'])]
 #[ORM\HasLifecycleCallbacks]
 class Subscription
 {
@@ -17,6 +18,10 @@ class Subscription
     public const STATUS_PAST_DUE = 'PAST_DUE';
     public const STATUS_CANCELED = 'CANCELED';
     public const STATUS_SUSPENDED = 'SUSPENDED';
+    public const STATUS_PENDING = 'PENDING';
+    public const OVERRIDE_FULL = 'FULL';
+    public const OVERRIDE_READONLY = 'READONLY';
+    public const OVERRIDE_BLOCKED = 'BLOCKED';
 
     #[ORM\Id]
     #[ORM\GeneratedValue]
@@ -38,6 +43,7 @@ class Subscription
         self::STATUS_PAST_DUE,
         self::STATUS_CANCELED,
         self::STATUS_SUSPENDED,
+        self::STATUS_PENDING,
     ])]
     private string $status = self::STATUS_TRIAL;
 
@@ -52,6 +58,32 @@ class Subscription
 
     #[ORM\Column(type: Types::TEXT, nullable: true)]
     private ?string $notes = null;
+
+    #[ORM\Column(length: 128, unique: true, nullable: true)]
+    private ?string $mpPreapprovalId = null;
+
+    #[ORM\Column(length: 128, nullable: true)]
+    private ?string $mpPreapprovalPlanId = null;
+
+    #[ORM\Column(length: 180, nullable: true)]
+    private ?string $payerEmail = null;
+
+    #[ORM\Column(type: Types::DATETIME_IMMUTABLE, nullable: true)]
+    private ?\DateTimeImmutable $lastSyncedAt = null;
+
+    #[ORM\Column(length: 16, nullable: true)]
+    #[Assert\Choice(choices: [
+        self::OVERRIDE_FULL,
+        self::OVERRIDE_READONLY,
+        self::OVERRIDE_BLOCKED,
+    ])]
+    private ?string $overrideMode = null;
+
+    #[ORM\Column(type: Types::DATETIME_IMMUTABLE, nullable: true)]
+    private ?\DateTimeImmutable $overrideUntil = null;
+
+    #[ORM\Column(type: Types::DATETIME_IMMUTABLE, nullable: true)]
+    private ?\DateTimeImmutable $nextPaymentAt = null;
 
     #[ORM\Column(type: Types::DATETIME_IMMUTABLE)]
     private ?\DateTimeImmutable $createdAt = null;
@@ -152,6 +184,90 @@ class Subscription
     public function setNotes(?string $notes): self
     {
         $this->notes = $notes;
+
+        return $this;
+    }
+
+    public function getMpPreapprovalId(): ?string
+    {
+        return $this->mpPreapprovalId;
+    }
+
+    public function setMpPreapprovalId(?string $mpPreapprovalId): self
+    {
+        $this->mpPreapprovalId = $mpPreapprovalId;
+
+        return $this;
+    }
+
+    public function getMpPreapprovalPlanId(): ?string
+    {
+        return $this->mpPreapprovalPlanId;
+    }
+
+    public function setMpPreapprovalPlanId(?string $mpPreapprovalPlanId): self
+    {
+        $this->mpPreapprovalPlanId = $mpPreapprovalPlanId;
+
+        return $this;
+    }
+
+    public function getPayerEmail(): ?string
+    {
+        return $this->payerEmail;
+    }
+
+    public function setPayerEmail(?string $payerEmail): self
+    {
+        $this->payerEmail = $payerEmail;
+
+        return $this;
+    }
+
+    public function getLastSyncedAt(): ?\DateTimeImmutable
+    {
+        return $this->lastSyncedAt;
+    }
+
+    public function setLastSyncedAt(?\DateTimeImmutable $lastSyncedAt): self
+    {
+        $this->lastSyncedAt = $lastSyncedAt;
+
+        return $this;
+    }
+
+    public function getOverrideMode(): ?string
+    {
+        return $this->overrideMode;
+    }
+
+    public function setOverrideMode(?string $overrideMode): self
+    {
+        $this->overrideMode = $overrideMode;
+
+        return $this;
+    }
+
+    public function getOverrideUntil(): ?\DateTimeImmutable
+    {
+        return $this->overrideUntil;
+    }
+
+    public function setOverrideUntil(?\DateTimeImmutable $overrideUntil): self
+    {
+        $this->overrideUntil = $overrideUntil;
+
+        return $this;
+    }
+
+    public function getNextPaymentAt(): ?\DateTimeImmutable
+    {
+        return $this->nextPaymentAt;
+    }
+
+    public function setNextPaymentAt(?\DateTimeImmutable $nextPaymentAt): self
+    {
+        $this->nextPaymentAt = $nextPaymentAt;
 
         return $this;
     }
