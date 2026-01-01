@@ -15,4 +15,37 @@ class EmailNotificationLogRepository extends ServiceEntityRepository
     {
         parent::__construct($registry, EmailNotificationLog::class);
     }
+
+    /**
+     * @return array{items: array<int, EmailNotificationLog>, total: int}
+     */
+    public function findPlatformLogs(string $query, int $page, int $limit): array
+    {
+        $qb = $this->createQueryBuilder('e')
+            ->where('e.recipientRole = :role')
+            ->setParameter('role', EmailNotificationLog::ROLE_PLATFORM)
+            ->orderBy('e.createdAt', 'DESC');
+
+        if ($query !== '') {
+            $qb
+                ->andWhere('e.recipientEmail LIKE :q OR e.type LIKE :q')
+                ->setParameter('q', '%'.$query.'%');
+        }
+
+        $total = (int) (clone $qb)
+            ->select('COUNT(e.id)')
+            ->getQuery()
+            ->getSingleScalarResult();
+
+        $items = $qb
+            ->setFirstResult(($page - 1) * $limit)
+            ->setMaxResults($limit)
+            ->getQuery()
+            ->getResult();
+
+        return [
+            'items' => $items,
+            'total' => $total,
+        ];
+    }
 }

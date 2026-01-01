@@ -1,0 +1,61 @@
+{% extends 'platform/base_platform.html.twig' %}
+
+{% block header_title %}Emails enviados{% endblock %}
+
+{% block body %}
+    <form method="get" class="row g-2 align-items-end mb-3">
+        <div class="col-md-6">
+            <label class="form-label">Buscar</label>
+            <input type="text" name="q" value="{{ query }}" class="form-control" placeholder="Email o tipo">
+        </div>
+        <div class="col-md-2 d-grid">
+            <button class="btn btn-outline-primary" type="submit">Buscar</button>
+        </div>
+        <div class="col-md-4 text-end align-self-end">
+            <span class="text-muted">Total: {{ total }}</span>
+        </div>
+    </form>
+
+    <div class="table-responsive">
+        <table class="table align-middle">
+            <thead>
+                <tr>
+                    <th>Fecha</th>
+                    <th>Tipo</th>
+                    <th>Email</th>
+                    <th>Estado</th>
+                    <th>Detalle</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for log in logs %}
+                    <tr>
+                        <td>{{ log.createdAt|date('Y-m-d H:i') }}</td>
+                        <td>{{ log.type }}</td>
+                        <td>{{ log.recipientEmail }}</td>
+                        <td>
+                            <span class="badge bg-{{ log.status == 'SENT' ? 'success' : (log.status == 'FAILED' ? 'danger' : 'secondary') }}">
+                                {{ log.status }}
+                            </span>
+                        </td>
+                        <td>{{ log.errorMessage ?: '—' }}</td>
+                    </tr>
+                {% else %}
+                    <tr><td colspan="5">Sin envíos registrados.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    {% if pages > 1 %}
+        <nav>
+            <ul class="pagination">
+                {% for p in 1..pages %}
+                    <li class="page-item {{ p == page ? 'active' : '' }}">
+                        <a class="page-link" href="{{ path('platform_email_logs', { q: query, page: p }) }}">{{ p }}</a>
+                    </li>
+                {% endfor %}
+            </ul>
+        </nav>
+    {% endif %}
+{% endblock %}
