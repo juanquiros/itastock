@@ -57,10 +57,19 @@ class SubscriptionAccessResolver
         }
 
         if ($status === Subscription::STATUS_ACTIVE) {
+            $endAt = $subscription->getEndAt();
+            if ($endAt instanceof \DateTimeImmutable && $endAt <= new \DateTimeImmutable()) {
+                return [
+                    'mode' => self::MODE_READONLY,
+                    'reason' => 'active_expired',
+                    'endsAt' => $endAt,
+                ];
+            }
+
             return [
                 'mode' => self::MODE_FULL,
                 'reason' => 'active',
-                'endsAt' => $subscription->getEndAt(),
+                'endsAt' => $endAt,
             ];
         }
 

@@ -26,4 +26,9 @@ class SubscriptionContext
 
         return $business->getSubscription();
     }
+
+    public function getEffectiveSubscription(?User $user = null): ?Subscription
+    {
+        return $this->getCurrentSubscription($user);
+    }
 }

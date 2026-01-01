@@ -89,7 +89,7 @@ class SubscriptionAccessSubscriber implements EventSubscriberInterface
             return;
         }
 
-        $subscription = $this->subscriptionContext->getCurrentSubscription($user);
+        $subscription = $this->subscriptionContext->getEffectiveSubscription($user);
         $access = $this->accessResolver->resolve($subscription);
         $mode = $access['mode'];
         $request->attributes->set('_subscription_access_mode', $mode);
