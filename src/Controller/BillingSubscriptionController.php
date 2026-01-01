@@ -4,7 +4,6 @@ namespace App\Controller;
 
 use App\Entity\BillingPlan;
 use App\Entity\PendingSubscriptionChange;
-use App\Entity\PendingSubscriptionChange;
 use App\Entity\Subscription;
 use App\Exception\MercadoPagoApiException;
 use App\Repository\BillingPlanRepository;
