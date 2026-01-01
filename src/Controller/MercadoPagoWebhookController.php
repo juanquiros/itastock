@@ -97,6 +97,7 @@ class MercadoPagoWebhookController extends AbstractController
                 }
 
                 if (!$preapprovalId && $subscription) {
+                    $previousStatus = $subscription->getStatus();
                     if ($paymentStatus === 'approved') {
                         $subscription->setStatus(Subscription::STATUS_ACTIVE);
                     }
@@ -110,6 +111,9 @@ class MercadoPagoWebhookController extends AbstractController
                     $event->setProcessedAt(new \DateTimeImmutable());
                     $entityManager->flush();
 
+                    if ($previousStatus !== $subscription->getStatus() && $subscription->getStatus() === Subscription::STATUS_ACTIVE) {
+                        $subscriptionNotificationService->onSubscriptionActivated($subscription);
+                    }
                     if ($paymentStatus === 'approved') {
                         $subscriptionNotificationService->onPaymentReceived($subscription);
                     }
