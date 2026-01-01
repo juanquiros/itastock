@@ -9,6 +9,7 @@ use App\Exception\MercadoPagoApiException;
 use App\Repository\BillingWebhookEventRepository;
 use App\Repository\SubscriptionRepository;
 use App\Service\MercadoPagoClient;
+use App\Service\PlatformNotificationService;
 use App\Service\SubscriptionNotificationService;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Log\LoggerInterface;
@@ -27,6 +28,7 @@ class MercadoPagoWebhookController extends AbstractController
         MercadoPagoClient $mercadoPagoClient,
         EntityManagerInterface $entityManager,
         SubscriptionNotificationService $subscriptionNotificationService,
+        PlatformNotificationService $platformNotificationService,
         LoggerInterface $logger,
     ): Response {
         $payloadRaw = $request->getContent();
@@ -196,6 +198,24 @@ class MercadoPagoWebhookController extends AbstractController
                     'pending_change_id' => $pendingChange->getId(),
                     'mp_preapproval_id' => $resourceId,
                 ]);
+                $subscription = $pendingChange->getCurrentSubscription();
+                $billingPlan = $pendingChange->getTargetBillingPlan();
+                if ($subscription instanceof Subscription) {
+                    $subscriptionNotificationService->onSubscriptionChangePaid(
+                        $subscription,
+                        $billingPlan?->getName(),
+                        $pendingChange->getEffectiveAt()
+                    );
+                    if ($subscription->getBusiness()) {
+                        $platformNotificationService->notifySubscriptionChangePaid(
+                            $subscription->getBusiness(),
+                            $subscription,
+                            $billingPlan?->getName(),
+                            $pendingChange->getEffectiveAt(),
+                            $pendingChange->getPaidAt()
+                        );
+                    }
+                }
             }
         }
 

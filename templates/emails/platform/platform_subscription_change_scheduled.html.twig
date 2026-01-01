@@ -1,0 +1,12 @@
+{% extends 'emails/_layout.html.twig' %}
+
+{% block title %}Cambio de plan programado{% endblock %}
+
+{% block content %}
+    <h2 style="margin-top: 0;">Cambio de plan programado</h2>
+    <p>Negocio: <strong>{{ businessName|default('N/D') }}</strong></p>
+    <p>Admin: <strong>{{ adminEmail|default('N/D') }}</strong></p>
+    <p>Plan destino: <strong>{{ planName|default('N/D') }}</strong></p>
+    <p>Se aplicará desde: <strong>{{ effectiveAt is defined and effectiveAt ? effectiveAt|date('d/m/Y') : 'N/D' }}</strong></p>
+    <p>Plan actual activo hasta: <strong>{{ currentEndsAt is defined and currentEndsAt ? currentEndsAt|date('d/m/Y') : 'N/D' }}</strong></p>
+{% endblock %}

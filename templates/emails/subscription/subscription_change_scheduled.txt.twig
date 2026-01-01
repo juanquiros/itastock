@@ -1,0 +1,8 @@
+Cambio de plan programado
+
+Hola {{ userName|default('') }}, programamos tu cambio de plan.
+Plan destino: {{ planName|default('N/D') }}
+Se aplicará desde: {{ effectiveAt is defined and effectiveAt ? effectiveAt|date('d/m/Y') : 'N/D' }}
+Tu plan actual sigue activo hasta: {{ currentEndsAt is defined and currentEndsAt ? currentEndsAt|date('d/m/Y') : 'N/D' }}
+
+Ver suscripción: {{ absolute_url(path('app_billing_subscription_show')) }}

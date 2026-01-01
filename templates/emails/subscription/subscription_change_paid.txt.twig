@@ -1,0 +1,7 @@
+Pago recibido
+
+Hola {{ userName|default('') }}, registramos tu pago.
+Plan destino: {{ planName|default('N/D') }}
+Se aplicará desde: {{ effectiveAt is defined and effectiveAt ? effectiveAt|date('d/m/Y') : 'N/D' }}
+
+Ver suscripción: {{ absolute_url(path('app_billing_subscription_show')) }}

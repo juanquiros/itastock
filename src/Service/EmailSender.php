@@ -8,6 +8,7 @@ use App\Entity\Subscription;
 use App\Security\EmailContentPolicy;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bridge\Twig\Mime\TemplatedEmail;
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\Mailer\MailerInterface;
 use Symfony\Component\Mime\Address;
 
@@ -19,6 +20,8 @@ class EmailSender
         private readonly EmailContentPolicy $contentPolicy,
         private readonly string $mailFrom,
         private readonly string $appName,
+        #[Autowire('%kernel.project_dir%')]
+        private readonly string $projectDir,
     ) {
     }
 
@@ -75,6 +78,11 @@ class EmailSender
             ->htmlTemplate($template)
             ->context($sanitizedContext);
 
+        $textTemplate = $this->resolveTextTemplate($template);
+        if ($textTemplate) {
+            $email->textTemplate($textTemplate);
+        }
+
         try {
             $this->mailer->send($email);
             $log->setStatus(EmailNotificationLog::STATUS_SENT)
@@ -128,5 +136,20 @@ class EmailSender
         }
 
         return hash('sha256', serialize($context));
+    }
+
+    private function resolveTextTemplate(string $htmlTemplate): ?string
+    {
+        if (!str_ends_with($htmlTemplate, '.html.twig')) {
+            return null;
+        }
+
+        $textTemplate = str_replace('.html.twig', '.txt.twig', $htmlTemplate);
+        $path = rtrim($this->projectDir, '/').'/templates/'.$textTemplate;
+        if (!is_file($path)) {
+            return null;
+        }
+
+        return $textTemplate;
     }
 }

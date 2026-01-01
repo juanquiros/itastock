@@ -5,6 +5,7 @@ namespace App\Command;
 use App\Entity\PendingSubscriptionChange;
 use App\Entity\Subscription;
 use App\Repository\PlanRepository;
+use App\Service\PlatformNotificationService;
 use App\Service\SubscriptionNotificationService;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\Console\Attribute\AsCommand;
@@ -22,6 +23,7 @@ class ApplyPendingSubscriptionChangesCommand extends Command
         private readonly EntityManagerInterface $entityManager,
         private readonly PlanRepository $planRepository,
         private readonly SubscriptionNotificationService $notificationService,
+        private readonly PlatformNotificationService $platformNotificationService,
     ) {
         parent::__construct();
     }
@@ -83,6 +85,14 @@ class ApplyPendingSubscriptionChangesCommand extends Command
                 ->setAppliedAt($now);
 
             $this->notificationService->onSubscriptionChangeApplied($subscription, $billingPlan->getName());
+            if ($subscription->getBusiness()) {
+                $this->platformNotificationService->notifySubscriptionChangeApplied(
+                    $subscription->getBusiness(),
+                    $subscription,
+                    $billingPlan->getName(),
+                    $pendingChange->getAppliedAt()
+                );
+            }
             $appliedCount++;
         }
 
@@ -126,7 +136,7 @@ class ApplyPendingSubscriptionChangesCommand extends Command
                 continue;
             }
 
-            $endAt = $subscription->getEndAt();
+            $endAt = $subscription->getEndAt() ?? $subscription->getTrialEndsAt();
             if (!$endAt instanceof \DateTimeImmutable) {
                 continue;
             }
@@ -142,6 +152,20 @@ class ApplyPendingSubscriptionChangesCommand extends Command
             }
 
             $pendingChange->setStatus(PendingSubscriptionChange::STATUS_EXPIRED);
+            $billingPlan = $pendingChange->getTargetBillingPlan();
+            $this->notificationService->onSubscriptionChangeExpired(
+                $subscription,
+                $billingPlan?->getName(),
+                $now
+            );
+            if ($subscription->getBusiness()) {
+                $this->platformNotificationService->notifySubscriptionChangeExpired(
+                    $subscription->getBusiness(),
+                    $subscription,
+                    $billingPlan?->getName(),
+                    $now
+                );
+            }
             $expiredCount++;
         }
 

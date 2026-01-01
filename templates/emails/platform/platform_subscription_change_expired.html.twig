@@ -1,0 +1,11 @@
+{% extends 'emails/_layout.html.twig' %}
+
+{% block title %}Cambio de plan expirado{% endblock %}
+
+{% block content %}
+    <h2 style="margin-top: 0;">Cambio de plan expirado</h2>
+    <p>Negocio: <strong>{{ businessName|default('N/D') }}</strong></p>
+    <p>Admin: <strong>{{ adminEmail|default('N/D') }}</strong></p>
+    <p>Plan destino: <strong>{{ planName|default('N/D') }}</strong></p>
+    <p>Fecha de expiración: <strong>{{ expiredAt is defined and expiredAt ? expiredAt|date('d/m/Y') : 'N/D' }}</strong></p>
+{% endblock %}

@@ -1,0 +1,6 @@
+Cambio aplicado
+
+Negocio: {{ businessName|default('N/D') }}
+Admin: {{ adminEmail|default('N/D') }}
+Plan actual: {{ planName|default('N/D') }}
+Fecha de aplicación: {{ appliedAt is defined and appliedAt ? appliedAt|date('d/m/Y') : 'N/D' }}

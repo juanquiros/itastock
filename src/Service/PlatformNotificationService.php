@@ -104,6 +104,88 @@ class PlatformNotificationService
         );
     }
 
+    public function notifySubscriptionChangeScheduled(Business $business, Subscription $subscription, ?string $planName, ?\DateTimeImmutable $effectiveAt, ?\DateTimeImmutable $currentEndsAt): array
+    {
+        $context = [
+            'businessName' => $business->getName(),
+            'adminEmail' => $this->findBusinessAdminEmail($business),
+            'planName' => $planName,
+            'effectiveAt' => $effectiveAt,
+            'currentEndsAt' => $currentEndsAt,
+        ];
+
+        return $this->notifyPlatformAdmins(
+            'PLATFORM_SUBSCRIPTION_CHANGE_SCHEDULED',
+            'Cambio de plan programado',
+            'emails/platform/platform_subscription_change_scheduled.html.twig',
+            $context,
+            $subscription,
+            null,
+            null,
+        );
+    }
+
+    public function notifySubscriptionChangePaid(Business $business, Subscription $subscription, ?string $planName, ?\DateTimeImmutable $effectiveAt, ?\DateTimeImmutable $paidAt): array
+    {
+        $context = [
+            'businessName' => $business->getName(),
+            'adminEmail' => $this->findBusinessAdminEmail($business),
+            'planName' => $planName,
+            'effectiveAt' => $effectiveAt,
+            'paidAt' => $paidAt,
+        ];
+
+        return $this->notifyPlatformAdmins(
+            'PLATFORM_SUBSCRIPTION_CHANGE_PAID',
+            'Pago recibido (cambio de plan)',
+            'emails/platform/platform_subscription_change_paid.html.twig',
+            $context,
+            $subscription,
+            null,
+            null,
+        );
+    }
+
+    public function notifySubscriptionChangeApplied(Business $business, Subscription $subscription, ?string $planName, ?\DateTimeImmutable $appliedAt): array
+    {
+        $context = [
+            'businessName' => $business->getName(),
+            'adminEmail' => $this->findBusinessAdminEmail($business),
+            'planName' => $planName,
+            'appliedAt' => $appliedAt,
+        ];
+
+        return $this->notifyPlatformAdmins(
+            'PLATFORM_SUBSCRIPTION_CHANGE_APPLIED',
+            'Cambio aplicado',
+            'emails/platform/platform_subscription_change_applied.html.twig',
+            $context,
+            $subscription,
+            null,
+            null,
+        );
+    }
+
+    public function notifySubscriptionChangeExpired(Business $business, Subscription $subscription, ?string $planName, ?\DateTimeImmutable $expiredAt): array
+    {
+        $context = [
+            'businessName' => $business->getName(),
+            'adminEmail' => $this->findBusinessAdminEmail($business),
+            'planName' => $planName,
+            'expiredAt' => $expiredAt,
+        ];
+
+        return $this->notifyPlatformAdmins(
+            'PLATFORM_SUBSCRIPTION_CHANGE_EXPIRED',
+            'Cambio de plan expirado',
+            'emails/platform/platform_subscription_change_expired.html.twig',
+            $context,
+            $subscription,
+            null,
+            null,
+        );
+    }
+
     /**
      * @param array<string, mixed> $context
      */

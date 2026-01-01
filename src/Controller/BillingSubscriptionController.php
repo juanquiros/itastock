@@ -8,8 +8,10 @@ use App\Entity\Subscription;
 use App\Exception\MercadoPagoApiException;
 use App\Repository\BillingPlanRepository;
 use App\Service\MercadoPagoClient;
+use App\Service\PlatformNotificationService;
 use App\Service\SubscriptionAccessResolver;
 use App\Service\SubscriptionContext;
+use App\Service\SubscriptionNotificationService;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\RedirectResponse;
@@ -64,6 +66,8 @@ class BillingSubscriptionController extends AbstractController
         SubscriptionContext $subscriptionContext,
         MercadoPagoClient $mercadoPagoClient,
         EntityManagerInterface $entityManager,
+        SubscriptionNotificationService $subscriptionNotificationService,
+        PlatformNotificationService $platformNotificationService,
         string $mercadoPagoMode,
     ): RedirectResponse {
         if (!$this->isCsrfTokenValid('choose_billing_plan_'.$billingPlan->getId(), (string) $request->request->get('_token'))) {
@@ -195,6 +199,23 @@ class BillingSubscriptionController extends AbstractController
                 ->setEffectiveAt($subscription->getEndAt() ?? $now)
                 ->setMpPreapprovalId((string) $response['id'])
                 ->setInitPoint($initPoint);
+
+            $currentEndsAt = $activeUntil;
+            $subscriptionNotificationService->onSubscriptionChangeScheduled(
+                $subscription,
+                $billingPlan->getName(),
+                $pendingChange->getEffectiveAt(),
+                $currentEndsAt,
+            );
+            if ($subscription->getBusiness()) {
+                $platformNotificationService->notifySubscriptionChangeScheduled(
+                    $subscription->getBusiness(),
+                    $subscription,
+                    $billingPlan->getName(),
+                    $pendingChange->getEffectiveAt(),
+                    $currentEndsAt,
+                );
+            }
 
             $this->addFlash(
                 'success',

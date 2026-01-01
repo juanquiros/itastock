@@ -1,0 +1,11 @@
+{% extends 'emails/_layout.html.twig' %}
+
+{% block title %}Cambio aplicado{% endblock %}
+
+{% block content %}
+    <h2 style="margin-top: 0;">Cambio aplicado</h2>
+    <p>Negocio: <strong>{{ businessName|default('N/D') }}</strong></p>
+    <p>Admin: <strong>{{ adminEmail|default('N/D') }}</strong></p>
+    <p>Plan actual: <strong>{{ planName|default('N/D') }}</strong></p>
+    <p>Fecha de aplicación: <strong>{{ appliedAt is defined and appliedAt ? appliedAt|date('d/m/Y') : 'N/D' }}</strong></p>
+{% endblock %}

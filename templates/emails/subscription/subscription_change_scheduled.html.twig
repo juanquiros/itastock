@@ -1,0 +1,14 @@
+{% extends 'emails/_layout.html.twig' %}
+
+{% block title %}Cambio de plan programado{% endblock %}
+
+{% block content %}
+    <h2 style="margin-top: 0;">Cambio de plan programado</h2>
+    <p>Hola {{ userName|default('') }}, programamos tu cambio de plan.</p>
+    <p>Plan destino: <strong>{{ planName|default('N/D') }}</strong></p>
+    <p>Se aplicará desde: <strong>{{ effectiveAt is defined and effectiveAt ? effectiveAt|date('d/m/Y') : 'N/D' }}</strong></p>
+    <p>Tu plan actual sigue activo hasta: <strong>{{ currentEndsAt is defined and currentEndsAt ? currentEndsAt|date('d/m/Y') : 'N/D' }}</strong></p>
+    <p style="margin: 24px 0;">
+        <a href="{{ absolute_url(path('app_billing_subscription_show')) }}" style="background-color: #C62828; color: #ffffff; padding: 12px 18px; text-decoration: none; border-radius: 6px;">Ver suscripción</a>
+    </p>
+{% endblock %}

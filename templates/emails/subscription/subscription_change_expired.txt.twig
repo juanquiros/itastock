@@ -1,0 +1,7 @@
+Cambio expirado
+
+Hola {{ userName|default('') }}, no recibimos el pago a tiempo y el cambio de plan expiró.
+Plan destino: {{ planName|default('N/D') }}
+Fecha de expiración: {{ expiredAt is defined and expiredAt ? expiredAt|date('d/m/Y') : 'N/D' }}
+
+Ver suscripción: {{ absolute_url(path('app_billing_subscription_show')) }}

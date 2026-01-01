@@ -1,0 +1,13 @@
+{% extends 'emails/_layout.html.twig' %}
+
+{% block title %}Cambio expirado{% endblock %}
+
+{% block content %}
+    <h2 style="margin-top: 0;">Cambio expirado</h2>
+    <p>Hola {{ userName|default('') }}, no recibimos el pago a tiempo y el cambio de plan expiró.</p>
+    <p>Plan destino: <strong>{{ planName|default('N/D') }}</strong></p>
+    <p>Fecha de expiración: <strong>{{ expiredAt is defined and expiredAt ? expiredAt|date('d/m/Y') : 'N/D' }}</strong></p>
+    <p style="margin: 24px 0;">
+        <a href="{{ absolute_url(path('app_billing_subscription_show')) }}" style="background-color: #C62828; color: #ffffff; padding: 12px 18px; text-decoration: none; border-radius: 6px;">Ver suscripción</a>
+    </p>
+{% endblock %}

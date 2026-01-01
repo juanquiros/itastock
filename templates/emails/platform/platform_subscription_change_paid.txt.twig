@@ -1,0 +1,7 @@
+Pago recibido (cambio de plan)
+
+Negocio: {{ businessName|default('N/D') }}
+Admin: {{ adminEmail|default('N/D') }}
+Plan destino: {{ planName|default('N/D') }}
+Se aplicará desde: {{ effectiveAt is defined and effectiveAt ? effectiveAt|date('d/m/Y') : 'N/D' }}
+Pago confirmado: {{ paidAt is defined and paidAt ? paidAt|date('d/m/Y') : 'N/D' }}

@@ -1,0 +1,7 @@
+Cambio de plan programado
+
+Negocio: {{ businessName|default('N/D') }}
+Admin: {{ adminEmail|default('N/D') }}
+Plan destino: {{ planName|default('N/D') }}
+Se aplicará desde: {{ effectiveAt is defined and effectiveAt ? effectiveAt|date('d/m/Y') : 'N/D' }}
+Plan actual activo hasta: {{ currentEndsAt is defined and currentEndsAt ? currentEndsAt|date('d/m/Y') : 'N/D' }}

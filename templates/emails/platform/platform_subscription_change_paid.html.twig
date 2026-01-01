@@ -1,0 +1,12 @@
+{% extends 'emails/_layout.html.twig' %}
+
+{% block title %}Pago recibido (cambio de plan){% endblock %}
+
+{% block content %}
+    <h2 style="margin-top: 0;">Pago recibido</h2>
+    <p>Negocio: <strong>{{ businessName|default('N/D') }}</strong></p>
+    <p>Admin: <strong>{{ adminEmail|default('N/D') }}</strong></p>
+    <p>Plan destino: <strong>{{ planName|default('N/D') }}</strong></p>
+    <p>Se aplicará desde: <strong>{{ effectiveAt is defined and effectiveAt ? effectiveAt|date('d/m/Y') : 'N/D' }}</strong></p>
+    <p>Pago confirmado: <strong>{{ paidAt is defined and paidAt ? paidAt|date('d/m/Y') : 'N/D' }}</strong></p>
+{% endblock %}

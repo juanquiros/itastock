@@ -1,0 +1,6 @@
+Cambio de plan expirado
+
+Negocio: {{ businessName|default('N/D') }}
+Admin: {{ adminEmail|default('N/D') }}
+Plan destino: {{ planName|default('N/D') }}
+Fecha de expiración: {{ expiredAt is defined and expiredAt ? expiredAt|date('d/m/Y') : 'N/D' }}

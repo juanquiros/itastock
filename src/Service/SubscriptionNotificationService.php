@@ -208,6 +208,47 @@ class SubscriptionNotificationService
         );
     }
 
+    public function onSubscriptionChangeScheduled(
+        Subscription $subscription,
+        ?string $planName,
+        ?\DateTimeImmutable $effectiveAt,
+        ?\DateTimeImmutable $currentEndsAt,
+    ): void {
+        $this->notifyAdmins(
+            $subscription,
+            'SUBSCRIPTION_CHANGE_SCHEDULED',
+            'Cambio de plan programado',
+            'emails/subscription/subscription_change_scheduled.html.twig',
+            [
+                'planName' => $planName ?? $subscription->getPlan()?->getName(),
+                'effectiveAt' => $effectiveAt,
+                'currentEndsAt' => $currentEndsAt,
+            ],
+            null,
+            null,
+        );
+    }
+
+    public function onSubscriptionChangePaid(
+        Subscription $subscription,
+        ?string $planName,
+        ?\DateTimeImmutable $effectiveAt,
+    ): void {
+        $this->notifyAdmins(
+            $subscription,
+            'SUBSCRIPTION_CHANGE_PAID',
+            'Pago recibido',
+            'emails/subscription/subscription_change_paid.html.twig',
+            [
+                'planName' => $planName ?? $subscription->getPlan()?->getName(),
+                'effectiveAt' => $effectiveAt,
+                'paidAt' => new \DateTimeImmutable(),
+            ],
+            null,
+            null,
+        );
+    }
+
     public function onSubscriptionChangeApplied(Subscription $subscription, ?string $planName = null): void
     {
         $this->notifyAdmins(
@@ -218,6 +259,25 @@ class SubscriptionNotificationService
             [
                 'planName' => $planName ?? $subscription->getPlan()?->getName(),
                 'appliedAt' => new \DateTimeImmutable(),
+            ],
+            null,
+            null,
+        );
+    }
+
+    public function onSubscriptionChangeExpired(
+        Subscription $subscription,
+        ?string $planName,
+        ?\DateTimeImmutable $expiredAt,
+    ): void {
+        $this->notifyAdmins(
+            $subscription,
+            'SUBSCRIPTION_CHANGE_EXPIRED',
+            'Cambio expirado',
+            'emails/subscription/subscription_change_expired.html.twig',
+            [
+                'planName' => $planName ?? $subscription->getPlan()?->getName(),
+                'expiredAt' => $expiredAt ?? new \DateTimeImmutable(),
             ],
             null,
             null,
