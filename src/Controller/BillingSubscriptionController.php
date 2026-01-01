@@ -4,6 +4,7 @@ namespace App\Controller;
 
 use App\Entity\BillingPlan;
 use App\Entity\PendingSubscriptionChange;
+use App\Entity\PendingSubscriptionChange;
 use App\Entity\Subscription;
 use App\Exception\MercadoPagoApiException;
 use App\Repository\BillingPlanRepository;
@@ -27,14 +28,33 @@ class BillingSubscriptionController extends AbstractController
         SubscriptionContext $subscriptionContext,
         SubscriptionAccessResolver $accessResolver,
         BillingPlanRepository $billingPlanRepository,
+        EntityManagerInterface $entityManager,
     ): Response {
         $subscription = $subscriptionContext->getCurrentSubscription($this->getUser());
         $access = $accessResolver->resolve($subscription);
+        $pendingChange = null;
+
+        if ($subscription && $subscription->getBusiness()) {
+            $pendingChange = $entityManager->getRepository(PendingSubscriptionChange::class)
+                ->createQueryBuilder('pendingChange')
+                ->andWhere('pendingChange.business = :business')
+                ->andWhere('pendingChange.status IN (:statuses)')
+                ->setParameter('business', $subscription->getBusiness())
+                ->setParameter('statuses', [
+                    PendingSubscriptionChange::STATUS_CREATED,
+                    PendingSubscriptionChange::STATUS_CHECKOUT_STARTED,
+                    PendingSubscriptionChange::STATUS_PAID,
+                ])
+                ->setMaxResults(1)
+                ->getQuery()
+                ->getOneOrNullResult();
+        }
 
         return $this->render('subscription/show.html.twig', [
             'subscription' => $subscription,
             'access' => $access,
             'billingPlans' => $billingPlanRepository->findBy(['isActive' => true], ['price' => 'ASC', 'name' => 'ASC']),
+            'pendingChange' => $pendingChange,
         ]);
     }
 

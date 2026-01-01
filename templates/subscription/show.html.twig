@@ -71,6 +71,48 @@
                     {% endif %}
                 </div>
             </div>
+            {% if pendingChange %}
+                <div class="card shadow-sm mt-4">
+                    <div class="card-body">
+                        <h2 class="h5">Cambio programado</h2>
+                        <dl class="row mb-0">
+                            <dt class="col-5">Plan destino</dt>
+                            <dd class="col-7">{{ pendingChange.targetBillingPlan.name }}</dd>
+                            <dt class="col-5">Estado</dt>
+                            <dd class="col-7">
+                                {% if pendingChange.status in ['CREATED', 'CHECKOUT_STARTED'] %}
+                                    Esperando pago
+                                {% elseif pendingChange.status == 'PAID' %}
+                                    Pagado
+                                {% else %}
+                                    Cancelado
+                                {% endif %}
+                            </dd>
+                            <dt class="col-5">Se aplicará desde</dt>
+                            <dd class="col-7">
+                                {% if pendingChange.effectiveAt %}
+                                    {{ pendingChange.effectiveAt|date('d/m/Y') }}
+                                {% else %}
+                                    —
+                                {% endif %}
+                            </dd>
+                            <dt class="col-5">Plan actual activo hasta</dt>
+                            <dd class="col-7">
+                                {% if subscription and subscription.endAt %}
+                                    {{ subscription.endAt|date('d/m/Y') }}
+                                {% else %}
+                                    —
+                                {% endif %}
+                            </dd>
+                        </dl>
+                        {% if pendingChange.status == 'CHECKOUT_STARTED' and pendingChange.initPoint %}
+                            <a class="btn btn-outline-primary btn-sm mt-3" href="{{ pendingChange.initPoint }}" target="_blank" rel="noopener noreferrer">
+                                Continuar pago
+                            </a>
+                        {% endif %}
+                    </div>
+                </div>
+            {% endif %}
         </div>
         <div class="col-lg-7">
             <div class="card shadow-sm">
