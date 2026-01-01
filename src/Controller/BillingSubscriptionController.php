@@ -3,6 +3,7 @@
 namespace App\Controller;
 
 use App\Entity\BillingPlan;
+use App\Entity\PendingSubscriptionChange;
 use App\Entity\Subscription;
 use App\Exception\MercadoPagoApiException;
 use App\Repository\BillingPlanRepository;
@@ -69,6 +70,25 @@ class BillingSubscriptionController extends AbstractController
             return $this->redirectToRoute('app_billing_subscription_show');
         }
 
+        $now = new \DateTimeImmutable();
+        $isActiveSubscription = false;
+        $activeUntil = null;
+        if ($subscription->getStatus() === Subscription::STATUS_ACTIVE) {
+            $endAt = $subscription->getEndAt();
+            if ($endAt && $endAt > $now) {
+                $isActiveSubscription = true;
+                $activeUntil = $endAt;
+            }
+        }
+
+        if ($subscription->getStatus() === Subscription::STATUS_TRIAL) {
+            $trialEndsAt = $subscription->getTrialEndsAt();
+            if ($trialEndsAt && $trialEndsAt > $now) {
+                $isActiveSubscription = true;
+                $activeUntil = $trialEndsAt;
+            }
+        }
+
         $payerEmail = $this->getUser()?->getUserIdentifier();
         if (!$payerEmail) {
             $this->addFlash('danger', 'No se pudo determinar el email del pagador.');
@@ -114,13 +134,65 @@ class BillingSubscriptionController extends AbstractController
             return $this->redirectToRoute('app_billing_subscription_show');
         }
 
-        $subscription
-            ->setMpPreapprovalId((string) $response['id'])
-            ->setPayerEmail($payerEmail)
-            ->setLastSyncedAt(new \DateTimeImmutable())
-            ->setStatus(Subscription::STATUS_PENDING)
-            ->setNextPaymentAt($this->parseMpDate($response['next_payment_date'] ?? null))
-            ->setTrialEndsAt(null);
+        if ($isActiveSubscription) {
+            $pendingChangeRepository = $entityManager->getRepository(PendingSubscriptionChange::class);
+            $pendingChange = $pendingChangeRepository->createQueryBuilder('pendingChange')
+                ->andWhere('pendingChange.business = :business')
+                ->andWhere('pendingChange.status IN (:statuses)')
+                ->setParameter('business', $subscription->getBusiness())
+                ->setParameter('statuses', [
+                    PendingSubscriptionChange::STATUS_CREATED,
+                    PendingSubscriptionChange::STATUS_CHECKOUT_STARTED,
+                    PendingSubscriptionChange::STATUS_PAID,
+                ])
+                ->setMaxResults(1)
+                ->getQuery()
+                ->getOneOrNullResult();
+
+            if (!$pendingChange) {
+                $pendingChange = new PendingSubscriptionChange();
+                $pendingChange->setBusiness($subscription->getBusiness());
+                $entityManager->persist($pendingChange);
+            }
+
+            $currentPrice = $subscription->getPlan()?->getPriceMonthly();
+            $targetPrice = $billingPlan->getPrice();
+            $type = PendingSubscriptionChange::TYPE_RENEWAL;
+            if ($currentPrice !== null && $targetPrice !== null) {
+                $currentAmount = (float) $currentPrice;
+                $targetAmount = (float) $targetPrice;
+                if ($targetAmount > $currentAmount) {
+                    $type = PendingSubscriptionChange::TYPE_UPGRADE;
+                } elseif ($targetAmount < $currentAmount) {
+                    $type = PendingSubscriptionChange::TYPE_DOWNGRADE;
+                }
+            }
+
+            $pendingChange
+                ->setCurrentSubscription($subscription)
+                ->setTargetBillingPlan($billingPlan)
+                ->setType($type)
+                ->setStatus(PendingSubscriptionChange::STATUS_CHECKOUT_STARTED)
+                ->setEffectiveAt($subscription->getEndAt() ?? $now)
+                ->setMpPreapprovalId((string) $response['id'])
+                ->setInitPoint($initPoint);
+
+            $this->addFlash(
+                'success',
+                sprintf(
+                    'Cambio de plan programado. Tu plan actual sigue activo hasta %s.',
+                    $activeUntil ? $activeUntil->format('d/m') : $now->format('d/m')
+                )
+            );
+        } else {
+            $subscription
+                ->setMpPreapprovalId((string) $response['id'])
+                ->setPayerEmail($payerEmail)
+                ->setLastSyncedAt(new \DateTimeImmutable())
+                ->setStatus(Subscription::STATUS_PENDING)
+                ->setNextPaymentAt($this->parseMpDate($response['next_payment_date'] ?? null))
+                ->setTrialEndsAt(null);
+        }
 
         $entityManager->flush();
 
