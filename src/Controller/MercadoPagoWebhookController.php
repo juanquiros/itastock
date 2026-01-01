@@ -150,6 +150,10 @@ class MercadoPagoWebhookController extends AbstractController
             $subscription->setLastSyncedAt(new \DateTimeImmutable());
             $subscription->setNextPaymentAt($this->parseMpDate($preapproval['next_payment_date'] ?? null));
 
+            if ($paymentStatus === 'approved') {
+                $subscription->setStatus(Subscription::STATUS_ACTIVE);
+            }
+
             if ($previousStatus !== $subscription->getStatus() && $subscription->getStatus() === Subscription::STATUS_ACTIVE) {
                 $subscriptionNotificationService->onSubscriptionActivated($subscription);
             }
