@@ -40,12 +40,8 @@ class ApplyPendingSubscriptionChangesCommand extends Command
             ->getQuery()
             ->getResult();
 
-        if ($pendingChanges === []) {
-            $output->writeln('No pending changes to apply.');
-
-            return Command::SUCCESS;
-        }
-
+        $expiredCount = $this->expireCheckoutStartedChanges($now);
+        $appliedCount = 0;
         foreach ($pendingChanges as $pendingChange) {
             if (!$pendingChange instanceof PendingSubscriptionChange) {
                 continue;
@@ -87,13 +83,69 @@ class ApplyPendingSubscriptionChangesCommand extends Command
                 ->setAppliedAt($now);
 
             $this->notificationService->onSubscriptionChangeApplied($subscription, $billingPlan->getName());
+            $appliedCount++;
         }
 
         $this->entityManager->flush();
 
-        $output->writeln(sprintf('Applied %d pending change(s).', count($pendingChanges)));
+        if ($appliedCount === 0 && $expiredCount === 0) {
+            $output->writeln('No pending changes to apply or expire.');
+
+            return Command::SUCCESS;
+        }
+
+        if ($appliedCount > 0) {
+            $output->writeln(sprintf('Applied %d pending change(s).', $appliedCount));
+        }
+
+        if ($expiredCount > 0) {
+            $output->writeln(sprintf('Expired %d pending change(s).', $expiredCount));
+        }
 
         return Command::SUCCESS;
+    }
+
+    private function expireCheckoutStartedChanges(\DateTimeImmutable $now): int
+    {
+        $candidates = $this->entityManager
+            ->getRepository(PendingSubscriptionChange::class)
+            ->createQueryBuilder('pendingChange')
+            ->andWhere('pendingChange.status = :status')
+            ->setParameter('status', PendingSubscriptionChange::STATUS_CHECKOUT_STARTED)
+            ->getQuery()
+            ->getResult();
+
+        $expiredCount = 0;
+        foreach ($candidates as $pendingChange) {
+            if (!$pendingChange instanceof PendingSubscriptionChange) {
+                continue;
+            }
+
+            $subscription = $pendingChange->getCurrentSubscription();
+            if (!$subscription instanceof Subscription) {
+                continue;
+            }
+
+            $endAt = $subscription->getEndAt();
+            if (!$endAt instanceof \DateTimeImmutable) {
+                continue;
+            }
+
+            $graceDays = $subscription->getGracePeriodDays();
+            if ($graceDays <= 0) {
+                $graceDays = 3;
+            }
+
+            $expiresAt = $endAt->modify(sprintf('+%d days', $graceDays));
+            if ($now <= $expiresAt) {
+                continue;
+            }
+
+            $pendingChange->setStatus(PendingSubscriptionChange::STATUS_EXPIRED);
+            $expiredCount++;
+        }
+
+        return $expiredCount;
     }
 
     private function calculateEndAt(\DateTimeImmutable $startAt, int $frequency, string $frequencyType): \DateTimeImmutable
