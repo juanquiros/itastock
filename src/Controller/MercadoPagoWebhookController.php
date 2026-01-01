@@ -3,6 +3,7 @@
 namespace App\Controller;
 
 use App\Entity\BillingWebhookEvent;
+use App\Entity\PendingSubscriptionChange;
 use App\Entity\Subscription;
 use App\Exception\MercadoPagoApiException;
 use App\Repository\BillingWebhookEventRepository;
@@ -169,6 +170,32 @@ class MercadoPagoWebhookController extends AbstractController
             }
             if ($paymentStatus === 'rejected' || $paymentStatus === 'cancelled' || $subscription->getStatus() === Subscription::STATUS_PAST_DUE) {
                 $subscriptionNotificationService->onPaymentFailed($subscription);
+            }
+        }
+
+        $pendingChange = $entityManager->getRepository(PendingSubscriptionChange::class)
+            ->findOneBy(['mpPreapprovalId' => $resourceId]);
+        if ($pendingChange instanceof PendingSubscriptionChange) {
+            $paymentConfirmed = $paymentStatus === 'approved';
+            $preapprovalStatus = $preapproval['status'] ?? null;
+            if (is_string($preapprovalStatus) && in_array($preapprovalStatus, ['authorized', 'active'], true)) {
+                $paymentConfirmed = true;
+            }
+
+            if (
+                $paymentConfirmed
+                && !in_array($pendingChange->getStatus(), [
+                    PendingSubscriptionChange::STATUS_PAID,
+                    PendingSubscriptionChange::STATUS_APPLIED,
+                ], true)
+            ) {
+                $pendingChange
+                    ->setStatus(PendingSubscriptionChange::STATUS_PAID)
+                    ->setPaidAt(new \DateTimeImmutable());
+                $logger->info('Pending subscription change marked as paid.', [
+                    'pending_change_id' => $pendingChange->getId(),
+                    'mp_preapproval_id' => $resourceId,
+                ]);
             }
         }
 
