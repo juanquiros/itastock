@@ -8,14 +8,12 @@ use App\Entity\User;
 use App\Repository\LeadRepository;
 use App\Repository\PlanRepository;
 use App\Repository\UserRepository;
+use App\Service\EmailSender;
 use App\Service\SubscriptionNotificationService;
 use Doctrine\ORM\EntityManagerInterface;
-use Symfony\Bridge\Twig\Mime\TemplatedEmail;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
-use Symfony\Component\Mailer\MailerInterface;
-use Symfony\Component\Mime\Address;
 use Symfony\Component\Routing\Annotation\Route;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
@@ -84,7 +82,7 @@ class PlatformLeadController extends AbstractController
         EntityManagerInterface $entityManager,
         SubscriptionNotificationService $subscriptionNotificationService,
         UserPasswordHasherInterface $passwordHasher,
-        MailerInterface $mailer,
+        EmailSender $emailSender,
         UrlGeneratorInterface $urlGenerator,
     ): Response {
         $lead = $leadRepository->find($id);
@@ -145,18 +143,22 @@ class PlatformLeadController extends AbstractController
 
         $resetUrl = $urlGenerator->generate('app_password_reset', ['token' => $token], UrlGeneratorInterface::ABSOLUTE_URL);
 
-        $emailMessage = (new TemplatedEmail())
-            ->from(new Address('no-reply@itastock.test', 'ItaStock'))
-            ->to($email)
-            ->subject('Tu demo de ItaStock: configurá tu contraseña')
-            ->htmlTemplate('emails/demo_set_password.html.twig')
-            ->context([
+        $emailSender->sendTemplatedEmail(
+            'DEMO_SET_PASSWORD',
+            $email,
+            'ADMIN',
+            'Tu demo de ItaStock: configurá tu contraseña',
+            'emails/demo_set_password.html.twig',
+            [
                 'resetUrl' => $resetUrl,
                 'user' => $user,
                 'business' => $business,
-            ]);
-
-        $mailer->send($emailMessage);
+            ],
+            $business,
+            $subscription,
+            null,
+            null,
+        );
 
         $this->addFlash('success', 'Demo creada y email enviado.');
 

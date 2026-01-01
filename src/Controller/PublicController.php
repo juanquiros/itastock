@@ -10,6 +10,7 @@ use App\Form\LeadType;
 use App\Repository\LeadRepository;
 use App\Repository\PlanRepository;
 use App\Repository\PublicPageRepository;
+use App\Service\EmailSender;
 use App\Service\PlatformNotificationService;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -28,7 +29,7 @@ class PublicController extends AbstractController
     }
 
     #[Route('/', name: 'public_home', methods: ['GET', 'POST'])]
-    public function home(Request $request, PlatformNotificationService $platformNotificationService): Response
+    public function home(Request $request, PlatformNotificationService $platformNotificationService, EmailSender $emailSender): Response
     {
         $page = $this->publicPageRepository->findPublishedBySlug('home');
         if ($page === null) {
@@ -64,6 +65,22 @@ class PublicController extends AbstractController
                 $lead->setName($this->resolveLeadName($lead, $email));
                 $this->entityManager->persist($lead);
                 $this->entityManager->flush();
+                $emailSender->sendTemplatedEmail(
+                    'DEMO_REQUEST_RECEIVED',
+                    $lead->getEmail() ?? $email,
+                    'PUBLIC',
+                    'Recibimos tu solicitud de demo',
+                    'emails/demo/demo_request_received.html.twig',
+                    [
+                        'name' => $lead->getName(),
+                        'businessName' => $lead->getBusinessName(),
+                        'ctaUrl' => $this->generateUrl('public_contact', [], \Symfony\Component\Routing\Generator\UrlGeneratorInterface::ABSOLUTE_URL),
+                    ],
+                    null,
+                    null,
+                    null,
+                    null,
+                );
                 $platformNotificationService->notifyDemoRequest($lead);
                 $this->addFlash('success', '¡Gracias! Recibimos tu solicitud de demo.');
                 $demoSubmitted = true;

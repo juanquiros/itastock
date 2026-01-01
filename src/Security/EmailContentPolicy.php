@@ -124,7 +124,7 @@ class EmailContentPolicy
 
     private function filterPublicContext(array $context): array
     {
-        $allowedKeys = ['name', 'email', 'ctaUrl', 'planName', 'trialEndsAt'];
+        $allowedKeys = ['name', 'businessName', 'email', 'ctaUrl', 'planName', 'trialEndsAt'];
         $filtered = [];
 
         foreach ($allowedKeys as $allowedKey) {
