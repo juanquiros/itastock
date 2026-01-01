@@ -208,6 +208,22 @@ class SubscriptionNotificationService
         );
     }
 
+    public function onSubscriptionChangeApplied(Subscription $subscription, ?string $planName = null): void
+    {
+        $this->notifyAdmins(
+            $subscription,
+            'SUBSCRIPTION_CHANGE_APPLIED',
+            'Cambio aplicado',
+            'emails/subscription/subscription_change_applied.html.twig',
+            [
+                'planName' => $planName ?? $subscription->getPlan()?->getName(),
+                'appliedAt' => new \DateTimeImmutable(),
+            ],
+            null,
+            null,
+        );
+    }
+
     public function onCanceled(Subscription $subscription): void
     {
         $this->notifyAdmins(

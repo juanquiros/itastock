@@ -1,0 +1,2 @@
+# Ejecutar cada hora el aplicador de cambios programados
+0 * * * * /usr/bin/php /path/to/project/bin/console app:subscriptions:apply-pending-changes
