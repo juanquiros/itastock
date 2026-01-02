@@ -84,7 +84,7 @@ class SubscriptionAccessSubscriberTest extends TestCase
     {
         $subscriptionContext = $this->createMock(SubscriptionContext::class);
         $subscriptionContext
-            ->method('getCurrentSubscription')
+            ->method('getEffectiveSubscription')
             ->willReturn($subscription);
 
         $security = $this->createMock(Security::class);

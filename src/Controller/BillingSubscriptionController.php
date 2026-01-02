@@ -98,9 +98,13 @@ class BillingSubscriptionController extends AbstractController
         $activeUntil = null;
         if ($subscription->getStatus() === Subscription::STATUS_ACTIVE) {
             $endAt = $subscription->getEndAt();
+            $nextChargeAt = $subscription->getNextPaymentAt();
             if ($endAt && $endAt > $now) {
                 $isActiveSubscription = true;
                 $activeUntil = $endAt;
+            } elseif ($nextChargeAt && $nextChargeAt > $now) {
+                $isActiveSubscription = true;
+                $activeUntil = $nextChargeAt;
             }
         }
 
@@ -229,9 +233,7 @@ class BillingSubscriptionController extends AbstractController
                 ->setMpPreapprovalId((string) $response['id'])
                 ->setPayerEmail($payerEmail)
                 ->setLastSyncedAt(new \DateTimeImmutable())
-                ->setStatus(Subscription::STATUS_PENDING)
-                ->setNextPaymentAt($this->parseMpDate($response['next_payment_date'] ?? null))
-                ->setTrialEndsAt(null);
+                ->setNextPaymentAt($this->parseMpDate($response['next_payment_date'] ?? null));
         }
 
         $entityManager->flush();
