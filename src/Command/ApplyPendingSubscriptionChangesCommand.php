@@ -36,9 +36,7 @@ class ApplyPendingSubscriptionChangesCommand extends Command
             ->getRepository(PendingSubscriptionChange::class)
             ->createQueryBuilder('pendingChange')
             ->andWhere('pendingChange.status = :status')
-            ->andWhere('pendingChange.effectiveAt <= :now OR pendingChange.effectiveAt IS NULL')
             ->setParameter('status', PendingSubscriptionChange::STATUS_PAID)
-            ->setParameter('now', $now)
             ->getQuery()
             ->getResult();
 
