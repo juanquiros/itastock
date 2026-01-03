@@ -7,6 +7,7 @@ use App\Entity\Business;
 use App\Entity\MercadoPagoSubscriptionLink;
 use App\Entity\PendingSubscriptionChange;
 use App\Entity\User;
+use App\Exception\MercadoPagoApiException;
 use App\Repository\MercadoPagoSubscriptionLinkRepository;
 use App\Service\Result\ReconcileResult;
 use App\Service\Result\StartChangeResult;
@@ -128,19 +129,12 @@ class MPSubscriptionManager
 
     public function cancelOtherActiveSubscriptions(Business $business, string $keepMpPreapprovalId): void
     {
-        $externalReference = $this->externalReferenceForBusiness($business);
-        $preapprovals = $this->mercadoPagoClient->searchPreapprovalsByExternalReference($externalReference);
-
-        $results = $preapprovals['results'] ?? [];
-        if (!is_array($results)) {
+        $preapprovals = $this->fetchPreapprovalsForBusiness($business);
+        if ($preapprovals === []) {
             return;
         }
 
-        foreach ($results as $preapproval) {
-            if (!is_array($preapproval)) {
-                continue;
-            }
-
+        foreach ($preapprovals as $preapproval) {
             $preapprovalId = $preapproval['id'] ?? null;
             if (!is_string($preapprovalId) || $preapprovalId === '' || $preapprovalId === $keepMpPreapprovalId) {
                 continue;
@@ -157,11 +151,8 @@ class MPSubscriptionManager
 
     public function reconcileBusinessSubscriptions(Business $business): ReconcileResult
     {
-        $externalReference = $this->externalReferenceForBusiness($business);
-        $preapprovals = $this->mercadoPagoClient->searchPreapprovalsByExternalReference($externalReference);
-
-        $results = $preapprovals['results'] ?? [];
-        if (!is_array($results) || $results === []) {
+        $preapprovals = $this->fetchPreapprovalsForBusiness($business);
+        if ($preapprovals === []) {
             return new ReconcileResult();
         }
 
@@ -169,11 +160,7 @@ class MPSubscriptionManager
         $primaryCandidate = null;
         $primaryScore = null;
 
-        foreach ($results as $preapproval) {
-            if (!is_array($preapproval)) {
-                continue;
-            }
-
+        foreach ($preapprovals as $preapproval) {
             $preapprovalId = $preapproval['id'] ?? null;
             if (!is_string($preapprovalId) || $preapprovalId === '') {
                 continue;
@@ -211,6 +198,46 @@ class MPSubscriptionManager
         $this->entityManager->flush();
 
         return new ReconcileResult($updatedLinks);
+    }
+
+    /**
+     * @return array<int, array{id: string, status: string|null, date_created: string|null, last_modified: string|null, reason: string|null, payer_email: string|null}>
+     */
+    private function fetchPreapprovalsForBusiness(Business $business): array
+    {
+        $externalReference = $this->externalReferenceForBusiness($business);
+
+        try {
+            return $this->mercadoPagoClient->searchPreapprovalsByExternalReference($externalReference);
+        } catch (MercadoPagoApiException) {
+            $preapprovals = [];
+            $links = $this->subscriptionLinkRepository->findBy(['business' => $business]);
+            foreach ($links as $link) {
+                if (!$link instanceof MercadoPagoSubscriptionLink) {
+                    continue;
+                }
+                try {
+                    $preapproval = $this->mercadoPagoClient->getPreapproval($link->getMpPreapprovalId());
+                } catch (MercadoPagoApiException) {
+                    continue;
+                }
+
+                if (!is_array($preapproval) || !isset($preapproval['id'])) {
+                    continue;
+                }
+
+                $preapprovals[] = [
+                    'id' => (string) $preapproval['id'],
+                    'status' => is_string($preapproval['status'] ?? null) ? $preapproval['status'] : null,
+                    'date_created' => is_string($preapproval['date_created'] ?? null) ? $preapproval['date_created'] : null,
+                    'last_modified' => is_string($preapproval['last_modified'] ?? null) ? $preapproval['last_modified'] : null,
+                    'reason' => is_string($preapproval['reason'] ?? null) ? $preapproval['reason'] : null,
+                    'payer_email' => is_string($preapproval['payer_email'] ?? null) ? $preapproval['payer_email'] : null,
+                ];
+            }
+
+            return $preapprovals;
+        }
     }
 
     private function externalReferenceForBusiness(Business $business): string
