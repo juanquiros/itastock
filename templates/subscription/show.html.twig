@@ -74,7 +74,7 @@
             {% if pendingChange %}
                 <div class="card shadow-sm mt-4">
                     <div class="card-body">
-                        <h2 class="h5">Cambio programado</h2>
+                        <h2 class="h5">Cambio de plan en curso</h2>
                         <dl class="row mb-0">
                             <dt class="col-5">Plan destino</dt>
                             <dd class="col-7">{{ pendingChange.targetBillingPlan.name }}</dd>
@@ -105,11 +105,19 @@
                                 {% endif %}
                             </dd>
                         </dl>
-                        {% if pendingChange.status == 'CHECKOUT_STARTED' and pendingChange.initPoint %}
-                            <a class="btn btn-outline-primary btn-sm mt-3" href="{{ pendingChange.initPoint }}" target="_blank" rel="noopener noreferrer">
-                                Continuar pago
-                            </a>
-                        {% endif %}
+                        <div class="d-flex flex-wrap gap-2 mt-3">
+                            {% if pendingChange.status in ['CREATED', 'CHECKOUT_STARTED'] and pendingChange.initPoint %}
+                                <a class="btn btn-outline-primary btn-sm" href="{{ pendingChange.initPoint }}" target="_blank" rel="noopener noreferrer">
+                                    Continuar pago
+                                </a>
+                            {% endif %}
+                            {% if pendingChange.status in ['CREATED', 'CHECKOUT_STARTED'] %}
+                                <form method="post" action="{{ path('app_billing_subscription_cancel_pending') }}">
+                                    <input type="hidden" name="_token" value="{{ csrf_token('cancel_pending_change') }}">
+                                    <button class="btn btn-outline-danger btn-sm" type="submit">Cancelar cambio</button>
+                                </form>
+                            {% endif %}
+                        </div>
                     </div>
                 </div>
             {% endif %}
@@ -146,10 +154,13 @@
                                         <td class="text-end">
                                             <form method="post" action="{{ path('app_billing_subscription_choose', {id: plan.id}) }}">
                                                 <input type="hidden" name="_token" value="{{ csrf_token('choose_billing_plan_' ~ plan.id) }}">
-                                                <button class="btn btn-sm btn-primary" type="submit" {% if not plan.mpPreapprovalPlanId %}disabled{% endif %}>
+                                                <button class="btn btn-sm btn-primary" type="submit" {% if not plan.mpPreapprovalPlanId or pendingChange %}disabled{% endif %}>
                                                     Elegir plan
                                                 </button>
                                             </form>
+                                            {% if pendingChange %}
+                                                <div class="small text-muted mt-1">Hay un cambio en curso.</div>
+                                            {% endif %}
                                         </td>
                                     </tr>
                                 {% else %}

@@ -92,6 +92,24 @@ class BillingSubscriptionController extends AbstractController
 
             return $this->redirectToRoute('app_billing_subscription_show');
         }
+        $pendingChange = $entityManager->getRepository(PendingSubscriptionChange::class)
+            ->createQueryBuilder('pendingChange')
+            ->andWhere('pendingChange.business = :business')
+            ->andWhere('pendingChange.status IN (:statuses)')
+            ->setParameter('business', $subscription->getBusiness())
+            ->setParameter('statuses', [
+                PendingSubscriptionChange::STATUS_CREATED,
+                PendingSubscriptionChange::STATUS_CHECKOUT_STARTED,
+                PendingSubscriptionChange::STATUS_PAID,
+            ])
+            ->setMaxResults(1)
+            ->getQuery()
+            ->getOneOrNullResult();
+        if ($pendingChange instanceof PendingSubscriptionChange) {
+            $this->addFlash('warning', 'Ya hay un cambio de plan en curso. Finalizá o cancelá el cambio antes de elegir otro plan.');
+
+            return $this->redirectToRoute('app_billing_subscription_show');
+        }
         $businessId = $subscription->getBusiness()?->getId();
         if ($businessId === null) {
             $this->addFlash('danger', 'No se encontró un comercio asociado a la suscripción.');
@@ -283,6 +301,63 @@ class BillingSubscriptionController extends AbstractController
         EntityManagerInterface $entityManager,
     ): RedirectResponse {
         return $this->handleStatusChange($request, $subscriptionContext, $mercadoPagoClient, $entityManager, 'cancelled', 'Suscripción cancelada.');
+    }
+
+    #[Route('/app/billing/subscription/pending/cancel', name: 'app_billing_subscription_cancel_pending', methods: ['POST'])]
+    public function cancelPendingChange(
+        Request $request,
+        SubscriptionContext $subscriptionContext,
+        MercadoPagoClient $mercadoPagoClient,
+        EntityManagerInterface $entityManager,
+    ): RedirectResponse {
+        if (!$this->isCsrfTokenValid('cancel_pending_change', (string) $request->request->get('_token'))) {
+            return $this->redirectToRoute('app_billing_subscription_show');
+        }
+
+        $subscription = $subscriptionContext->getCurrentSubscription($this->getUser());
+        if (!$subscription || !$subscription->getBusiness()) {
+            $this->addFlash('danger', 'No se encontró una suscripción asociada al comercio.');
+
+            return $this->redirectToRoute('app_billing_subscription_show');
+        }
+
+        $pendingChange = $entityManager->getRepository(PendingSubscriptionChange::class)
+            ->createQueryBuilder('pendingChange')
+            ->andWhere('pendingChange.business = :business')
+            ->andWhere('pendingChange.status IN (:statuses)')
+            ->setParameter('business', $subscription->getBusiness())
+            ->setParameter('statuses', [
+                PendingSubscriptionChange::STATUS_CREATED,
+                PendingSubscriptionChange::STATUS_CHECKOUT_STARTED,
+                PendingSubscriptionChange::STATUS_PAID,
+            ])
+            ->setMaxResults(1)
+            ->getQuery()
+            ->getOneOrNullResult();
+
+        if (!$pendingChange instanceof PendingSubscriptionChange) {
+            $this->addFlash('warning', 'No hay cambios de plan pendientes para cancelar.');
+
+            return $this->redirectToRoute('app_billing_subscription_show');
+        }
+
+        $mpPreapprovalId = $pendingChange->getMpPreapprovalId();
+        if ($mpPreapprovalId) {
+            try {
+                $mercadoPagoClient->cancelPreapproval($mpPreapprovalId);
+            } catch (MercadoPagoApiException $exception) {
+                $this->addFlash('danger', sprintf('No se pudo cancelar el preapproval en Mercado Pago: %s', $exception->getMessage()));
+
+                return $this->redirectToRoute('app_billing_subscription_show');
+            }
+        }
+
+        $pendingChange->setStatus(PendingSubscriptionChange::STATUS_CANCELED);
+        $entityManager->flush();
+
+        $this->addFlash('success', 'El cambio de plan fue cancelado.');
+
+        return $this->redirectToRoute('app_billing_subscription_show');
     }
 
     #[Route('/app/billing/return', name: 'app_billing_return', methods: ['GET'])]
