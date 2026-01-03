@@ -62,6 +62,9 @@ class Subscription
     #[ORM\Column(length: 128, unique: true, nullable: true)]
     private ?string $mpPreapprovalId = null;
 
+    #[ORM\Column(length: 64, nullable: true)]
+    private ?string $externalReference = null;
+
     #[ORM\Column(length: 128, nullable: true)]
     private ?string $mpPreapprovalPlanId = null;
 
@@ -199,6 +202,18 @@ class Subscription
     public function setMpPreapprovalId(?string $mpPreapprovalId): self
     {
         $this->mpPreapprovalId = $mpPreapprovalId;
+
+        return $this;
+    }
+
+    public function getExternalReference(): ?string
+    {
+        return $this->externalReference;
+    }
+
+    public function setExternalReference(?string $externalReference): self
+    {
+        $this->externalReference = $externalReference;
 
         return $this;
     }
