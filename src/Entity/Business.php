@@ -10,6 +10,7 @@ use DateTimeImmutable;
 use App\Entity\Category;
 use App\Entity\Product;
 use App\Entity\Subscription;
+use App\Entity\MercadoPagoSubscriptionLink;
 use Symfony\Component\Validator\Constraints as Assert;
 
 #[ORM\Entity(repositoryClass: BusinessRepository::class)]
@@ -45,11 +46,16 @@ class Business
     #[ORM\OneToOne(mappedBy: 'business', targetEntity: Subscription::class, cascade: ['persist', 'remove'])]
     private ?Subscription $subscription = null;
 
+    /** @var Collection<int, MercadoPagoSubscriptionLink> */
+    #[ORM\OneToMany(mappedBy: 'business', targetEntity: MercadoPagoSubscriptionLink::class, orphanRemoval: true)]
+    private Collection $mercadoPagoSubscriptionLinks;
+
     public function __construct()
     {
         $this->users = new ArrayCollection();
         $this->categories = new ArrayCollection();
         $this->products = new ArrayCollection();
+        $this->mercadoPagoSubscriptionLinks = new ArrayCollection();
         $this->createdAt = new DateTimeImmutable();
     }
 
@@ -199,6 +205,35 @@ class Business
         }
 
         $this->subscription = $subscription;
+
+        return $this;
+    }
+
+    /**
+     * @return Collection<int, MercadoPagoSubscriptionLink>
+     */
+    public function getMercadoPagoSubscriptionLinks(): Collection
+    {
+        return $this->mercadoPagoSubscriptionLinks;
+    }
+
+    public function addMercadoPagoSubscriptionLink(MercadoPagoSubscriptionLink $link): self
+    {
+        if (!$this->mercadoPagoSubscriptionLinks->contains($link)) {
+            $this->mercadoPagoSubscriptionLinks->add($link);
+            $link->setBusiness($this);
+        }
+
+        return $this;
+    }
+
+    public function removeMercadoPagoSubscriptionLink(MercadoPagoSubscriptionLink $link): self
+    {
+        if ($this->mercadoPagoSubscriptionLinks->removeElement($link)) {
+            if ($link->getBusiness() === $this) {
+                $link->setBusiness(null);
+            }
+        }
 
         return $this;
     }
