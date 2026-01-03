@@ -7,6 +7,7 @@ use App\Entity\PendingSubscriptionChange;
 use App\Entity\Plan;
 use App\Entity\Subscription;
 use App\Repository\PlanRepository;
+use App\Service\MPSubscriptionManager;
 use App\Service\PlatformNotificationService;
 use App\Service\SubscriptionNotificationService;
 use Doctrine\ORM\EntityManagerInterface;
@@ -26,6 +27,7 @@ class ApplyPendingSubscriptionChangesCommand extends Command
         private readonly PlanRepository $planRepository,
         private readonly SubscriptionNotificationService $notificationService,
         private readonly PlatformNotificationService $platformNotificationService,
+        private readonly MPSubscriptionManager $subscriptionManager,
     ) {
         parent::__construct();
     }
@@ -98,6 +100,10 @@ class ApplyPendingSubscriptionChangesCommand extends Command
                     $subscription,
                     $billingPlan->getName(),
                     $pendingChange->getAppliedAt()
+                );
+                $this->subscriptionManager->ensureSingleActiveAfterMutation(
+                    $subscription->getBusiness(),
+                    $pendingChange->getMpPreapprovalId()
                 );
             }
             $appliedCount++;

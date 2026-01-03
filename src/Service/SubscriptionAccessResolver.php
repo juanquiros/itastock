@@ -31,6 +31,23 @@ class SubscriptionAccessResolver
         }
 
         $status = $subscription->getStatus();
+        $now = new \DateTimeImmutable();
+        if ($status === Subscription::STATUS_PENDING) {
+            $endAt = $subscription->getEndAt();
+            $nextChargeAt = $subscription->getNextPaymentAt();
+            $trialEndsAt = $subscription->getTrialEndsAt();
+            if (
+                ($endAt instanceof \DateTimeImmutable && $endAt > $now)
+                || ($nextChargeAt instanceof \DateTimeImmutable && $nextChargeAt > $now)
+                || ($trialEndsAt instanceof \DateTimeImmutable && $trialEndsAt > $now)
+            ) {
+                return [
+                    'mode' => self::MODE_FULL,
+                    'reason' => 'pending_with_validity',
+                    'endsAt' => $nextChargeAt ?? $endAt ?? $trialEndsAt,
+                ];
+            }
+        }
         if ($status === Subscription::STATUS_TRIAL) {
             $trialEndsAt = $subscription->getTrialEndsAt();
             if (!$trialEndsAt) {
@@ -41,7 +58,7 @@ class SubscriptionAccessResolver
                 ];
             }
 
-            if ($trialEndsAt > new \DateTimeImmutable()) {
+            if ($trialEndsAt > $now) {
                 return [
                     'mode' => self::MODE_FULL,
                     'reason' => 'trial_active',
@@ -61,8 +78,8 @@ class SubscriptionAccessResolver
             $nextChargeAt = $subscription->getNextPaymentAt();
             if (
                 $endAt instanceof \DateTimeImmutable
-                && $endAt <= new \DateTimeImmutable()
-                && !($nextChargeAt instanceof \DateTimeImmutable && $nextChargeAt > new \DateTimeImmutable())
+                && $endAt <= $now
+                && !($nextChargeAt instanceof \DateTimeImmutable && $nextChargeAt > $now)
             ) {
                 return [
                     'mode' => self::MODE_READONLY,
@@ -106,7 +123,7 @@ class SubscriptionAccessResolver
             $nextPaymentAt = $subscription->getNextPaymentAt();
             if ($nextPaymentAt instanceof \DateTimeImmutable) {
                 $graceDays = max(0, $subscription->getGracePeriodDays());
-                if ($nextPaymentAt > new \DateTimeImmutable()) {
+                if ($nextPaymentAt > $now) {
                     return [
                         'mode' => self::MODE_FULL,
                         'reason' => 'canceled_pending',
@@ -115,7 +132,7 @@ class SubscriptionAccessResolver
                 }
 
                 $graceEndsAt = $nextPaymentAt->modify(sprintf('+%d days', $graceDays));
-                if ($graceEndsAt > new \DateTimeImmutable()) {
+                if ($graceEndsAt > $now) {
                     return [
                         'mode' => self::MODE_READONLY,
                         'reason' => 'grace_period',

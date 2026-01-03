@@ -1,0 +1,28 @@
+HARDENING MP CONSISTENCY
+
+Definición de “activo efectivo” en MP:
+- status in [active, authorized]
+
+ensureSingleActiveAfterMutation(business, preferredMpPreapprovalId)
+- Se invoca al confirmar suscripción activa y luego de aplicar cambios pendientes.
+- También se ejecuta al final del reconciliador.
+- Si hay 0 activos: no hace nada.
+- Si hay 1 activo: marca ese link como isPrimary.
+- Si hay 2+ activos:
+  - prioriza preferredMpPreapprovalId si está activo
+  - si no, usa el link local isPrimary
+  - si no, conserva el más reciente (date_created más alto)
+  - cancela el resto (solo active/authorized)
+  - actualiza links locales para mantener un único isPrimary
+
+Logs
+- MPSubscriptionManager escribe un resumen INFO con businessId, preapproval conservado y cancelados.
+- Si hay duplicadas, se registra WARNING si un cancel falla.
+- El cron app:mp:reconcile-subscriptions sigue escribiendo en var/log/mp_reconcile.log.
+
+Alertas de plataforma
+- Cada inconsistencia (2+ activas) registra un evento en EmailNotificationLog.
+- Se envía email PLATFORM cuando se acumulan >= 3 eventos en 24h para el mismo negocio.
+
+Revisión
+- Ver var/log/mp_reconcile.log y el log de aplicación para detalles.

@@ -5,7 +5,6 @@ namespace App\Command;
 use App\Entity\Business;
 use App\Entity\Subscription;
 use App\Service\MPSubscriptionManager;
-use App\Service\PlatformNotificationService;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
@@ -22,7 +21,6 @@ class ReconcileMercadoPagoSubscriptionsCommand extends Command
     public function __construct(
         private readonly EntityManagerInterface $entityManager,
         private readonly MPSubscriptionManager $subscriptionManager,
-        private readonly PlatformNotificationService $platformNotificationService,
         #[Autowire('%kernel.logs_dir%')] private readonly string $logDir,
     ) {
         parent::__construct();
@@ -64,13 +62,6 @@ class ReconcileMercadoPagoSubscriptionsCommand extends Command
                 $result->getStalePendingCanceled(),
             );
             file_put_contents($logPath, $logLine, FILE_APPEND);
-
-            if ($result->hasInconsistency()) {
-                $this->platformNotificationService->notifySubscriptionInconsistency(
-                    $business,
-                    $result->getActiveBefore()
-                );
-            }
         }
 
         $output->writeln(sprintf('Processed %d business(es).', $processed));

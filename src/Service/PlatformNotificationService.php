@@ -186,22 +186,37 @@ class PlatformNotificationService
         );
     }
 
-    public function notifySubscriptionInconsistency(Business $business, int $activeCount): array
+    public function notifyMpInconsistencyIfRepeated(Business $business, int $activeCount, int $canceledCount, int $threshold = 3): void
     {
+        $this->recordMpInconsistencyOccurrence($business, $activeCount, $canceledCount);
+
+        $now = new \DateTimeImmutable();
+        $windowStart = $now->modify('-24 hours');
+
+        $occurrences = $this->countMpInconsistencyOccurrences($business, $windowStart);
+        if ($occurrences < $threshold) {
+            return;
+        }
+
+        if ($this->hasRecentMpInconsistencyAlert($business, $windowStart)) {
+            return;
+        }
+
         $context = [
             'businessName' => $business->getName(),
             'businessId' => $business->getId(),
             'activeCount' => $activeCount,
+            'canceledCount' => $canceledCount,
         ];
 
-        return $this->notifyPlatformAdmins(
-            'PLATFORM_SUBSCRIPTION_INCONSISTENCY',
+        $this->notifyPlatformAdmins(
+            'PLATFORM_MP_INCONSISTENCY',
             'Inconsistencia de suscripciones',
             'emails/platform/platform_subscription_inconsistency.html.twig',
             $context,
             null,
-            null,
-            null,
+            $windowStart,
+            $now,
         );
     }
 
@@ -288,6 +303,62 @@ class PlatformNotificationService
         }
 
         return null;
+    }
+
+    private function recordMpInconsistencyOccurrence(Business $business, int $activeCount, int $canceledCount): void
+    {
+        $log = (new EmailNotificationLog())
+            ->setType('PLATFORM_MP_INCONSISTENCY')
+            ->setRecipientEmail('platform')
+            ->setRecipientRole(EmailNotificationLog::ROLE_PLATFORM)
+            ->setBusiness($business)
+            ->setStatus(EmailNotificationLog::STATUS_SKIPPED)
+            ->setErrorMessage(sprintf(
+                'Occurrence recorded. Active=%d, Canceled=%d',
+                $activeCount,
+                $canceledCount
+            ));
+
+        $this->entityManager->persist($log);
+        $this->entityManager->flush();
+    }
+
+    private function countMpInconsistencyOccurrences(Business $business, \DateTimeImmutable $since): int
+    {
+        $qb = $this->entityManager->createQueryBuilder();
+
+        return (int) $qb
+            ->select('COUNT(e.id)')
+            ->from(EmailNotificationLog::class, 'e')
+            ->where('e.type = :type')
+            ->andWhere('e.business = :business')
+            ->andWhere('e.createdAt >= :since')
+            ->setParameter('type', 'PLATFORM_MP_INCONSISTENCY')
+            ->setParameter('business', $business)
+            ->setParameter('since', $since)
+            ->getQuery()
+            ->getSingleScalarResult();
+    }
+
+    private function hasRecentMpInconsistencyAlert(Business $business, \DateTimeImmutable $since): bool
+    {
+        $qb = $this->entityManager->createQueryBuilder();
+
+        $count = (int) $qb
+            ->select('COUNT(e.id)')
+            ->from(EmailNotificationLog::class, 'e')
+            ->where('e.type = :type')
+            ->andWhere('e.status = :status')
+            ->andWhere('e.business = :business')
+            ->andWhere('e.createdAt >= :since')
+            ->setParameter('type', 'PLATFORM_MP_INCONSISTENCY')
+            ->setParameter('status', EmailNotificationLog::STATUS_SENT)
+            ->setParameter('business', $business)
+            ->setParameter('since', $since)
+            ->getQuery()
+            ->getSingleScalarResult();
+
+        return $count > 0;
     }
 
     /**
