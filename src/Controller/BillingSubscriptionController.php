@@ -195,12 +195,17 @@ class BillingSubscriptionController extends AbstractController
                 }
             }
 
+            $effectiveAt = $subscription->getEndAt()
+                ?? $subscription->getNextPaymentAt()
+                ?? $subscription->getTrialEndsAt()
+                ?? $now;
+
             $pendingChange
                 ->setCurrentSubscription($subscription)
                 ->setTargetBillingPlan($billingPlan)
                 ->setType($type)
                 ->setStatus(PendingSubscriptionChange::STATUS_CHECKOUT_STARTED)
-                ->setEffectiveAt($subscription->getEndAt() ?? $now)
+                ->setEffectiveAt($effectiveAt)
                 ->setMpPreapprovalId((string) $response['id'])
                 ->setInitPoint($initPoint);
 

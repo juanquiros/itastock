@@ -62,14 +62,25 @@ class ApplyPendingSubscriptionChangesCommand extends Command
                 continue;
             }
 
-            $effectiveAt = $pendingChange->getEffectiveAt() ?? $now;
+            $effectiveAt = $pendingChange->getEffectiveAt()
+                ?? $subscription->getEndAt()
+                ?? $subscription->getNextPaymentAt()
+                ?? $now;
+            $currentEndAt = $subscription->getEndAt();
+            if ($currentEndAt instanceof \DateTimeImmutable && $currentEndAt > $effectiveAt) {
+                $effectiveAt = $currentEndAt;
+            }
             $billingPlan = $pendingChange->getTargetBillingPlan();
             if (!$billingPlan) {
                 continue;
             }
 
             $endAt = $this->calculateEndAt($effectiveAt, $billingPlan->getFrequency(), $billingPlan->getFrequencyType());
-            $plan = $this->planRepository->findOneBy(['name' => $billingPlan->getName()]);
+            $plan = $this->planRepository->findOneBy(['name' => $billingPlan->getName()])
+                ?? $this->planRepository->findOneBy(['code' => $billingPlan->getName()]);
+            if (!$plan) {
+                $plan = $subscription->getPlan();
+            }
             if ($plan) {
                 $subscription->setPlan($plan);
             }

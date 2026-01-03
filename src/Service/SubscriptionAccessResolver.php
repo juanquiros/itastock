@@ -58,7 +58,12 @@ class SubscriptionAccessResolver
 
         if ($status === Subscription::STATUS_ACTIVE) {
             $endAt = $subscription->getEndAt();
-            if ($endAt instanceof \DateTimeImmutable && $endAt <= new \DateTimeImmutable()) {
+            $nextChargeAt = $subscription->getNextPaymentAt();
+            if (
+                $endAt instanceof \DateTimeImmutable
+                && $endAt <= new \DateTimeImmutable()
+                && !($nextChargeAt instanceof \DateTimeImmutable && $nextChargeAt > new \DateTimeImmutable())
+            ) {
                 return [
                     'mode' => self::MODE_READONLY,
                     'reason' => 'active_expired',
@@ -69,7 +74,7 @@ class SubscriptionAccessResolver
             return [
                 'mode' => self::MODE_FULL,
                 'reason' => 'active',
-                'endsAt' => $endAt,
+                'endsAt' => $nextChargeAt ?? $endAt,
             ];
         }
 
