@@ -11,6 +11,9 @@ class ReconcileResult
     public function __construct(
         private readonly array $updatedLinks = [],
         private readonly array $canceledPreapprovals = [],
+        private readonly int $activeBefore = 0,
+        private readonly int $activeAfter = 0,
+        private readonly ?string $keptPreapprovalId = null,
     ) {
     }
 
@@ -28,5 +31,20 @@ class ReconcileResult
     public function getCanceledPreapprovals(): array
     {
         return $this->canceledPreapprovals;
+    }
+
+    public function getActiveBefore(): int
+    {
+        return $this->activeBefore;
+    }
+
+    public function getActiveAfter(): int
+    {
+        return $this->activeAfter;
+    }
+
+    public function getKeptPreapprovalId(): ?string
+    {
+        return $this->keptPreapprovalId;
     }
 }

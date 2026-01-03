@@ -162,7 +162,15 @@ class MPSubscriptionManager
 
         $updatedLinks = [];
         $primaryCandidate = null;
-        $primaryScore = null;
+        $activePreapprovals = [];
+        $pendingPreapprovals = [];
+        $primaryLink = $this->subscriptionLinkRepository->findOneBy([
+            'business' => $business,
+            'isPrimary' => true,
+        ]);
+        $primaryMpPreapprovalId = $primaryLink?->getMpPreapprovalId();
+        $keptPreapprovalId = null;
+        $canceledPreapprovals = [];
 
         foreach ($preapprovals as $preapproval) {
             $preapprovalId = $preapproval['id'] ?? null;
@@ -187,10 +195,77 @@ class MPSubscriptionManager
             $link->setIsPrimary(false);
             $updatedLinks[] = $preapprovalId;
 
-            $score = $this->scorePreapproval($preapproval);
-            if ($primaryScore === null || $score > $primaryScore) {
-                $primaryScore = $score;
-                $primaryCandidate = $link;
+            $normalizedStatus = strtolower((string) ($preapproval['status'] ?? ''));
+            if ($this->isActiveStatus($normalizedStatus)) {
+                $activePreapprovals[$preapprovalId] = $preapproval;
+            }
+            if ($this->isPendingStatus($normalizedStatus)) {
+                $pendingPreapprovals[$preapprovalId] = $preapproval;
+            }
+        }
+
+        $activeBefore = count($activePreapprovals);
+        if ($activeBefore > 0) {
+            if ($primaryMpPreapprovalId && isset($activePreapprovals[$primaryMpPreapprovalId])) {
+                $keptPreapprovalId = $primaryMpPreapprovalId;
+            } else {
+                $keptPreapprovalId = $this->selectMostRecentPreapprovalId($activePreapprovals);
+            }
+        }
+
+        if ($keptPreapprovalId) {
+            $primaryCandidate = $this->subscriptionLinkRepository->findOneBy([
+                'business' => $business,
+                'mpPreapprovalId' => $keptPreapprovalId,
+            ]);
+        }
+
+        if ($activeBefore > 1 && $keptPreapprovalId) {
+            foreach ($activePreapprovals as $preapprovalId => $preapproval) {
+                if ($preapprovalId === $keptPreapprovalId) {
+                    continue;
+                }
+                try {
+                    $this->mercadoPagoClient->cancelPreapproval($preapprovalId);
+                    $canceledPreapprovals[] = $preapprovalId;
+                } catch (MercadoPagoApiException) {
+                    continue;
+                }
+
+                $link = $this->subscriptionLinkRepository->findOneBy([
+                    'business' => $business,
+                    'mpPreapprovalId' => $preapprovalId,
+                ]);
+                if ($link instanceof MercadoPagoSubscriptionLink) {
+                    $link->setStatus('CANCELED');
+                }
+            }
+        }
+
+        if (
+            $activeBefore > 0
+            && $pendingPreapprovals !== []
+            && !$this->hasActivePendingChange($business)
+        ) {
+            $oldestPendingId = $this->selectOldestPreapprovalId($pendingPreapprovals);
+            if ($oldestPendingId) {
+                try {
+                    $this->mercadoPagoClient->cancelPreapproval($oldestPendingId);
+                    $canceledPreapprovals[] = $oldestPendingId;
+                } catch (MercadoPagoApiException) {
+                    $oldestPendingId = null;
+                }
+            }
+
+            if ($oldestPendingId) {
+                $link = $this->subscriptionLinkRepository->findOneBy([
+                    'business' => $business,
+                    'mpPreapprovalId' => $oldestPendingId,
+                ]);
+                if ($link instanceof MercadoPagoSubscriptionLink) {
+                    $link->setStatus('CANCELED');
+                    $link->setIsPrimary(false);
+                }
             }
         }
 
@@ -201,7 +276,15 @@ class MPSubscriptionManager
 
         $this->entityManager->flush();
 
-        return new ReconcileResult($updatedLinks);
+        $activeAfter = $keptPreapprovalId ? 1 : 0;
+
+        return new ReconcileResult(
+            $updatedLinks,
+            $canceledPreapprovals,
+            $activeBefore,
+            $activeAfter,
+            $keptPreapprovalId
+        );
     }
 
     /**
@@ -254,26 +337,88 @@ class MPSubscriptionManager
         return sprintf('business:%d', $businessId);
     }
 
-    private function scorePreapproval(array $preapproval): int
+    private function isActiveStatus(string $status): bool
     {
-        $status = strtolower((string) ($preapproval['status'] ?? ''));
-        $statusScore = match ($status) {
-            'authorized', 'active' => 300,
-            'paused', 'suspended' => 200,
-            'pending', 'in_process' => 150,
-            default => 0,
-        };
+        return in_array($status, ['active', 'authorized'], true);
+    }
 
-        $lastModified = $preapproval['last_modified'] ?? $preapproval['date_created'] ?? null;
-        if (is_string($lastModified)) {
-            try {
-                $timestamp = (new \DateTimeImmutable($lastModified))->getTimestamp();
-                return $statusScore + $timestamp;
-            } catch (\Throwable) {
-                return $statusScore;
+    private function isPendingStatus(string $status): bool
+    {
+        return in_array($status, ['pending', 'in_process'], true);
+    }
+
+    /**
+     * @param array<string, array{id: string, status: string|null, date_created: string|null, last_modified: string|null, reason: string|null, payer_email: string|null}> $preapprovals
+     */
+    private function selectMostRecentPreapprovalId(array $preapprovals): ?string
+    {
+        $candidateId = null;
+        $candidateTimestamp = null;
+        foreach ($preapprovals as $preapprovalId => $preapproval) {
+            $timestamp = $this->preapprovalTimestamp($preapproval);
+            if ($candidateTimestamp === null || $timestamp > $candidateTimestamp) {
+                $candidateTimestamp = $timestamp;
+                $candidateId = $preapprovalId;
             }
         }
 
-        return $statusScore;
+        return $candidateId;
+    }
+
+    /**
+     * @param array<string, array{id: string, status: string|null, date_created: string|null, last_modified: string|null, reason: string|null, payer_email: string|null}> $preapprovals
+     */
+    private function selectOldestPreapprovalId(array $preapprovals): ?string
+    {
+        $candidateId = null;
+        $candidateTimestamp = null;
+        foreach ($preapprovals as $preapprovalId => $preapproval) {
+            $timestamp = $this->preapprovalTimestamp($preapproval);
+            if ($candidateTimestamp === null || $timestamp < $candidateTimestamp) {
+                $candidateTimestamp = $timestamp;
+                $candidateId = $preapprovalId;
+            }
+        }
+
+        return $candidateId;
+    }
+
+    /**
+     * @param array{id: string, status: string|null, date_created: string|null, last_modified: string|null, reason: string|null, payer_email: string|null} $preapproval
+     */
+    private function preapprovalTimestamp(array $preapproval): int
+    {
+        $date = $preapproval['date_created'] ?? null;
+        if (!is_string($date) || $date === '') {
+            $date = $preapproval['last_modified'] ?? null;
+        }
+        if (is_string($date)) {
+            try {
+                return (new \DateTimeImmutable($date))->getTimestamp();
+            } catch (\Throwable) {
+                return 0;
+            }
+        }
+
+        return 0;
+    }
+
+    private function hasActivePendingChange(Business $business): bool
+    {
+        $pendingChange = $this->entityManager->getRepository(PendingSubscriptionChange::class)
+            ->createQueryBuilder('pendingChange')
+            ->andWhere('pendingChange.business = :business')
+            ->andWhere('pendingChange.status IN (:statuses)')
+            ->setParameter('business', $business)
+            ->setParameter('statuses', [
+                PendingSubscriptionChange::STATUS_CREATED,
+                PendingSubscriptionChange::STATUS_CHECKOUT_STARTED,
+                PendingSubscriptionChange::STATUS_PAID,
+            ])
+            ->setMaxResults(1)
+            ->getQuery()
+            ->getOneOrNullResult();
+
+        return $pendingChange instanceof PendingSubscriptionChange;
     }
 }

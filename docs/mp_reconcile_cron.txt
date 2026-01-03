@@ -1,0 +1,3 @@
+# Cron: reconcile Mercado Pago subscriptions hourly
+# Adjust PHP binary and project path as needed.
+0 * * * * /usr/bin/php /path/to/project/bin/console app:mp:reconcile-subscriptions
