@@ -5,6 +5,7 @@ namespace App\Command;
 use App\Entity\Business;
 use App\Entity\Subscription;
 use App\Service\MPSubscriptionManager;
+use App\Service\PlatformNotificationService;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
@@ -21,6 +22,7 @@ class ReconcileMercadoPagoSubscriptionsCommand extends Command
     public function __construct(
         private readonly EntityManagerInterface $entityManager,
         private readonly MPSubscriptionManager $subscriptionManager,
+        private readonly PlatformNotificationService $platformNotificationService,
         #[Autowire('%kernel.logs_dir%')] private readonly string $logDir,
     ) {
         parent::__construct();
@@ -52,15 +54,23 @@ class ReconcileMercadoPagoSubscriptionsCommand extends Command
             $processed++;
 
             $logLine = sprintf(
-                "[%s] business_id=%d active_before=%d active_after=%d kept=%s canceled=%s\n",
+                "[%s] business_id=%d active_before=%d active_after=%d kept=%s canceled=%s stale_pending=%d\n",
                 (new \DateTimeImmutable())->format('Y-m-d H:i:s'),
                 (int) $business->getId(),
                 $result->getActiveBefore(),
                 $result->getActiveAfter(),
                 $result->getKeptPreapprovalId() ?? '-',
-                $result->getCanceledPreapprovals() === [] ? '-' : implode(',', $result->getCanceledPreapprovals())
+                $result->getCanceledPreapprovals() === [] ? '-' : implode(',', $result->getCanceledPreapprovals()),
+                $result->getStalePendingCanceled(),
             );
             file_put_contents($logPath, $logLine, FILE_APPEND);
+
+            if ($result->hasInconsistency()) {
+                $this->platformNotificationService->notifySubscriptionInconsistency(
+                    $business,
+                    $result->getActiveBefore()
+                );
+            }
         }
 
         $output->writeln(sprintf('Processed %d business(es).', $processed));

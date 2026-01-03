@@ -171,6 +171,7 @@ class MPSubscriptionManager
         $primaryMpPreapprovalId = $primaryLink?->getMpPreapprovalId();
         $keptPreapprovalId = null;
         $canceledPreapprovals = [];
+        $stalePendingCanceled = 0;
 
         foreach ($preapprovals as $preapproval) {
             $preapprovalId = $preapproval['id'] ?? null;
@@ -266,6 +267,7 @@ class MPSubscriptionManager
                     $link->setStatus('CANCELED');
                     $link->setIsPrimary(false);
                 }
+                $stalePendingCanceled++;
             }
         }
 
@@ -278,12 +280,16 @@ class MPSubscriptionManager
 
         $activeAfter = $keptPreapprovalId ? 1 : 0;
 
+        $hasInconsistency = $activeBefore > 1 || $stalePendingCanceled > 0;
+
         return new ReconcileResult(
             $updatedLinks,
             $canceledPreapprovals,
             $activeBefore,
             $activeAfter,
-            $keptPreapprovalId
+            $keptPreapprovalId,
+            $stalePendingCanceled,
+            $hasInconsistency,
         );
     }
 

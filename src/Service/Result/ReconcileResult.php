@@ -14,6 +14,8 @@ class ReconcileResult
         private readonly int $activeBefore = 0,
         private readonly int $activeAfter = 0,
         private readonly ?string $keptPreapprovalId = null,
+        private readonly int $stalePendingCanceled = 0,
+        private readonly bool $hasInconsistency = false,
     ) {
     }
 
@@ -46,5 +48,15 @@ class ReconcileResult
     public function getKeptPreapprovalId(): ?string
     {
         return $this->keptPreapprovalId;
+    }
+
+    public function getStalePendingCanceled(): int
+    {
+        return $this->stalePendingCanceled;
+    }
+
+    public function hasInconsistency(): bool
+    {
+        return $this->hasInconsistency;
     }
 }

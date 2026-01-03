@@ -1,0 +1,9 @@
+{% extends 'emails/base.html.twig' %}
+
+{% block body %}
+    <p>Inconsistencia de suscripciones detectada.</p>
+    <ul>
+        <li>Comercio: {{ businessName }} (ID {{ businessId }})</li>
+        <li>Suscripciones activas detectadas: {{ activeCount }}</li>
+    </ul>
+{% endblock %}

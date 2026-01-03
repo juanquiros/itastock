@@ -186,6 +186,25 @@ class PlatformNotificationService
         );
     }
 
+    public function notifySubscriptionInconsistency(Business $business, int $activeCount): array
+    {
+        $context = [
+            'businessName' => $business->getName(),
+            'businessId' => $business->getId(),
+            'activeCount' => $activeCount,
+        ];
+
+        return $this->notifyPlatformAdmins(
+            'PLATFORM_SUBSCRIPTION_INCONSISTENCY',
+            'Inconsistencia de suscripciones',
+            'emails/platform/platform_subscription_inconsistency.html.twig',
+            $context,
+            null,
+            null,
+            null,
+        );
+    }
+
     /**
      * @param array<string, mixed> $context
      */
