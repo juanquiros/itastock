@@ -103,6 +103,45 @@ class MercadoPagoWebhookController extends AbstractController
                         if ($subscription?->getMpPreapprovalId()) {
                             $preapprovalId = $subscription->getMpPreapprovalId();
                         }
+                        if ($subscription && $paymentStatus === 'approved') {
+                            $pendingChange = $entityManager->getRepository(PendingSubscriptionChange::class)
+                                ->createQueryBuilder('pendingChange')
+                                ->andWhere('pendingChange.currentSubscription = :subscription')
+                                ->andWhere('pendingChange.status IN (:statuses)')
+                                ->setParameter('subscription', $subscription)
+                                ->setParameter('statuses', [
+                                    PendingSubscriptionChange::STATUS_CREATED,
+                                    PendingSubscriptionChange::STATUS_CHECKOUT_STARTED,
+                                ])
+                                ->setMaxResults(1)
+                                ->getQuery()
+                                ->getOneOrNullResult();
+
+                            if ($pendingChange instanceof PendingSubscriptionChange) {
+                                $pendingChange
+                                    ->setStatus(PendingSubscriptionChange::STATUS_PAID)
+                                    ->setPaidAt(new \DateTimeImmutable());
+                                $logger->info('Pending subscription change marked as paid from payment event.', [
+                                    'pending_change_id' => $pendingChange->getId(),
+                                    'subscription_id' => $subscription->getId(),
+                                ]);
+                                $billingPlan = $pendingChange->getTargetBillingPlan();
+                                $subscriptionNotificationService->onSubscriptionChangePaid(
+                                    $subscription,
+                                    $billingPlan?->getName(),
+                                    $pendingChange->getEffectiveAt()
+                                );
+                                if ($subscription->getBusiness()) {
+                                    $platformNotificationService->notifySubscriptionChangePaid(
+                                        $subscription->getBusiness(),
+                                        $subscription,
+                                        $billingPlan?->getName(),
+                                        $pendingChange->getEffectiveAt(),
+                                        $pendingChange->getPaidAt()
+                                    );
+                                }
+                            }
+                        }
                     }
                 }
 
