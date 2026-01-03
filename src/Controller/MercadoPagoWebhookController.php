@@ -148,7 +148,8 @@ class MercadoPagoWebhookController extends AbstractController
             return new Response('mp_error', Response::HTTP_BAD_GATEWAY);
         }
 
-        $subscription = $subscriptionRepository->findOneBy(['mpPreapprovalId' => $resourceId]);
+        $preapprovalId = (string) ($preapproval['id'] ?? $resourceId);
+        $subscription = $subscriptionRepository->findOneBy(['mpPreapprovalId' => $preapprovalId]);
         if ($subscription instanceof Subscription) {
             $previousStatus = $subscription->getStatus();
             $subscription->setStatus($this->mapStatus($preapproval['status'] ?? null));
@@ -176,7 +177,7 @@ class MercadoPagoWebhookController extends AbstractController
         }
 
         $pendingChange = $entityManager->getRepository(PendingSubscriptionChange::class)
-            ->findOneBy(['mpPreapprovalId' => $resourceId]);
+            ->findOneBy(['mpPreapprovalId' => $preapprovalId]);
         if ($pendingChange instanceof PendingSubscriptionChange) {
             $paymentConfirmed = $paymentStatus === 'approved';
             $preapprovalStatus = $preapproval['status'] ?? null;
