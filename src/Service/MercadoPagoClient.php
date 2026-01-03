@@ -60,6 +60,44 @@ class MercadoPagoClient
         return $this->request('GET', sprintf('/v1/payments/%s', $paymentId));
     }
 
+    /**
+     * @return array<int, array{id: string, status: string|null, date_created: string|null, last_modified: string|null, reason: string|null, payer_email: string|null}>
+     */
+    public function searchPreapprovalsByExternalReference(string $externalReference): array
+    {
+        $response = $this->request('GET', '/preapproval/search', null, [
+            'external_reference' => $externalReference,
+        ]);
+
+        $results = $response['results'] ?? $response;
+        if (!is_array($results)) {
+            return [];
+        }
+
+        $normalized = [];
+        foreach ($results as $preapproval) {
+            if (!is_array($preapproval)) {
+                continue;
+            }
+
+            $id = $preapproval['id'] ?? null;
+            if (!is_string($id) || $id === '') {
+                continue;
+            }
+
+            $normalized[] = [
+                'id' => $id,
+                'status' => is_string($preapproval['status'] ?? null) ? $preapproval['status'] : null,
+                'date_created' => is_string($preapproval['date_created'] ?? null) ? $preapproval['date_created'] : null,
+                'last_modified' => is_string($preapproval['last_modified'] ?? null) ? $preapproval['last_modified'] : null,
+                'reason' => is_string($preapproval['reason'] ?? null) ? $preapproval['reason'] : null,
+                'payer_email' => is_string($preapproval['payer_email'] ?? null) ? $preapproval['payer_email'] : null,
+            ];
+        }
+
+        return $normalized;
+    }
+
     private function request(string $method, string $path, ?array $payload = null, ?array $query = null): array
     {
         $correlationId = bin2hex(random_bytes(16));

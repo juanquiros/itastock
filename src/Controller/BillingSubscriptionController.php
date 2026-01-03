@@ -92,6 +92,13 @@ class BillingSubscriptionController extends AbstractController
 
             return $this->redirectToRoute('app_billing_subscription_show');
         }
+        $businessId = $subscription->getBusiness()?->getId();
+        if ($businessId === null) {
+            $this->addFlash('danger', 'No se encontró un comercio asociado a la suscripción.');
+
+            return $this->redirectToRoute('app_billing_subscription_show');
+        }
+        $externalReference = sprintf('business:%d', $businessId);
 
         $now = new \DateTimeImmutable();
         $isActiveSubscription = false;
@@ -130,7 +137,7 @@ class BillingSubscriptionController extends AbstractController
                 'payer' => [
                     'email' => $payerEmail,
                 ],
-                'external_reference' => (string) $subscription->getId(),
+                'external_reference' => $externalReference,
                 'back_url' => $this->generateUrl('app_billing_return', [], UrlGeneratorInterface::ABSOLUTE_URL),
                 'auto_recurring' => [
                     'frequency' => $billingPlan->getFrequency(),
@@ -207,6 +214,7 @@ class BillingSubscriptionController extends AbstractController
                 ->setStatus(PendingSubscriptionChange::STATUS_CHECKOUT_STARTED)
                 ->setEffectiveAt($effectiveAt)
                 ->setMpPreapprovalId((string) $response['id'])
+                ->setExternalReference($externalReference)
                 ->setInitPoint($initPoint);
 
             $currentEndsAt = $activeUntil;
@@ -236,6 +244,7 @@ class BillingSubscriptionController extends AbstractController
         } else {
             $subscription
                 ->setMpPreapprovalId((string) $response['id'])
+                ->setExternalReference($externalReference)
                 ->setPayerEmail($payerEmail)
                 ->setLastSyncedAt(new \DateTimeImmutable())
                 ->setNextPaymentAt($this->parseMpDate($response['next_payment_date'] ?? null));

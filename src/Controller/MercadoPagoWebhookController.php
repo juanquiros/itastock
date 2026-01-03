@@ -3,6 +3,7 @@
 namespace App\Controller;
 
 use App\Entity\BillingWebhookEvent;
+use App\Entity\Business;
 use App\Entity\PendingSubscriptionChange;
 use App\Entity\Subscription;
 use App\Exception\MercadoPagoApiException;
@@ -98,8 +99,12 @@ class MercadoPagoWebhookController extends AbstractController
                 $subscription = null;
                 if (!$preapprovalId) {
                     $externalReference = $payment['external_reference'] ?? null;
-                    if (is_string($externalReference) && ctype_digit($externalReference)) {
-                        $subscription = $subscriptionRepository->find((int) $externalReference);
+                    if (is_string($externalReference)) {
+                        $subscription = $this->resolveSubscriptionFromExternalReference(
+                            $externalReference,
+                            $subscriptionRepository,
+                            $entityManager,
+                        );
                         if ($subscription?->getMpPreapprovalId()) {
                             $preapprovalId = $subscription->getMpPreapprovalId();
                         }
@@ -296,6 +301,32 @@ class MercadoPagoWebhookController extends AbstractController
         }
 
         return null;
+    }
+
+    private function resolveSubscriptionFromExternalReference(
+        string $externalReference,
+        SubscriptionRepository $subscriptionRepository,
+        EntityManagerInterface $entityManager,
+    ): ?Subscription {
+        if (ctype_digit($externalReference)) {
+            return $subscriptionRepository->find((int) $externalReference);
+        }
+
+        if (!preg_match('/^business:(\\d+)$/', $externalReference, $matches)) {
+            return null;
+        }
+
+        $businessId = (int) $matches[1];
+        if ($businessId <= 0) {
+            return null;
+        }
+
+        $business = $entityManager->getRepository(Business::class)->find($businessId);
+        if (!$business instanceof Business) {
+            return null;
+        }
+
+        return $business->getSubscription();
     }
 
     private function mapStatus(?string $status): string
