@@ -47,6 +47,13 @@ class MercadoPagoWebhookController extends AbstractController
         if (!$resourceType && is_string($resource)) {
             $resourceType = str_contains($resource, '/preapproval') ? 'preapproval' : null;
         }
+        if (is_string($resourceType)) {
+            if (str_contains($resourceType, 'preapproval')) {
+                $resourceType = 'preapproval';
+            } elseif (str_contains($resourceType, 'payment')) {
+                $resourceType = 'payment';
+            }
+        }
 
         if ($eventRepository->findProcessedByEventOrResource($eventId, $resourceId)) {
             return new Response('already_processed', Response::HTTP_OK);
