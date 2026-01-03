@@ -60,6 +60,13 @@ class MercadoPagoClient
         return $this->request('GET', sprintf('/v1/payments/%s', $paymentId));
     }
 
+    public function searchPreapprovalsByExternalReference(string $externalReference): array
+    {
+        return $this->request('GET', '/preapproval/search', null, [
+            'external_reference' => $externalReference,
+        ]);
+    }
+
     private function request(string $method, string $path, ?array $payload = null, ?array $query = null): array
     {
         $correlationId = bin2hex(random_bytes(16));
