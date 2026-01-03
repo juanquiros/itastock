@@ -231,8 +231,8 @@ class MercadoPagoWebhookController extends AbstractController
             }
         }
 
-        $preapprovalStatus = $preapproval['status'] ?? null;
-        if (is_string($preapprovalStatus) && $preapprovalStatus === 'active') {
+        $preapprovalStatus = strtolower((string) ($preapproval['status'] ?? ''));
+        if (in_array($preapprovalStatus, ['active', 'authorized'], true)) {
             $business = $this->resolveBusinessForPreapproval(
                 $preapproval,
                 $subscription,

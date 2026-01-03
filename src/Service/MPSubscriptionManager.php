@@ -145,7 +145,7 @@ class MPSubscriptionManager
             }
 
             $status = strtolower((string) ($preapproval['status'] ?? ''));
-            if (in_array($status, ['cancelled', 'canceled'], true)) {
+            if (!in_array($status, ['active', 'authorized'], true)) {
                 continue;
             }
 

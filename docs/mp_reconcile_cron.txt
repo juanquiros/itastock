@@ -1,3 +1,2 @@
 # Cron: reconcile Mercado Pago subscriptions hourly
-# Adjust PHP binary and project path as needed.
-0 * * * * /usr/bin/php /path/to/project/bin/console app:mp:reconcile-subscriptions
+0 * * * * cd /home/itastock.com.ar/public_html && php bin/console app:mp:reconcile-subscriptions --env=prod >> var/log/mp_reconcile.log 2>&1
