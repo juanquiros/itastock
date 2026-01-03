@@ -2,7 +2,9 @@
 
 namespace App\Command;
 
+use App\Entity\BillingPlan;
 use App\Entity\PendingSubscriptionChange;
+use App\Entity\Plan;
 use App\Entity\Subscription;
 use App\Repository\PlanRepository;
 use App\Service\PlatformNotificationService;
@@ -74,11 +76,7 @@ class ApplyPendingSubscriptionChangesCommand extends Command
             }
 
             $endAt = $this->calculateEndAt($effectiveAt, $billingPlan->getFrequency(), $billingPlan->getFrequencyType());
-            $plan = $this->planRepository->findOneBy(['name' => $billingPlan->getName()])
-                ?? $this->planRepository->findOneBy(['code' => $billingPlan->getName()]);
-            if (!$plan) {
-                $plan = $subscription->getPlan();
-            }
+            $plan = $this->resolveTargetPlan($billingPlan, $subscription->getPlan());
             if ($plan) {
                 $subscription->setPlan($plan);
             }
@@ -194,5 +192,38 @@ class ApplyPendingSubscriptionChangesCommand extends Command
         $interval = sprintf('+%d %s', max(1, $frequency), $unit);
 
         return $startAt->modify($interval);
+    }
+
+    private function resolveTargetPlan(BillingPlan $billingPlan, ?Plan $fallback): ?Plan
+    {
+        $plan = $this->planRepository->findOneBy(['name' => $billingPlan->getName()])
+            ?? $this->planRepository->findOneBy(['code' => $billingPlan->getName()]);
+        if ($plan instanceof Plan) {
+            return $plan;
+        }
+
+        $candidates = $this->planRepository->findAll();
+        $frequency = max(1, $billingPlan->getFrequency());
+        $normalizedType = strtolower($billingPlan->getFrequencyType());
+        $monthlyAmount = null;
+
+        if ($normalizedType === 'months' || $normalizedType === 'month') {
+            $monthlyAmount = (float) $billingPlan->getPrice() / $frequency;
+        }
+
+        foreach ($candidates as $candidate) {
+            if (!$candidate instanceof Plan) {
+                continue;
+            }
+
+            if ($monthlyAmount !== null && $candidate->getPriceMonthly() !== null) {
+                $candidateAmount = (float) $candidate->getPriceMonthly();
+                if (abs($candidateAmount - $monthlyAmount) < 0.01) {
+                    return $candidate;
+                }
+            }
+        }
+
+        return $fallback;
     }
 }
