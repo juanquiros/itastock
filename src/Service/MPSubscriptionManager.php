@@ -186,9 +186,19 @@ class MPSubscriptionManager
             ]);
 
             if (!$link instanceof MercadoPagoSubscriptionLink) {
-                $link = new MercadoPagoSubscriptionLink($preapprovalId, $status);
-                $link->setBusiness($business);
-                $this->entityManager->persist($link);
+                $link = $this->subscriptionLinkRepository->findOneBy([
+                    'mpPreapprovalId' => $preapprovalId,
+                ]);
+                if (!$link instanceof MercadoPagoSubscriptionLink) {
+                    $link = new MercadoPagoSubscriptionLink($preapprovalId, $status);
+                    $link->setBusiness($business);
+                    $this->entityManager->persist($link);
+                } else {
+                    if ($link->getBusiness() !== $business) {
+                        $link->setBusiness($business);
+                    }
+                    $link->setStatus($status);
+                }
             } else {
                 $link->setStatus($status);
             }
