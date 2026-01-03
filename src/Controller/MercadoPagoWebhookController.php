@@ -180,7 +180,7 @@ class MercadoPagoWebhookController extends AbstractController
         if ($pendingChange instanceof PendingSubscriptionChange) {
             $paymentConfirmed = $paymentStatus === 'approved';
             $preapprovalStatus = $preapproval['status'] ?? null;
-            if (is_string($preapprovalStatus) && in_array($preapprovalStatus, ['authorized', 'active'], true)) {
+            if (is_string($preapprovalStatus) && in_array($preapprovalStatus, ['authorized', 'active', 'approved'], true)) {
                 $paymentConfirmed = true;
             }
 
