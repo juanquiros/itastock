@@ -3,12 +3,15 @@
 namespace App\Controller;
 
 use App\Entity\BillingWebhookEvent;
+use App\Entity\Business;
 use App\Entity\PendingSubscriptionChange;
 use App\Entity\Subscription;
 use App\Exception\MercadoPagoApiException;
 use App\Repository\BillingWebhookEventRepository;
+use App\Repository\MercadoPagoSubscriptionLinkRepository;
 use App\Repository\SubscriptionRepository;
 use App\Service\MercadoPagoClient;
+use App\Service\MPSubscriptionManager;
 use App\Service\PlatformNotificationService;
 use App\Service\SubscriptionNotificationService;
 use Doctrine\ORM\EntityManagerInterface;
@@ -25,10 +28,12 @@ class MercadoPagoWebhookController extends AbstractController
         Request $request,
         BillingWebhookEventRepository $eventRepository,
         SubscriptionRepository $subscriptionRepository,
+        MercadoPagoSubscriptionLinkRepository $subscriptionLinkRepository,
         MercadoPagoClient $mercadoPagoClient,
         EntityManagerInterface $entityManager,
         SubscriptionNotificationService $subscriptionNotificationService,
         PlatformNotificationService $platformNotificationService,
+        MPSubscriptionManager $subscriptionManager,
         LoggerInterface $logger,
     ): Response {
         $payloadRaw = $request->getContent();
@@ -98,8 +103,12 @@ class MercadoPagoWebhookController extends AbstractController
                 $subscription = null;
                 if (!$preapprovalId) {
                     $externalReference = $payment['external_reference'] ?? null;
-                    if (is_string($externalReference) && ctype_digit($externalReference)) {
-                        $subscription = $subscriptionRepository->find((int) $externalReference);
+                    if (is_string($externalReference)) {
+                        $subscription = $this->resolveSubscriptionFromExternalReference(
+                            $externalReference,
+                            $subscriptionRepository,
+                            $entityManager,
+                        );
                         if ($subscription?->getMpPreapprovalId()) {
                             $preapprovalId = $subscription->getMpPreapprovalId();
                         }
@@ -222,6 +231,19 @@ class MercadoPagoWebhookController extends AbstractController
             }
         }
 
+        $preapprovalStatus = $preapproval['status'] ?? null;
+        if (is_string($preapprovalStatus) && $preapprovalStatus === 'active') {
+            $business = $this->resolveBusinessForPreapproval(
+                $preapproval,
+                $subscription,
+                $subscriptionLinkRepository,
+                $entityManager
+            );
+            if ($business instanceof Business) {
+                $subscriptionManager->confirmNewSubscriptionActive($business, $preapprovalId);
+            }
+        }
+
         $pendingChange = $entityManager->getRepository(PendingSubscriptionChange::class)
             ->findOneBy(['mpPreapprovalId' => $preapprovalId]);
         if ($pendingChange instanceof PendingSubscriptionChange) {
@@ -296,6 +318,60 @@ class MercadoPagoWebhookController extends AbstractController
         }
 
         return null;
+    }
+
+    private function resolveSubscriptionFromExternalReference(
+        string $externalReference,
+        SubscriptionRepository $subscriptionRepository,
+        EntityManagerInterface $entityManager,
+    ): ?Subscription {
+        if (ctype_digit($externalReference)) {
+            return $subscriptionRepository->find((int) $externalReference);
+        }
+
+        if (!preg_match('/^business:(\\d+)$/', $externalReference, $matches)) {
+            return null;
+        }
+
+        $businessId = (int) $matches[1];
+        if ($businessId <= 0) {
+            return null;
+        }
+
+        $business = $entityManager->getRepository(Business::class)->find($businessId);
+        if (!$business instanceof Business) {
+            return null;
+        }
+
+        return $business->getSubscription();
+    }
+
+    private function resolveBusinessForPreapproval(
+        array $preapproval,
+        ?Subscription $subscription,
+        MercadoPagoSubscriptionLinkRepository $subscriptionLinkRepository,
+        EntityManagerInterface $entityManager,
+    ): ?Business {
+        $externalReference = $preapproval['external_reference'] ?? null;
+        if (is_string($externalReference) && preg_match('/^business:(\\d+)$/', $externalReference, $matches)) {
+            $businessId = (int) $matches[1];
+            if ($businessId > 0) {
+                $business = $entityManager->getRepository(Business::class)->find($businessId);
+                if ($business instanceof Business) {
+                    return $business;
+                }
+            }
+        }
+
+        $preapprovalId = $preapproval['id'] ?? null;
+        if (is_string($preapprovalId) && $preapprovalId !== '') {
+            $link = $subscriptionLinkRepository->findOneBy(['mpPreapprovalId' => $preapprovalId]);
+            if ($link instanceof \App\Entity\MercadoPagoSubscriptionLink) {
+                return $link->getBusiness();
+            }
+        }
+
+        return $subscription?->getBusiness();
     }
 
     private function mapStatus(?string $status): string

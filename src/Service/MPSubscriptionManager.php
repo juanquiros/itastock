@@ -1,0 +1,279 @@
+<?php
+
+namespace App\Service;
+
+use App\Entity\BillingPlan;
+use App\Entity\Business;
+use App\Entity\MercadoPagoSubscriptionLink;
+use App\Entity\PendingSubscriptionChange;
+use App\Entity\User;
+use App\Exception\MercadoPagoApiException;
+use App\Repository\MercadoPagoSubscriptionLinkRepository;
+use App\Service\Result\ReconcileResult;
+use App\Service\Result\StartChangeResult;
+use Doctrine\ORM\EntityManagerInterface;
+use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
+
+class MPSubscriptionManager
+{
+    public function __construct(
+        private readonly MercadoPagoClient $mercadoPagoClient,
+        private readonly EntityManagerInterface $entityManager,
+        private readonly MercadoPagoSubscriptionLinkRepository $subscriptionLinkRepository,
+        private readonly UrlGeneratorInterface $urlGenerator,
+    ) {
+    }
+
+    public function startChangePlan(Business $business, BillingPlan $targetPlan, User $admin): StartChangeResult
+    {
+        $pendingChange = $this->entityManager->getRepository(PendingSubscriptionChange::class)
+            ->createQueryBuilder('pendingChange')
+            ->andWhere('pendingChange.business = :business')
+            ->andWhere('pendingChange.status IN (:statuses)')
+            ->setParameter('business', $business)
+            ->setParameter('statuses', [
+                PendingSubscriptionChange::STATUS_CREATED,
+                PendingSubscriptionChange::STATUS_CHECKOUT_STARTED,
+                PendingSubscriptionChange::STATUS_PAID,
+            ])
+            ->setMaxResults(1)
+            ->getQuery()
+            ->getOneOrNullResult();
+
+        if ($pendingChange instanceof PendingSubscriptionChange) {
+            throw new \RuntimeException('Ya existe un cambio de plan en curso.');
+        }
+
+        $payerEmail = $admin->getUserIdentifier();
+        if ($payerEmail === '') {
+            throw new \RuntimeException('No se pudo determinar el email del pagador.');
+        }
+
+        $businessId = $business->getId();
+        if ($businessId === null) {
+            throw new \RuntimeException('No se pudo determinar el comercio.');
+        }
+        $externalReference = sprintf('business:%d', $businessId);
+
+        $payload = [
+            'reason' => $targetPlan->getName(),
+            'payer_email' => $payerEmail,
+            'payer' => [
+                'email' => $payerEmail,
+            ],
+            'external_reference' => $externalReference,
+            'back_url' => $this->urlGenerator->generate('app_billing_return', [], UrlGeneratorInterface::ABSOLUTE_URL),
+        ];
+
+        if ($targetPlan->getMpPreapprovalPlanId()) {
+            $payload['preapproval_plan_id'] = $targetPlan->getMpPreapprovalPlanId();
+        } else {
+            $payload['auto_recurring'] = [
+                'frequency' => $targetPlan->getFrequency(),
+                'frequency_type' => $targetPlan->getFrequencyType(),
+                'transaction_amount' => (float) $targetPlan->getPrice(),
+                'currency_id' => $targetPlan->getCurrency(),
+            ];
+        }
+
+        $response = $this->mercadoPagoClient->createPreapproval($payload);
+
+        if (!isset($response['id']) || !is_string($response['id']) || $response['id'] === '') {
+            throw new \RuntimeException('Mercado Pago no devolvió un identificador de preapproval.');
+        }
+
+        $initPoint = $response['init_point'] ?? null;
+        if (!is_string($initPoint) || $initPoint === '') {
+            throw new \RuntimeException('Mercado Pago no devolvió un link de pago.');
+        }
+
+        $link = $this->subscriptionLinkRepository->findOneBy([
+            'mpPreapprovalId' => $response['id'],
+        ]);
+
+        if (!$link instanceof MercadoPagoSubscriptionLink) {
+            $link = new MercadoPagoSubscriptionLink((string) $response['id'], 'PENDING');
+            $link->setBusiness($business);
+            $this->entityManager->persist($link);
+        } else {
+            $link->setStatus('PENDING');
+        }
+
+        $link->setIsPrimary(false);
+        $this->entityManager->flush();
+
+        return new StartChangeResult($initPoint, (string) $response['id'], $externalReference);
+    }
+
+    public function confirmNewSubscriptionActive(Business $business, string $mpPreapprovalId): void
+    {
+        $link = $this->subscriptionLinkRepository->findOneBy([
+            'business' => $business,
+            'mpPreapprovalId' => $mpPreapprovalId,
+        ]);
+
+        if (!$link instanceof MercadoPagoSubscriptionLink) {
+            $link = new MercadoPagoSubscriptionLink($mpPreapprovalId, 'ACTIVE');
+            $link->setBusiness($business);
+            $this->entityManager->persist($link);
+        } else {
+            if ($link->isPrimary() && strtoupper($link->getStatus()) === 'ACTIVE') {
+                return;
+            }
+
+            $link->setStatus('ACTIVE');
+        }
+
+        $this->subscriptionLinkRepository->clearPrimaryForBusiness($business);
+        $link->setIsPrimary(true);
+        $this->entityManager->flush();
+
+        $this->cancelOtherActiveSubscriptions($business, $mpPreapprovalId);
+    }
+
+    public function cancelOtherActiveSubscriptions(Business $business, string $keepMpPreapprovalId): void
+    {
+        $preapprovals = $this->fetchPreapprovalsForBusiness($business);
+        if ($preapprovals === []) {
+            return;
+        }
+
+        foreach ($preapprovals as $preapproval) {
+            $preapprovalId = $preapproval['id'] ?? null;
+            if (!is_string($preapprovalId) || $preapprovalId === '' || $preapprovalId === $keepMpPreapprovalId) {
+                continue;
+            }
+
+            $status = strtolower((string) ($preapproval['status'] ?? ''));
+            if (in_array($status, ['cancelled', 'canceled'], true)) {
+                continue;
+            }
+
+            $this->mercadoPagoClient->cancelPreapproval($preapprovalId);
+        }
+    }
+
+    public function reconcileBusinessSubscriptions(Business $business): ReconcileResult
+    {
+        $preapprovals = $this->fetchPreapprovalsForBusiness($business);
+        if ($preapprovals === []) {
+            return new ReconcileResult();
+        }
+
+        $updatedLinks = [];
+        $primaryCandidate = null;
+        $primaryScore = null;
+
+        foreach ($preapprovals as $preapproval) {
+            $preapprovalId = $preapproval['id'] ?? null;
+            if (!is_string($preapprovalId) || $preapprovalId === '') {
+                continue;
+            }
+
+            $status = strtoupper((string) ($preapproval['status'] ?? 'PENDING'));
+            $link = $this->subscriptionLinkRepository->findOneBy([
+                'business' => $business,
+                'mpPreapprovalId' => $preapprovalId,
+            ]);
+
+            if (!$link instanceof MercadoPagoSubscriptionLink) {
+                $link = new MercadoPagoSubscriptionLink($preapprovalId, $status);
+                $link->setBusiness($business);
+                $this->entityManager->persist($link);
+            } else {
+                $link->setStatus($status);
+            }
+
+            $link->setIsPrimary(false);
+            $updatedLinks[] = $preapprovalId;
+
+            $score = $this->scorePreapproval($preapproval);
+            if ($primaryScore === null || $score > $primaryScore) {
+                $primaryScore = $score;
+                $primaryCandidate = $link;
+            }
+        }
+
+        if ($primaryCandidate instanceof MercadoPagoSubscriptionLink) {
+            $this->subscriptionLinkRepository->clearPrimaryForBusiness($business);
+            $primaryCandidate->setIsPrimary(true);
+        }
+
+        $this->entityManager->flush();
+
+        return new ReconcileResult($updatedLinks);
+    }
+
+    /**
+     * @return array<int, array{id: string, status: string|null, date_created: string|null, last_modified: string|null, reason: string|null, payer_email: string|null}>
+     */
+    private function fetchPreapprovalsForBusiness(Business $business): array
+    {
+        $externalReference = $this->externalReferenceForBusiness($business);
+
+        try {
+            return $this->mercadoPagoClient->searchPreapprovalsByExternalReference($externalReference);
+        } catch (MercadoPagoApiException) {
+            $preapprovals = [];
+            $links = $this->subscriptionLinkRepository->findBy(['business' => $business]);
+            foreach ($links as $link) {
+                if (!$link instanceof MercadoPagoSubscriptionLink) {
+                    continue;
+                }
+                try {
+                    $preapproval = $this->mercadoPagoClient->getPreapproval($link->getMpPreapprovalId());
+                } catch (MercadoPagoApiException) {
+                    continue;
+                }
+
+                if (!is_array($preapproval) || !isset($preapproval['id'])) {
+                    continue;
+                }
+
+                $preapprovals[] = [
+                    'id' => (string) $preapproval['id'],
+                    'status' => is_string($preapproval['status'] ?? null) ? $preapproval['status'] : null,
+                    'date_created' => is_string($preapproval['date_created'] ?? null) ? $preapproval['date_created'] : null,
+                    'last_modified' => is_string($preapproval['last_modified'] ?? null) ? $preapproval['last_modified'] : null,
+                    'reason' => is_string($preapproval['reason'] ?? null) ? $preapproval['reason'] : null,
+                    'payer_email' => is_string($preapproval['payer_email'] ?? null) ? $preapproval['payer_email'] : null,
+                ];
+            }
+
+            return $preapprovals;
+        }
+    }
+
+    private function externalReferenceForBusiness(Business $business): string
+    {
+        $businessId = $business->getId();
+        if ($businessId === null) {
+            throw new \RuntimeException('No se pudo determinar el comercio.');
+        }
+
+        return sprintf('business:%d', $businessId);
+    }
+
+    private function scorePreapproval(array $preapproval): int
+    {
+        $status = strtolower((string) ($preapproval['status'] ?? ''));
+        $statusScore = match ($status) {
+            'authorized', 'active' => 300,
+            'paused', 'suspended' => 200,
+            'pending', 'in_process' => 150,
+            default => 0,
+        };
+
+        $lastModified = $preapproval['last_modified'] ?? $preapproval['date_created'] ?? null;
+        if (is_string($lastModified)) {
+            try {
+                $timestamp = (new \DateTimeImmutable($lastModified))->getTimestamp();
+                return $statusScore + $timestamp;
+            } catch (\Throwable) {
+                return $statusScore;
+            }
+        }
+
+        return $statusScore;
+    }
+}
