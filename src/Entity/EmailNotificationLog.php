@@ -7,18 +7,14 @@ use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\Entity(repositoryClass: EmailNotificationLogRepository::class)]
-#[ORM\Table(
-    name: 'email_notification_log',
-    uniqueConstraints: [
-        new ORM\UniqueConstraint(
-            name: 'uniq_email_notification_log_period',
-            columns: ['type', 'recipient_email', 'period_start', 'period_end']
-        ),
-        new ORM\UniqueConstraint(
-            name: 'uniq_email_notification_log_subscription',
-            columns: ['type', 'recipient_email', 'subscription_id']
-        ),
-    ]
+#[ORM\Table(name: 'email_notification_log')]
+#[ORM\UniqueConstraint(
+    name: 'uniq_email_notification_log_period',
+    columns: ['type', 'recipient_email', 'period_start', 'period_end']
+)]
+#[ORM\UniqueConstraint(
+    name: 'uniq_email_notification_log_subscription',
+    columns: ['type', 'recipient_email', 'subscription_id']
 )]
 #[ORM\Index(name: 'idx_email_notification_log_business', columns: ['business_id'])]
 #[ORM\Index(name: 'idx_email_notification_log_subscription', columns: ['subscription_id'])]
