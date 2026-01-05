@@ -55,21 +55,6 @@ class MercadoPagoClient
         try {
             return $this->updatePreapproval($preapprovalId, ['status' => 'cancelled']);
         } catch (MercadoPagoApiException $exception) {
-            if ($exception->getStatusCode() === 400) {
-                try {
-                    return $this->updatePreapproval($preapprovalId, ['status' => 'canceled']);
-                } catch (MercadoPagoApiException $retryException) {
-                    $this->logger->warning('Mercado Pago cancel preapproval failed.', [
-                        'correlation_id' => $retryException->getCorrelationId(),
-                        'preapproval_id' => $preapprovalId,
-                        'status_code' => $retryException->getStatusCode(),
-                        'message' => $retryException->getMessage(),
-                    ]);
-
-                    throw $retryException;
-                }
-            }
-
             $this->logger->warning('Mercado Pago cancel preapproval failed.', [
                 'correlation_id' => $exception->getCorrelationId(),
                 'preapproval_id' => $preapprovalId,
