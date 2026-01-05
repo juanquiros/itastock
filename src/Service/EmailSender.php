@@ -42,6 +42,7 @@ class EmailSender
     ): string {
         $recipientEmail = mb_strtolower($to);
         $sanitizedContext = $this->contentPolicy->sanitizeContext($role, $type, $context);
+        $subscription = $this->normalizeSubscription($subscription);
         $log = (new EmailNotificationLog())
             ->setType($type)
             ->setRecipientEmail($recipientEmail)
@@ -187,5 +188,23 @@ class EmailSender
         }
 
         $this->entityManager->clear(EmailNotificationLog::class);
+    }
+
+    private function normalizeSubscription(?Subscription $subscription): ?Subscription
+    {
+        if ($subscription === null) {
+            return null;
+        }
+
+        $subscriptionId = $subscription->getId();
+        if ($subscriptionId === null) {
+            return null;
+        }
+
+        if ($this->entityManager->contains($subscription)) {
+            return $subscription;
+        }
+
+        return $this->entityManager->getReference(Subscription::class, $subscriptionId);
     }
 }
