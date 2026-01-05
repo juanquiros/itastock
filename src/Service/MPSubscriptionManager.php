@@ -365,7 +365,10 @@ class MPSubscriptionManager
 
         $this->entityManager->flush();
 
-        $preferredPreapprovalId = $business->getSubscription()?->getMpPreapprovalId() ?? $primaryMpPreapprovalId;
+        $preferredPreapprovalId = $this->resolvePreferredPreapprovalId(
+            $business,
+            $business->getSubscription()?->getMpPreapprovalId() ?? $primaryMpPreapprovalId
+        );
         $singleResult = $this->ensureSingleActivePreapproval($business, $preferredPreapprovalId);
 
         $activeAfter = $singleResult->getActiveAfter();
@@ -387,6 +390,32 @@ class MPSubscriptionManager
             $hasInconsistency,
             $singleResult->isPartial(),
         );
+    }
+
+    private function resolvePreferredPreapprovalId(Business $business, ?string $fallback): ?string
+    {
+        $pendingChange = $this->entityManager->getRepository(PendingSubscriptionChange::class)
+            ->createQueryBuilder('pendingChange')
+            ->andWhere('pendingChange.business = :business')
+            ->andWhere('pendingChange.status IN (:statuses)')
+            ->setParameter('business', $business)
+            ->setParameter('statuses', [
+                PendingSubscriptionChange::STATUS_CREATED,
+                PendingSubscriptionChange::STATUS_CHECKOUT_STARTED,
+                PendingSubscriptionChange::STATUS_PAID,
+            ])
+            ->setMaxResults(1)
+            ->getQuery()
+            ->getOneOrNullResult();
+
+        if ($pendingChange instanceof PendingSubscriptionChange) {
+            $pendingPreapprovalId = $pendingChange->getMpPreapprovalId();
+            if (is_string($pendingPreapprovalId) && $pendingPreapprovalId !== '') {
+                return $pendingPreapprovalId;
+            }
+        }
+
+        return $fallback;
     }
 
     /**
