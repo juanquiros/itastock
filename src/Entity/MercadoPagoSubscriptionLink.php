@@ -36,6 +36,9 @@ class MercadoPagoSubscriptionLink
     #[ORM\Column(type: Types::DATETIME_IMMUTABLE)]
     private ?\DateTimeImmutable $updatedAt = null;
 
+    #[ORM\Column(type: Types::DATETIME_IMMUTABLE, nullable: true)]
+    private ?\DateTimeImmutable $lastAttemptAt = null;
+
     public function __construct(string $mpPreapprovalId, string $status)
     {
         $now = new \DateTimeImmutable();
@@ -121,6 +124,18 @@ class MercadoPagoSubscriptionLink
     public function getUpdatedAt(): ?\DateTimeImmutable
     {
         return $this->updatedAt;
+    }
+
+    public function getLastAttemptAt(): ?\DateTimeImmutable
+    {
+        return $this->lastAttemptAt;
+    }
+
+    public function setLastAttemptAt(?\DateTimeImmutable $lastAttemptAt): self
+    {
+        $this->lastAttemptAt = $lastAttemptAt;
+
+        return $this;
     }
 
     #[ORM\PreUpdate]

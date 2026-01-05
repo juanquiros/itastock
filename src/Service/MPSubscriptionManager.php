@@ -13,6 +13,7 @@ use App\Service\Result\ReconcileResult;
 use App\Service\Result\StartChangeResult;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Log\LoggerInterface;
+use Symfony\Component\Lock\LockFactory;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 
 class MPSubscriptionManager
@@ -24,6 +25,7 @@ class MPSubscriptionManager
         private readonly UrlGeneratorInterface $urlGenerator,
         private readonly PlatformNotificationService $platformNotificationService,
         private readonly LoggerInterface $logger,
+        private readonly LockFactory $lockFactory,
     ) {
     }
 
@@ -154,6 +156,16 @@ class MPSubscriptionManager
 
     public function ensureSingleActivePreapproval(Business $business, ?string $preferredPreapprovalId = null): ReconcileResult
     {
+        $businessId = $business->getId();
+        if ($businessId === null) {
+            return new ReconcileResult();
+        }
+        $lock = $this->lockFactory->createLock(sprintf('mp_dedupe_business_%d', $businessId), 30);
+        if (!$lock->acquire()) {
+            return new ReconcileResult();
+        }
+
+        try {
         $preapprovals = $this->fetchPreapprovalsForBusiness($business);
         if ($preapprovals === []) {
             return new ReconcileResult();
@@ -193,6 +205,7 @@ class MPSubscriptionManager
         }
 
         $canceledPreapprovals = [];
+        $pendingCancelPreapprovals = [];
         $partial = false;
         if ($activeCount > 1) {
             foreach ($activePreapprovals as $preapprovalId => $preapproval) {
@@ -202,8 +215,10 @@ class MPSubscriptionManager
                 try {
                     $this->mercadoPagoClient->cancelPreapproval($preapprovalId);
                     $canceledPreapprovals[] = $preapprovalId;
+                    usleep(200000);
                 } catch (MercadoPagoApiException $exception) {
                     $partial = true;
+                    $pendingCancelPreapprovals[] = $preapprovalId;
                     $this->logger->warning('Failed to cancel duplicate MP preapproval.', [
                         'business_id' => $business->getId(),
                         'mp_preapproval_id' => $preapprovalId,
@@ -227,6 +242,10 @@ class MPSubscriptionManager
                 if (in_array($preapprovalId, $canceledPreapprovals, true)) {
                     $link->setStatus('CANCELED');
                 }
+                if (in_array($preapprovalId, $pendingCancelPreapprovals, true)) {
+                    $link->setStatus('CANCEL_PENDING');
+                    $link->setLastAttemptAt(new \DateTimeImmutable());
+                }
             }
         }
 
@@ -246,6 +265,7 @@ class MPSubscriptionManager
             'active_after' => $activeAfter,
             'kept_preapproval_id' => $keepPreapprovalId,
             'canceled_preapprovals' => $canceledPreapprovals,
+            'pending_cancel_count' => count($pendingCancelPreapprovals),
             'partial' => $partial,
         ]);
 
@@ -282,6 +302,9 @@ class MPSubscriptionManager
             $activeCount > 1 || $partial,
             $partial,
         );
+        } finally {
+            $lock->release();
+        }
     }
 
     public function ensureSingleActiveAfterMutation(Business $business, ?string $preferredMpPreapprovalId = null): void

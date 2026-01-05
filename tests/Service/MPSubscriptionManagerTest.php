@@ -12,6 +12,8 @@ use App\Service\PlatformNotificationService;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
+use Symfony\Component\Lock\LockFactory;
+use Symfony\Component\Lock\LockInterface;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 
 class MPSubscriptionManagerTest extends TestCase
@@ -100,6 +102,7 @@ class MPSubscriptionManagerTest extends TestCase
             $this->createMock(UrlGeneratorInterface::class),
             $platformNotificationService,
             $this->createMock(LoggerInterface::class),
+            $this->createLockFactoryMock(),
         );
 
         $result = $manager->ensureSingleActivePreapproval($business, 'keep');
@@ -173,6 +176,7 @@ class MPSubscriptionManagerTest extends TestCase
             $this->createMock(UrlGeneratorInterface::class),
             $this->createMock(PlatformNotificationService::class),
             $this->createMock(LoggerInterface::class),
+            $this->createLockFactoryMock(),
         );
 
         $result = $manager->ensureSingleActivePreapproval($business, null);
@@ -233,6 +237,7 @@ class MPSubscriptionManagerTest extends TestCase
             $this->createMock(UrlGeneratorInterface::class),
             $this->createMock(PlatformNotificationService::class),
             $this->createMock(LoggerInterface::class),
+            $this->createLockFactoryMock(),
         );
 
         $first = $manager->ensureSingleActivePreapproval($business, null);
@@ -313,12 +318,84 @@ class MPSubscriptionManagerTest extends TestCase
             $this->createMock(UrlGeneratorInterface::class),
             $this->createMock(PlatformNotificationService::class),
             $logger,
+            $this->createLockFactoryMock(),
         );
 
         $result = $manager->ensureSingleActivePreapproval($business, 'keep');
 
         self::assertTrue($result->isPartial());
         self::assertSame('keep', $result->getKeptPreapprovalId());
+    }
+
+    public function testEnsureSingleActiveMarksCancelPendingOnRateLimit(): void
+    {
+        $subscription = $this->createSubscriptionWithBusiness(14, 'keep');
+        $business = $subscription->getBusiness();
+        $link = (new MercadoPagoSubscriptionLink('fail', 'ACTIVE'))->setBusiness($business);
+
+        $mercadoPagoClient = $this->createMock(MercadoPagoClient::class);
+        $mercadoPagoClient
+            ->expects(self::once())
+            ->method('searchPreapprovalsByExternalReference')
+            ->willReturn([
+                [
+                    'id' => 'keep',
+                    'status' => 'active',
+                    'date_created' => '2024-01-01T00:00:00Z',
+                    'last_modified' => null,
+                    'reason' => null,
+                    'payer_email' => null,
+                ],
+                [
+                    'id' => 'fail',
+                    'status' => 'authorized',
+                    'date_created' => '2024-01-02T00:00:00Z',
+                    'last_modified' => null,
+                    'reason' => null,
+                    'payer_email' => null,
+                ],
+            ]);
+        $mercadoPagoClient
+            ->expects(self::once())
+            ->method('cancelPreapproval')
+            ->with('fail')
+            ->willThrowException(new \App\Exception\MercadoPagoApiException(429, 'local_rate_limited', 'corr-2'));
+
+        $subscriptionLinkRepository = $this->createMock(MercadoPagoSubscriptionLinkRepository::class);
+        $subscriptionLinkRepository
+            ->method('findOneBy')
+            ->willReturnCallback(function (array $criteria) use ($business, $link) {
+                if (($criteria['business'] ?? null) === $business && ($criteria['isPrimary'] ?? null) === true) {
+                    return null;
+                }
+                if (($criteria['mpPreapprovalId'] ?? null) === 'fail') {
+                    return $link;
+                }
+
+                return null;
+            });
+        $subscriptionLinkRepository
+            ->expects(self::once())
+            ->method('clearPrimaryForBusiness')
+            ->with($business);
+
+        $entityManager = $this->createMock(EntityManagerInterface::class);
+        $entityManager->expects(self::once())->method('flush');
+
+        $manager = new MPSubscriptionManager(
+            $mercadoPagoClient,
+            $entityManager,
+            $subscriptionLinkRepository,
+            $this->createMock(UrlGeneratorInterface::class),
+            $this->createMock(PlatformNotificationService::class),
+            $this->createMock(LoggerInterface::class),
+            $this->createLockFactoryMock(),
+        );
+
+        $manager->ensureSingleActivePreapproval($business, 'keep');
+
+        self::assertSame('CANCEL_PENDING', $link->getStatus());
+        self::assertNotNull($link->getLastAttemptAt());
     }
 
     private function createSubscriptionWithBusiness(int $businessId, string $mpPreapprovalId): Subscription
@@ -333,5 +410,17 @@ class MPSubscriptionManagerTest extends TestCase
         $business->setSubscription($subscription);
 
         return $subscription;
+    }
+
+    private function createLockFactoryMock(): LockFactory
+    {
+        $lock = $this->createMock(LockInterface::class);
+        $lock->method('acquire')->willReturn(true);
+        $lock->method('release')->willReturn(true);
+
+        $factory = $this->createMock(LockFactory::class);
+        $factory->method('createLock')->willReturn($lock);
+
+        return $factory;
     }
 }

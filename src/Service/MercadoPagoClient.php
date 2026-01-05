@@ -125,6 +125,7 @@ class MercadoPagoClient
     {
         $correlationId = bin2hex(random_bytes(16));
         $url = sprintf('%s%s', self::BASE_URL, $path);
+        $idempotencyKey = $this->resolveIdempotencyKey($method, $path, $payload);
 
         $options = [
             'headers' => [
@@ -132,6 +133,9 @@ class MercadoPagoClient
                 'X-Correlation-Id' => $correlationId,
             ],
         ];
+        if ($idempotencyKey !== null) {
+            $options['headers']['X-Idempotency-Key'] = $idempotencyKey;
+        }
 
         if ($payload !== null) {
             $options['json'] = $payload;
@@ -141,40 +145,94 @@ class MercadoPagoClient
             $options['query'] = $query;
         }
 
-        $this->logger->info('Mercado Pago request', [
-            'correlation_id' => $correlationId,
-            'method' => $method,
-            'path' => $path,
-            'mode' => $this->mode,
-        ]);
+        $attempt = 0;
+        $transportRetries = 0;
+        $maxTransportRetries = 2;
+        $maxRateLimitRetries = 6;
+        $maxServerRetries = 2;
 
-        try {
-            $response = $this->httpClient->request($method, $url, $options);
-        } catch (TransportExceptionInterface $exception) {
-            $this->logger->error('Mercado Pago transport error', [
+        while (true) {
+            $attempt++;
+            $this->logger->info('Mercado Pago request', [
                 'correlation_id' => $correlationId,
                 'method' => $method,
                 'path' => $path,
                 'mode' => $this->mode,
-                'message' => $exception->getMessage(),
+                'attempt' => $attempt,
             ]);
 
-            throw new MercadoPagoApiException(0, $exception->getMessage(), $correlationId);
-        }
+            try {
+                $response = $this->httpClient->request($method, $url, $options);
+            } catch (TransportExceptionInterface $exception) {
+                $transportRetries++;
+                if ($transportRetries <= $maxTransportRetries) {
+                    $this->logger->warning('Mercado Pago transport error, retrying.', [
+                        'correlation_id' => $correlationId,
+                        'method' => $method,
+                        'path' => $path,
+                        'mode' => $this->mode,
+                        'message' => $exception->getMessage(),
+                        'attempt' => $attempt,
+                    ]);
+                    $this->sleepWithBackoff($transportRetries, 1);
+                    continue;
+                }
 
-        $statusCode = $response->getStatusCode();
-        $body = $response->getContent(false);
+                $this->logger->error('Mercado Pago transport error', [
+                    'correlation_id' => $correlationId,
+                    'method' => $method,
+                    'path' => $path,
+                    'mode' => $this->mode,
+                    'message' => $exception->getMessage(),
+                ]);
 
-        $this->logger->info('Mercado Pago response', [
-            'correlation_id' => $correlationId,
-            'status_code' => $statusCode,
-            'method' => $method,
-            'path' => $path,
-            'mode' => $this->mode,
-        ]);
+                throw new MercadoPagoApiException(0, $exception->getMessage(), $correlationId);
+            }
 
-        if ($statusCode >= 400) {
-            throw new MercadoPagoApiException($statusCode, $this->summarizeResponse($body), $correlationId);
+            $statusCode = $response->getStatusCode();
+            $body = $response->getContent(false);
+
+            $this->logger->info('Mercado Pago response', [
+                'correlation_id' => $correlationId,
+                'status_code' => $statusCode,
+                'method' => $method,
+                'path' => $path,
+                'mode' => $this->mode,
+            ]);
+
+            if ($statusCode === 429 && $this->isLocalRateLimited($body)) {
+                if ($attempt < $maxRateLimitRetries) {
+                    $this->logger->warning('Mercado Pago rate limited, retrying.', [
+                        'correlation_id' => $correlationId,
+                        'method' => $method,
+                        'path' => $path,
+                        'mode' => $this->mode,
+                        'attempt' => $attempt,
+                    ]);
+                    $retryAfter = $this->parseRetryAfter($response->getHeaders(false));
+                    $this->sleepWithBackoff($attempt, $retryAfter);
+                    continue;
+                }
+            }
+
+            if ($statusCode >= 500 && $statusCode < 600 && $attempt <= $maxServerRetries) {
+                $this->logger->warning('Mercado Pago server error, retrying.', [
+                    'correlation_id' => $correlationId,
+                    'method' => $method,
+                    'path' => $path,
+                    'mode' => $this->mode,
+                    'attempt' => $attempt,
+                    'status_code' => $statusCode,
+                ]);
+                $this->sleepWithBackoff($attempt, 1);
+                continue;
+            }
+
+            if ($statusCode >= 400) {
+                throw new MercadoPagoApiException($statusCode, $this->summarizeResponse($body), $correlationId);
+            }
+
+            break;
         }
 
         if ($body === '') {
@@ -220,5 +278,67 @@ class MercadoPagoClient
         }
 
         return $summary;
+    }
+
+    private function isLocalRateLimited(string $body): bool
+    {
+        return str_contains(mb_strtolower($body), 'local_rate_limited');
+    }
+
+    /**
+     * @param array<string, string[]> $headers
+     */
+    private function parseRetryAfter(array $headers): ?int
+    {
+        $retryAfter = $headers['retry-after'][0] ?? null;
+        if ($retryAfter === null) {
+            return null;
+        }
+
+        if (ctype_digit((string) $retryAfter)) {
+            return (int) $retryAfter;
+        }
+
+        $timestamp = strtotime($retryAfter);
+        if ($timestamp !== false) {
+            $delta = $timestamp - time();
+
+            return $delta > 0 ? $delta : null;
+        }
+
+        return null;
+    }
+
+    private function sleepWithBackoff(int $attempt, ?int $baseSeconds): void
+    {
+        $backoff = [2, 4, 8, 16, 32, 60];
+        $index = max(0, min($attempt - 1, count($backoff) - 1));
+        $seconds = $backoff[$index];
+        if ($baseSeconds !== null) {
+            $seconds = max($seconds, $baseSeconds);
+        }
+
+        $jitterMs = random_int(0, 500);
+        $sleepMs = ($seconds * 1000) + $jitterMs;
+        usleep($sleepMs * 1000);
+    }
+
+    private function resolveIdempotencyKey(string $method, string $path, ?array $payload): ?string
+    {
+        $normalizedMethod = strtoupper($method);
+        if (!in_array($normalizedMethod, ['POST', 'PUT'], true)) {
+            return null;
+        }
+
+        if ($path !== '/preapproval' && !str_starts_with($path, '/preapproval/')) {
+            return null;
+        }
+
+        $payloadHash = json_encode($payload ?? [], JSON_UNESCAPED_UNICODE);
+        if (!is_string($payloadHash)) {
+            $payloadHash = '';
+        }
+
+        return substr(hash('sha256', $normalizedMethod.$path.$payloadHash), 0, 32);
     }
 }
