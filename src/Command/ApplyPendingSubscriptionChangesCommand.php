@@ -101,7 +101,7 @@ class ApplyPendingSubscriptionChangesCommand extends Command
                     $billingPlan->getName(),
                     $pendingChange->getAppliedAt()
                 );
-                $this->subscriptionManager->ensureSingleActiveAfterMutation(
+                $this->subscriptionManager->ensureSingleActivePreapproval(
                     $subscription->getBusiness(),
                     $pendingChange->getMpPreapprovalId()
                 );

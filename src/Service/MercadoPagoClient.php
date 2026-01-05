@@ -52,7 +52,18 @@ class MercadoPagoClient
 
     public function cancelPreapproval(string $preapprovalId): array
     {
-        return $this->updatePreapproval($preapprovalId, ['status' => 'cancelled']);
+        try {
+            return $this->updatePreapproval($preapprovalId, ['status' => 'cancelled']);
+        } catch (MercadoPagoApiException $exception) {
+            $this->logger->warning('Mercado Pago cancel preapproval failed.', [
+                'correlation_id' => $exception->getCorrelationId(),
+                'preapproval_id' => $preapprovalId,
+                'status_code' => $exception->getStatusCode(),
+                'message' => $exception->getMessage(),
+            ]);
+
+            throw $exception;
+        }
     }
 
     public function getPayment(string $paymentId): array
@@ -136,7 +147,7 @@ class MercadoPagoClient
                 'message' => $exception->getMessage(),
             ]);
 
-            throw new MercadoPagoApiException(0, $exception->getMessage());
+            throw new MercadoPagoApiException(0, $exception->getMessage(), $correlationId);
         }
 
         $statusCode = $response->getStatusCode();
@@ -151,7 +162,7 @@ class MercadoPagoClient
         ]);
 
         if ($statusCode >= 400) {
-            throw new MercadoPagoApiException($statusCode, $this->summarizeResponse($body));
+            throw new MercadoPagoApiException($statusCode, $this->summarizeResponse($body), $correlationId);
         }
 
         if ($body === '') {

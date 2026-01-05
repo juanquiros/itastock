@@ -16,6 +16,7 @@ class ReconcileResult
         private readonly ?string $keptPreapprovalId = null,
         private readonly int $stalePendingCanceled = 0,
         private readonly bool $hasInconsistency = false,
+        private readonly bool $partial = false,
     ) {
     }
 
@@ -58,5 +59,10 @@ class ReconcileResult
     public function hasInconsistency(): bool
     {
         return $this->hasInconsistency;
+    }
+
+    public function isPartial(): bool
+    {
+        return $this->partial;
     }
 }

@@ -4,6 +4,7 @@ namespace App\Tests\Service;
 
 use App\Entity\Business;
 use App\Entity\MercadoPagoSubscriptionLink;
+use App\Entity\Subscription;
 use App\Repository\MercadoPagoSubscriptionLinkRepository;
 use App\Service\MercadoPagoClient;
 use App\Service\MPSubscriptionManager;
@@ -17,7 +18,8 @@ class MPSubscriptionManagerTest extends TestCase
 {
     public function testEnsureSingleActiveKeepsPreferredAndCancelsOthers(): void
     {
-        $business = $this->createBusinessWithId(10);
+        $subscription = $this->createSubscriptionWithBusiness(10, 'keep');
+        $business = $subscription->getBusiness();
         $links = [
             'keep' => (new MercadoPagoSubscriptionLink('keep', 'ACTIVE'))->setBusiness($business),
             'cancel' => (new MercadoPagoSubscriptionLink('cancel', 'ACTIVE'))->setBusiness($business),
@@ -100,17 +102,21 @@ class MPSubscriptionManagerTest extends TestCase
             $this->createMock(LoggerInterface::class),
         );
 
-        $manager->ensureSingleActiveAfterMutation($business, 'keep');
+        $result = $manager->ensureSingleActivePreapproval($business, 'keep');
 
         self::assertTrue($links['keep']->isPrimary());
         self::assertFalse($links['cancel']->isPrimary());
         self::assertSame('CANCELED', $links['cancel']->getStatus());
+        self::assertSame('keep', $subscription->getMpPreapprovalId());
+        self::assertSame(2, $result->getActiveBefore());
+        self::assertSame(1, $result->getActiveAfter());
     }
 
-    public function testEnsureSingleActiveSetsPrimaryWhenSingleActive(): void
+    public function testEnsureSingleActiveKeepsLocalSubscriptionWhenPreferredMissing(): void
     {
-        $business = $this->createBusinessWithId(11);
-        $link = (new MercadoPagoSubscriptionLink('only', 'ACTIVE'))->setBusiness($business);
+        $subscription = $this->createSubscriptionWithBusiness(11, 'local');
+        $business = $subscription->getBusiness();
+        $link = (new MercadoPagoSubscriptionLink('local', 'ACTIVE'))->setBusiness($business);
 
         $mercadoPagoClient = $this->createMock(MercadoPagoClient::class);
         $mercadoPagoClient
@@ -118,14 +124,26 @@ class MPSubscriptionManagerTest extends TestCase
             ->method('searchPreapprovalsByExternalReference')
             ->willReturn([
                 [
-                    'id' => 'only',
+                    'id' => 'local',
                     'status' => 'authorized',
                     'date_created' => '2024-01-01T00:00:00Z',
                     'last_modified' => null,
                     'reason' => null,
                     'payer_email' => null,
                 ],
+                [
+                    'id' => 'other',
+                    'status' => 'active',
+                    'date_created' => '2024-01-02T00:00:00Z',
+                    'last_modified' => null,
+                    'reason' => null,
+                    'payer_email' => null,
+                ],
             ]);
+        $mercadoPagoClient
+            ->expects(self::once())
+            ->method('cancelPreapproval')
+            ->with('other');
 
         $subscriptionLinkRepository = $this->createMock(MercadoPagoSubscriptionLinkRepository::class);
         $subscriptionLinkRepository
@@ -134,7 +152,7 @@ class MPSubscriptionManagerTest extends TestCase
                 if (($criteria['business'] ?? null) === $business && ($criteria['isPrimary'] ?? null) === true) {
                     return null;
                 }
-                if (($criteria['mpPreapprovalId'] ?? null) === 'only') {
+                if (($criteria['mpPreapprovalId'] ?? null) === 'local') {
                     return $link;
                 }
 
@@ -157,18 +175,163 @@ class MPSubscriptionManagerTest extends TestCase
             $this->createMock(LoggerInterface::class),
         );
 
-        $manager->ensureSingleActiveAfterMutation($business, null);
+        $result = $manager->ensureSingleActivePreapproval($business, null);
 
         self::assertTrue($link->isPrimary());
+        self::assertSame('local', $result->getKeptPreapprovalId());
     }
 
-    private function createBusinessWithId(int $id): Business
+    public function testEnsureSingleActiveIsIdempotent(): void
+    {
+        $subscription = $this->createSubscriptionWithBusiness(12, 'only');
+        $business = $subscription->getBusiness();
+        $link = (new MercadoPagoSubscriptionLink('only', 'ACTIVE'))->setBusiness($business);
+
+        $mercadoPagoClient = $this->createMock(MercadoPagoClient::class);
+        $mercadoPagoClient
+            ->expects(self::exactly(2))
+            ->method('searchPreapprovalsByExternalReference')
+            ->willReturn([
+                [
+                    'id' => 'only',
+                    'status' => 'active',
+                    'date_created' => '2024-01-01T00:00:00Z',
+                    'last_modified' => null,
+                    'reason' => null,
+                    'payer_email' => null,
+                ],
+            ]);
+        $mercadoPagoClient
+            ->expects(self::never())
+            ->method('cancelPreapproval');
+
+        $subscriptionLinkRepository = $this->createMock(MercadoPagoSubscriptionLinkRepository::class);
+        $subscriptionLinkRepository
+            ->method('findOneBy')
+            ->willReturnCallback(function (array $criteria) use ($business, $link) {
+                if (($criteria['business'] ?? null) === $business && ($criteria['isPrimary'] ?? null) === true) {
+                    return null;
+                }
+                if (($criteria['mpPreapprovalId'] ?? null) === 'only') {
+                    return $link;
+                }
+
+                return null;
+            });
+        $subscriptionLinkRepository
+            ->expects(self::exactly(2))
+            ->method('clearPrimaryForBusiness')
+            ->with($business);
+
+        $entityManager = $this->createMock(EntityManagerInterface::class);
+        $entityManager->expects(self::exactly(2))->method('flush');
+
+        $manager = new MPSubscriptionManager(
+            $mercadoPagoClient,
+            $entityManager,
+            $subscriptionLinkRepository,
+            $this->createMock(UrlGeneratorInterface::class),
+            $this->createMock(PlatformNotificationService::class),
+            $this->createMock(LoggerInterface::class),
+        );
+
+        $first = $manager->ensureSingleActivePreapproval($business, null);
+        $second = $manager->ensureSingleActivePreapproval($business, null);
+
+        self::assertSame($first->getKeptPreapprovalId(), $second->getKeptPreapprovalId());
+        self::assertSame(1, $second->getActiveAfter());
+    }
+
+    public function testEnsureSingleActiveMarksPartialOnCancelFailure(): void
+    {
+        $subscription = $this->createSubscriptionWithBusiness(13, 'keep');
+        $business = $subscription->getBusiness();
+        $link = (new MercadoPagoSubscriptionLink('keep', 'ACTIVE'))->setBusiness($business);
+
+        $mercadoPagoClient = $this->createMock(MercadoPagoClient::class);
+        $mercadoPagoClient
+            ->expects(self::once())
+            ->method('searchPreapprovalsByExternalReference')
+            ->willReturn([
+                [
+                    'id' => 'keep',
+                    'status' => 'active',
+                    'date_created' => '2024-01-01T00:00:00Z',
+                    'last_modified' => null,
+                    'reason' => null,
+                    'payer_email' => null,
+                ],
+                [
+                    'id' => 'fail',
+                    'status' => 'authorized',
+                    'date_created' => '2024-01-02T00:00:00Z',
+                    'last_modified' => null,
+                    'reason' => null,
+                    'payer_email' => null,
+                ],
+            ]);
+        $mercadoPagoClient
+            ->expects(self::once())
+            ->method('cancelPreapproval')
+            ->with('fail')
+            ->willThrowException(new \App\Exception\MercadoPagoApiException(500, 'boom', 'corr-1'));
+
+        $subscriptionLinkRepository = $this->createMock(MercadoPagoSubscriptionLinkRepository::class);
+        $subscriptionLinkRepository
+            ->method('findOneBy')
+            ->willReturnCallback(function (array $criteria) use ($business, $link) {
+                if (($criteria['business'] ?? null) === $business && ($criteria['isPrimary'] ?? null) === true) {
+                    return null;
+                }
+                if (($criteria['mpPreapprovalId'] ?? null) === 'keep') {
+                    return $link;
+                }
+
+                return null;
+            });
+        $subscriptionLinkRepository
+            ->expects(self::once())
+            ->method('clearPrimaryForBusiness')
+            ->with($business);
+
+        $entityManager = $this->createMock(EntityManagerInterface::class);
+        $entityManager->expects(self::once())->method('flush');
+
+        $logger = $this->createMock(LoggerInterface::class);
+        $logger
+            ->expects(self::exactly(2))
+            ->method('warning')
+            ->withConsecutive(
+                ['Failed to cancel duplicate MP preapproval.', self::arrayHasKey('correlation_id')],
+                ['MP duplicate active preapprovals detected.', self::arrayHasKey('active_count')],
+            );
+
+        $manager = new MPSubscriptionManager(
+            $mercadoPagoClient,
+            $entityManager,
+            $subscriptionLinkRepository,
+            $this->createMock(UrlGeneratorInterface::class),
+            $this->createMock(PlatformNotificationService::class),
+            $logger,
+        );
+
+        $result = $manager->ensureSingleActivePreapproval($business, 'keep');
+
+        self::assertTrue($result->isPartial());
+        self::assertSame('keep', $result->getKeptPreapprovalId());
+    }
+
+    private function createSubscriptionWithBusiness(int $businessId, string $mpPreapprovalId): Subscription
     {
         $business = new Business();
         $reflection = new \ReflectionProperty(Business::class, 'id');
         $reflection->setAccessible(true);
-        $reflection->setValue($business, $id);
+        $reflection->setValue($business, $businessId);
 
-        return $business;
+        $subscription = new Subscription();
+        $subscription->setMpPreapprovalId($mpPreapprovalId);
+        $business->setSubscription($subscription);
+
+        return $subscription;
     }
 }
