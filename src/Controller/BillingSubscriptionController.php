@@ -125,12 +125,13 @@ class BillingSubscriptionController extends AbstractController
             $endAt = $subscription->getEndAt();
             $nextChargeAt = $subscription->getNextPaymentAt();
             if ($endAt && $endAt > $now) {
-                $isActiveSubscription = true;
                 $activeUntil = $endAt;
             } elseif ($nextChargeAt && $nextChargeAt > $now) {
-                $isActiveSubscription = true;
                 $activeUntil = $nextChargeAt;
+            } else {
+                $activeUntil = $now;
             }
+            $isActiveSubscription = true;
         }
 
         if ($subscription->getStatus() === Subscription::STATUS_TRIAL) {
