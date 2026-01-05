@@ -11,6 +11,7 @@ use App\Exception\MercadoPagoApiException;
 use App\Repository\MercadoPagoSubscriptionLinkRepository;
 use App\Service\Result\ReconcileResult;
 use App\Service\Result\StartChangeResult;
+use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\Lock\LockFactory;
@@ -18,6 +19,8 @@ use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 
 class MPSubscriptionManager
 {
+    private ?bool $hasLastAttemptAtColumn = null;
+
     public function __construct(
         private readonly MercadoPagoClient $mercadoPagoClient,
         private readonly EntityManagerInterface $entityManager,
@@ -105,7 +108,19 @@ class MPSubscriptionManager
         }
 
         $link->setIsPrimary(false);
-        $this->entityManager->flush();
+        try {
+            $this->entityManager->flush();
+        } catch (UniqueConstraintViolationException) {
+            $this->entityManager->clear(MercadoPagoSubscriptionLink::class);
+            $existingLink = $this->subscriptionLinkRepository->findOneBy([
+                'mpPreapprovalId' => $response['id'],
+            ]);
+            if ($existingLink instanceof MercadoPagoSubscriptionLink) {
+                $existingLink->setStatus('PENDING');
+                $existingLink->setIsPrimary(false);
+                $this->entityManager->flush();
+            }
+        }
 
         return new StartChangeResult($initPoint, (string) $response['id'], $externalReference);
     }
@@ -244,7 +259,9 @@ class MPSubscriptionManager
                 }
                 if (in_array($preapprovalId, $pendingCancelPreapprovals, true)) {
                     $link->setStatus('CANCEL_PENDING');
-                    $link->setLastAttemptAt(new \DateTimeImmutable());
+                    if ($this->hasLastAttemptAtColumn()) {
+                        $link->setLastAttemptAt(new \DateTimeImmutable());
+                    }
                 }
             }
         }
@@ -603,5 +620,22 @@ class MPSubscriptionManager
             ->getOneOrNullResult();
 
         return $pendingChange instanceof PendingSubscriptionChange;
+    }
+
+    private function hasLastAttemptAtColumn(): bool
+    {
+        if ($this->hasLastAttemptAtColumn !== null) {
+            return $this->hasLastAttemptAtColumn;
+        }
+
+        try {
+            $schemaManager = $this->entityManager->getConnection()->createSchemaManager();
+            $columns = $schemaManager->listTableColumns('mercado_pago_subscription_links');
+            $this->hasLastAttemptAtColumn = array_key_exists('last_attempt_at', $columns);
+        } catch (\Throwable) {
+            $this->hasLastAttemptAtColumn = false;
+        }
+
+        return $this->hasLastAttemptAtColumn;
     }
 }

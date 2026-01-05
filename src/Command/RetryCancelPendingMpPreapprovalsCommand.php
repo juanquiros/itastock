@@ -19,6 +19,7 @@ use Symfony\Component\Console\Output\OutputInterface;
 )]
 class RetryCancelPendingMpPreapprovalsCommand extends Command
 {
+    private ?bool $hasLastAttemptAtColumn = null;
     public function __construct(
         private readonly MercadoPagoSubscriptionLinkRepository $subscriptionLinkRepository,
         private readonly MercadoPagoClient $mercadoPagoClient,
@@ -44,7 +45,9 @@ class RetryCancelPendingMpPreapprovalsCommand extends Command
             }
 
             $processed++;
-            $link->setLastAttemptAt(new \DateTimeImmutable());
+            if ($this->hasLastAttemptAtColumn()) {
+                $link->setLastAttemptAt(new \DateTimeImmutable());
+            }
 
             try {
                 $this->mercadoPagoClient->cancelPreapproval($link->getMpPreapprovalId());
@@ -65,5 +68,22 @@ class RetryCancelPendingMpPreapprovalsCommand extends Command
         $output->writeln(sprintf('Processed %d pending cancellation(s).', $processed));
 
         return Command::SUCCESS;
+    }
+
+    private function hasLastAttemptAtColumn(): bool
+    {
+        if ($this->hasLastAttemptAtColumn !== null) {
+            return $this->hasLastAttemptAtColumn;
+        }
+
+        try {
+            $schemaManager = $this->entityManager->getConnection()->createSchemaManager();
+            $columns = $schemaManager->listTableColumns('mercado_pago_subscription_links');
+            $this->hasLastAttemptAtColumn = array_key_exists('last_attempt_at', $columns);
+        } catch (\Throwable) {
+            $this->hasLastAttemptAtColumn = false;
+        }
+
+        return $this->hasLastAttemptAtColumn;
     }
 }

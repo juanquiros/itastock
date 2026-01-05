@@ -125,7 +125,7 @@ class MercadoPagoClient
     {
         $correlationId = bin2hex(random_bytes(16));
         $url = sprintf('%s%s', self::BASE_URL, $path);
-        $idempotencyKey = $this->resolveIdempotencyKey($method, $path, $payload);
+        $idempotencyKey = $this->resolveIdempotencyKey($method, $path);
 
         $options = [
             'headers' => [
@@ -155,6 +155,7 @@ class MercadoPagoClient
             $attempt++;
             $this->logger->info('Mercado Pago request', [
                 'correlation_id' => $correlationId,
+                'idempotency_key' => $idempotencyKey,
                 'method' => $method,
                 'path' => $path,
                 'mode' => $this->mode,
@@ -194,6 +195,7 @@ class MercadoPagoClient
 
             $this->logger->info('Mercado Pago response', [
                 'correlation_id' => $correlationId,
+                'idempotency_key' => $idempotencyKey,
                 'status_code' => $statusCode,
                 'method' => $method,
                 'path' => $path,
@@ -323,7 +325,7 @@ class MercadoPagoClient
         usleep($sleepMs * 1000);
     }
 
-    private function resolveIdempotencyKey(string $method, string $path, ?array $payload): ?string
+    private function resolveIdempotencyKey(string $method, string $path): ?string
     {
         $normalizedMethod = strtoupper($method);
         if (!in_array($normalizedMethod, ['POST', 'PUT'], true)) {
@@ -334,11 +336,10 @@ class MercadoPagoClient
             return null;
         }
 
-        $payloadHash = json_encode($payload ?? [], JSON_UNESCAPED_UNICODE);
-        if (!is_string($payloadHash)) {
-            $payloadHash = '';
+        if ($path === '/preapproval' && $normalizedMethod === 'POST') {
+            return bin2hex(random_bytes(16));
         }
 
-        return substr(hash('sha256', $normalizedMethod.$path.$payloadHash), 0, 32);
+        return substr(hash('sha256', $normalizedMethod.$path), 0, 32);
     }
 }
