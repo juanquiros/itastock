@@ -531,7 +531,7 @@ class PlatformNotificationService
     {
         $qb = $this->entityManager->createQueryBuilder();
         $result = $qb
-            ->select('SUM(p.price) as total')
+            ->select('SUM(p.priceMonthly) as total')
             ->from(Subscription::class, 's')
             ->join('s.plan', 'p')
             ->where('s.status = :status')
