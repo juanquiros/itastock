@@ -53,7 +53,7 @@ class MercadoPagoClient
     public function cancelPreapproval(string $preapprovalId): array
     {
         try {
-            return $this->updatePreapproval($preapprovalId, ['status' => 'cancelled']);
+            return $this->updatePreapproval($preapprovalId, ['status' => 'canceled']);
         } catch (MercadoPagoApiException $exception) {
             $this->logger->warning('Mercado Pago cancel preapproval failed.', [
                 'correlation_id' => $exception->getCorrelationId(),
