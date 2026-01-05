@@ -60,8 +60,25 @@ class MercadoPagoWebhookController extends AbstractController
             }
         }
 
-        if ($eventRepository->findProcessedByEventOrResource($eventId, $resourceId)) {
-            return new Response('already_processed', Response::HTTP_OK);
+        if ($eventId !== null) {
+            if ($eventRepository->findProcessedByEventId($eventId)) {
+                $logger->info('Mercado Pago webhook already processed by event ID.', [
+                    'event_id' => $eventId,
+                    'resource_id' => $resourceId,
+                ]);
+
+                return new Response('already_processed', Response::HTTP_OK);
+            }
+        } elseif ($resourceId !== null) {
+            $recentThreshold = (new \DateTimeImmutable())->modify('-5 minutes');
+            if ($eventRepository->findRecentByResource($resourceId, $recentThreshold)) {
+                $logger->info('Mercado Pago webhook recently processed for resource.', [
+                    'resource_id' => $resourceId,
+                    'resource_type' => $resourceType,
+                ]);
+
+                return new Response('already_processed', Response::HTTP_OK);
+            }
         }
 
         $headers = [
@@ -240,6 +257,13 @@ class MercadoPagoWebhookController extends AbstractController
                 $entityManager
             );
             if ($business instanceof Business) {
+                $logger->info('Mercado Pago preapproval active, confirming subscription.', [
+                    'resource_id' => $preapprovalId,
+                    'resource_type' => $resourceType,
+                    'event_id' => $eventId,
+                    'status' => $preapprovalStatus,
+                    'business_id' => $business->getId(),
+                ]);
                 $subscriptionManager->confirmNewSubscriptionActive($business, $preapprovalId);
             }
         }

@@ -16,27 +16,30 @@ class BillingWebhookEventRepository extends ServiceEntityRepository
         parent::__construct($registry, BillingWebhookEvent::class);
     }
 
-    public function findProcessedByEventOrResource(?string $eventId, ?string $resourceId): ?BillingWebhookEvent
+    public function findProcessedByEventId(?string $eventId): ?BillingWebhookEvent
     {
-        if ($eventId === null && $resourceId === null) {
+        if ($eventId === null) {
             return null;
         }
 
-        $qb = $this->createQueryBuilder('e')
-            ->andWhere('e.processedAt IS NOT NULL');
+        return $this->createQueryBuilder('e')
+            ->andWhere('e.processedAt IS NOT NULL')
+            ->andWhere('e.eventId = :eventId')
+            ->setParameter('eventId', $eventId)
+            ->setMaxResults(1)
+            ->getQuery()
+            ->getOneOrNullResult();
+    }
 
-        if ($eventId !== null && $resourceId !== null) {
-            $qb->andWhere('e.eventId = :eventId OR e.resourceId = :resourceId')
-                ->setParameter('eventId', $eventId)
-                ->setParameter('resourceId', $resourceId);
-        } elseif ($eventId !== null) {
-            $qb->andWhere('e.eventId = :eventId')
-                ->setParameter('eventId', $eventId);
-        } else {
-            $qb->andWhere('e.resourceId = :resourceId')
-                ->setParameter('resourceId', $resourceId);
-        }
-
-        return $qb->setMaxResults(1)->getQuery()->getOneOrNullResult();
+    public function findRecentByResource(string $resourceId, \DateTimeImmutable $since): ?BillingWebhookEvent
+    {
+        return $this->createQueryBuilder('e')
+            ->andWhere('e.resourceId = :resourceId')
+            ->andWhere('e.receivedAt >= :since')
+            ->setParameter('resourceId', $resourceId)
+            ->setParameter('since', $since)
+            ->setMaxResults(1)
+            ->getQuery()
+            ->getOneOrNullResult();
     }
 }
