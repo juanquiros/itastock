@@ -8,6 +8,7 @@ use App\Entity\Subscription;
 use App\Security\EmailContentPolicy;
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Doctrine\ORM\EntityManagerInterface;
+use Doctrine\Persistence\ManagerRegistry;
 use Symfony\Bridge\Twig\Mime\TemplatedEmail;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\Mailer\MailerInterface;
@@ -17,7 +18,8 @@ class EmailSender
 {
     public function __construct(
         private readonly MailerInterface $mailer,
-        private readonly EntityManagerInterface $entityManager,
+        private EntityManagerInterface $entityManager,
+        private readonly ManagerRegistry $managerRegistry,
         private readonly EmailContentPolicy $contentPolicy,
         private readonly string $mailFrom,
         private readonly string $appName,
@@ -159,15 +161,31 @@ class EmailSender
 
     private function persistLogSafely(EmailNotificationLog $log): bool
     {
+        if (!$this->entityManager->isOpen()) {
+            $this->resetEntityManager();
+        }
+
         try {
             $this->entityManager->persist($log);
             $this->entityManager->flush();
 
             return true;
         } catch (UniqueConstraintViolationException) {
-            $this->entityManager->clear(EmailNotificationLog::class);
+            $this->resetEntityManager();
 
             return false;
         }
+    }
+
+    private function resetEntityManager(): void
+    {
+        if (!$this->entityManager->isOpen()) {
+            $this->managerRegistry->resetManager();
+            $this->entityManager = $this->managerRegistry->getManager();
+
+            return;
+        }
+
+        $this->entityManager->clear(EmailNotificationLog::class);
     }
 }
