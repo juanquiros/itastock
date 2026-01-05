@@ -18,12 +18,10 @@ use Doctrine\ORM\Mapping as ORM;
             name: 'uniq_email_notification_log_subscription',
             columns: ['type', 'recipient_email', 'subscription_id']
         ),
-    ],
-    indexes: [
-        new ORM\Index(name: 'idx_email_notification_log_business', columns: ['business_id']),
-        new ORM\Index(name: 'idx_email_notification_log_subscription', columns: ['subscription_id']),
     ]
 )]
+#[ORM\Index(name: 'idx_email_notification_log_business', columns: ['business_id'])]
+#[ORM\Index(name: 'idx_email_notification_log_subscription', columns: ['subscription_id'])]
 class EmailNotificationLog
 {
     public const STATUS_SENT = 'SENT';
