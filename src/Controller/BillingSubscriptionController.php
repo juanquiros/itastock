@@ -141,6 +141,14 @@ class BillingSubscriptionController extends AbstractController
                 $activeUntil = $trialEndsAt;
             }
         }
+        if (
+            !$isActiveSubscription
+            && $subscription->getMpPreapprovalId()
+            && $subscription->getStatus() !== Subscription::STATUS_CANCELED
+        ) {
+            $isActiveSubscription = true;
+            $activeUntil = $now;
+        }
 
         $payerEmail = $this->getUser()?->getUserIdentifier();
         if (!$payerEmail) {
