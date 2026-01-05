@@ -6,6 +6,7 @@ use App\Entity\Business;
 use App\Entity\EmailNotificationLog;
 use App\Entity\Subscription;
 use App\Security\EmailContentPolicy;
+use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bridge\Twig\Mime\TemplatedEmail;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
@@ -55,8 +56,9 @@ class EmailSender
             $log->setStatus(EmailNotificationLog::STATUS_SKIPPED)
                 ->setErrorMessage($exception->getMessage());
 
-            $this->entityManager->persist($log);
-            $this->entityManager->flush();
+            if (!$this->persistLogSafely($log)) {
+                return EmailNotificationLog::STATUS_SKIPPED;
+            }
 
             return EmailNotificationLog::STATUS_SKIPPED;
         }
@@ -65,8 +67,9 @@ class EmailSender
             $log->setStatus(EmailNotificationLog::STATUS_SKIPPED)
                 ->setErrorMessage('Duplicate notification detected.');
 
-            $this->entityManager->persist($log);
-            $this->entityManager->flush();
+            if (!$this->persistLogSafely($log)) {
+                return EmailNotificationLog::STATUS_SKIPPED;
+            }
 
             return EmailNotificationLog::STATUS_SKIPPED;
         }
@@ -92,8 +95,9 @@ class EmailSender
                 ->setErrorMessage($exception->getMessage());
         }
 
-        $this->entityManager->persist($log);
-        $this->entityManager->flush();
+        if (!$this->persistLogSafely($log)) {
+            return EmailNotificationLog::STATUS_SKIPPED;
+        }
 
         return $log->getStatus();
     }
@@ -151,5 +155,19 @@ class EmailSender
         }
 
         return $textTemplate;
+    }
+
+    private function persistLogSafely(EmailNotificationLog $log): bool
+    {
+        try {
+            $this->entityManager->persist($log);
+            $this->entityManager->flush();
+
+            return true;
+        } catch (UniqueConstraintViolationException) {
+            $this->entityManager->clear(EmailNotificationLog::class);
+
+            return false;
+        }
     }
 }
