@@ -137,6 +137,7 @@ class MPSubscriptionManager
             return;
         }
 
+        $pendingCancellation = false;
         foreach ($preapprovals as $preapproval) {
             $preapprovalId = $preapproval['id'] ?? null;
             if (!is_string($preapprovalId) || $preapprovalId === '' || $preapprovalId === $keepMpPreapprovalId) {
@@ -148,7 +149,21 @@ class MPSubscriptionManager
                 continue;
             }
 
-            $this->mercadoPagoClient->cancelPreapproval($preapprovalId);
+            try {
+                $this->mercadoPagoClient->cancelPreapproval($preapprovalId);
+            } catch (MercadoPagoApiException $exception) {
+                $pendingCancellation = true;
+                $this->logger->warning('Failed to cancel MP preapproval; queued for reconcile.', [
+                    'business_id' => $business->getId(),
+                    'mp_preapproval_id' => $preapprovalId,
+                    'message' => $exception->getMessage(),
+                ]);
+                $this->markCancellationPending($business, $preapprovalId);
+            }
+        }
+
+        if ($pendingCancellation) {
+            $this->entityManager->flush();
         }
     }
 
@@ -206,6 +221,7 @@ class MPSubscriptionManager
                     $this->mercadoPagoClient->cancelPreapproval($preapprovalId);
                     $canceledPreapprovals[] = $preapprovalId;
                 } catch (MercadoPagoApiException $exception) {
+                    $this->markCancellationPending($business, $preapprovalId);
                     $this->logger->warning('Failed to cancel duplicate MP preapproval.', [
                         'business_id' => $business->getId(),
                         'mp_preapproval_id' => $preapprovalId,
@@ -504,5 +520,11 @@ class MPSubscriptionManager
             ->getOneOrNullResult();
 
         return $pendingChange instanceof PendingSubscriptionChange;
+    }
+
+    private function markCancellationPending(Business $business, string $preapprovalId): void
+    {
+        $link = $this->resolveLinkForBusiness($business, $preapprovalId, 'CANCEL_PENDING');
+        $link->setIsPrimary(false);
     }
 }
