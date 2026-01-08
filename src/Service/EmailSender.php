@@ -153,6 +153,10 @@ class EmailSender
 
     private function persistLog(EmailNotificationLog $log): void
     {
+        if (!$this->entityManager->isOpen()) {
+            return;
+        }
+
         try {
             $this->entityManager->persist($log);
             $this->entityManager->flush();
