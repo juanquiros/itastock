@@ -268,7 +268,9 @@ class BillingSubscriptionController extends AbstractController
                 ->setNextPaymentAt($this->parseMpDate($response['next_payment_date'] ?? null));
         }
 
-        $entityManager->flush();
+        if ($entityManager->isOpen()) {
+            $entityManager->flush();
+        }
 
         return new RedirectResponse($initPoint);
     }
