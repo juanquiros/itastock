@@ -12,6 +12,11 @@ if (!is_file(dirname(__DIR__).'/vendor/autoload_runtime.php')) {
     throw new LogicException('Symfony Runtime is missing. Try running "composer require symfony/runtime".');
 }
 
+if (!isset($_SERVER['APP_ENV']) && !isset($_ENV['APP_ENV']) && !is_file(dirname(__DIR__).'/.env')) {
+    $_SERVER['APP_ENV'] = 'prod';
+    $_SERVER['APP_DEBUG'] = '0';
+}
+
 require_once dirname(__DIR__).'/vendor/autoload_runtime.php';
 
 return function (array $context) {
