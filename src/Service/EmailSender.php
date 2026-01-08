@@ -61,7 +61,8 @@ class EmailSender
             return EmailNotificationLog::STATUS_SKIPPED;
         }
 
-        if ($this->isDuplicate($type, $recipientEmail, $subscription, $periodStart, $periodEnd)) {
+        $contextHash = $log->getContextHash();
+        if ($this->isDuplicate($type, $recipientEmail, $subscription, $periodStart, $periodEnd, $contextHash)) {
             $log->setStatus(EmailNotificationLog::STATUS_SKIPPED)
                 ->setErrorMessage('Duplicate notification detected.');
 
@@ -102,6 +103,7 @@ class EmailSender
         ?Subscription $subscription,
         ?\DateTimeImmutable $periodStart,
         ?\DateTimeImmutable $periodEnd,
+        ?string $contextHash,
     ): bool {
         $repository = $this->entityManager->getRepository(EmailNotificationLog::class);
 
@@ -121,6 +123,7 @@ class EmailSender
                 'subscription' => $subscription,
                 'periodStart' => null,
                 'periodEnd' => null,
+                'contextHash' => $contextHash,
             ]);
         }
 
