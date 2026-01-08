@@ -150,6 +150,11 @@ class BillingSubscriptionController extends AbstractController
             $activeUntil = $now;
         }
 
+        if ($subscription->getMpPreapprovalId() && $subscription->getStatus() !== Subscription::STATUS_CANCELED) {
+            $isActiveSubscription = true;
+            $activeUntil = $activeUntil ?? $now;
+        }
+
         $payerEmail = $this->getUser()?->getUserIdentifier();
         if (!$payerEmail) {
             $this->addFlash('danger', 'No se pudo determinar el email del pagador.');
