@@ -6,6 +6,7 @@ use App\Entity\Business;
 use App\Entity\EmailNotificationLog;
 use App\Entity\Subscription;
 use App\Security\EmailContentPolicy;
+use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bridge\Twig\Mime\TemplatedEmail;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
@@ -55,8 +56,7 @@ class EmailSender
             $log->setStatus(EmailNotificationLog::STATUS_SKIPPED)
                 ->setErrorMessage($exception->getMessage());
 
-            $this->entityManager->persist($log);
-            $this->entityManager->flush();
+            $this->persistLog($log);
 
             return EmailNotificationLog::STATUS_SKIPPED;
         }
@@ -65,8 +65,7 @@ class EmailSender
             $log->setStatus(EmailNotificationLog::STATUS_SKIPPED)
                 ->setErrorMessage('Duplicate notification detected.');
 
-            $this->entityManager->persist($log);
-            $this->entityManager->flush();
+            $this->persistLog($log);
 
             return EmailNotificationLog::STATUS_SKIPPED;
         }
@@ -92,8 +91,7 @@ class EmailSender
                 ->setErrorMessage($exception->getMessage());
         }
 
-        $this->entityManager->persist($log);
-        $this->entityManager->flush();
+        $this->persistLog($log);
 
         return $log->getStatus();
     }
@@ -151,5 +149,15 @@ class EmailSender
         }
 
         return $textTemplate;
+    }
+
+    private function persistLog(EmailNotificationLog $log): void
+    {
+        try {
+            $this->entityManager->persist($log);
+            $this->entityManager->flush();
+        } catch (UniqueConstraintViolationException) {
+            // Ignore duplicate log inserts caused by concurrent notifications.
+        }
     }
 }
