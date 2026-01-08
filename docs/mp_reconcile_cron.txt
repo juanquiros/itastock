@@ -1,2 +1,5 @@
 # Cron: reconcile Mercado Pago subscriptions hourly
 0 * * * * cd /home/itastock.com.ar/public_html && php bin/console app:mp:reconcile-subscriptions --env=prod >> var/log/mp_reconcile.log 2>&1
+
+# Cron: retry pending Mercado Pago cancellations every 5 minutes
+*/5 * * * * cd /home/itastock.com.ar/public_html && php bin/console app:mp:retry-cancel-pending --env=prod >> var/log/mp_reconcile.log 2>&1

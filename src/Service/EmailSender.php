@@ -6,7 +6,9 @@ use App\Entity\Business;
 use App\Entity\EmailNotificationLog;
 use App\Entity\Subscription;
 use App\Security\EmailContentPolicy;
+use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Doctrine\ORM\EntityManagerInterface;
+use Doctrine\Persistence\ManagerRegistry;
 use Symfony\Bridge\Twig\Mime\TemplatedEmail;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\Mailer\MailerInterface;
@@ -16,7 +18,8 @@ class EmailSender
 {
     public function __construct(
         private readonly MailerInterface $mailer,
-        private readonly EntityManagerInterface $entityManager,
+        private EntityManagerInterface $entityManager,
+        private readonly ManagerRegistry $managerRegistry,
         private readonly EmailContentPolicy $contentPolicy,
         private readonly string $mailFrom,
         private readonly string $appName,
@@ -39,6 +42,7 @@ class EmailSender
     ): string {
         $recipientEmail = mb_strtolower($to);
         $sanitizedContext = $this->contentPolicy->sanitizeContext($role, $type, $context);
+        $subscription = $this->normalizeSubscription($subscription);
         $log = (new EmailNotificationLog())
             ->setType($type)
             ->setRecipientEmail($recipientEmail)
@@ -55,8 +59,9 @@ class EmailSender
             $log->setStatus(EmailNotificationLog::STATUS_SKIPPED)
                 ->setErrorMessage($exception->getMessage());
 
-            $this->entityManager->persist($log);
-            $this->entityManager->flush();
+            if (!$this->persistLogSafely($log)) {
+                return EmailNotificationLog::STATUS_SKIPPED;
+            }
 
             return EmailNotificationLog::STATUS_SKIPPED;
         }
@@ -65,8 +70,9 @@ class EmailSender
             $log->setStatus(EmailNotificationLog::STATUS_SKIPPED)
                 ->setErrorMessage('Duplicate notification detected.');
 
-            $this->entityManager->persist($log);
-            $this->entityManager->flush();
+            if (!$this->persistLogSafely($log)) {
+                return EmailNotificationLog::STATUS_SKIPPED;
+            }
 
             return EmailNotificationLog::STATUS_SKIPPED;
         }
@@ -92,8 +98,9 @@ class EmailSender
                 ->setErrorMessage($exception->getMessage());
         }
 
-        $this->entityManager->persist($log);
-        $this->entityManager->flush();
+        if (!$this->persistLogSafely($log)) {
+            return EmailNotificationLog::STATUS_SKIPPED;
+        }
 
         return $log->getStatus();
     }
@@ -151,5 +158,53 @@ class EmailSender
         }
 
         return $textTemplate;
+    }
+
+    private function persistLogSafely(EmailNotificationLog $log): bool
+    {
+        if (!$this->entityManager->isOpen()) {
+            $this->resetEntityManager();
+        }
+
+        try {
+            $this->entityManager->persist($log);
+            $this->entityManager->flush();
+
+            return true;
+        } catch (UniqueConstraintViolationException) {
+            $this->resetEntityManager();
+
+            return false;
+        }
+    }
+
+    private function resetEntityManager(): void
+    {
+        if (!$this->entityManager->isOpen()) {
+            $this->managerRegistry->resetManager();
+            $this->entityManager = $this->managerRegistry->getManager();
+
+            return;
+        }
+
+        $this->entityManager->clear(EmailNotificationLog::class);
+    }
+
+    private function normalizeSubscription(?Subscription $subscription): ?Subscription
+    {
+        if ($subscription === null) {
+            return null;
+        }
+
+        $subscriptionId = $subscription->getId();
+        if ($subscriptionId === null) {
+            return null;
+        }
+
+        if ($this->entityManager->contains($subscription)) {
+            return $subscription;
+        }
+
+        return $this->entityManager->getReference(Subscription::class, $subscriptionId);
     }
 }

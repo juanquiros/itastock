@@ -17,6 +17,20 @@ class MercadoPagoSubscriptionLinkRepository extends ServiceEntityRepository
         parent::__construct($registry, MercadoPagoSubscriptionLink::class);
     }
 
+    /**
+     * @return MercadoPagoSubscriptionLink[]
+     */
+    public function findCancelPending(int $limit = 50): array
+    {
+        return $this->createQueryBuilder('link')
+            ->andWhere('link.status = :status')
+            ->setParameter('status', 'CANCEL_PENDING')
+            ->orderBy('link.updatedAt', 'ASC')
+            ->setMaxResults($limit)
+            ->getQuery()
+            ->getResult();
+    }
+
     public function clearPrimaryForBusiness(Business $business): void
     {
         $this->createQueryBuilder('link')

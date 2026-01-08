@@ -125,12 +125,13 @@ class BillingSubscriptionController extends AbstractController
             $endAt = $subscription->getEndAt();
             $nextChargeAt = $subscription->getNextPaymentAt();
             if ($endAt && $endAt > $now) {
-                $isActiveSubscription = true;
                 $activeUntil = $endAt;
             } elseif ($nextChargeAt && $nextChargeAt > $now) {
-                $isActiveSubscription = true;
                 $activeUntil = $nextChargeAt;
+            } else {
+                $activeUntil = $now;
             }
+            $isActiveSubscription = true;
         }
 
         if ($subscription->getStatus() === Subscription::STATUS_TRIAL) {
@@ -139,6 +140,19 @@ class BillingSubscriptionController extends AbstractController
                 $isActiveSubscription = true;
                 $activeUntil = $trialEndsAt;
             }
+        }
+        if (
+            !$isActiveSubscription
+            && $subscription->getMpPreapprovalId()
+            && $subscription->getStatus() !== Subscription::STATUS_CANCELED
+        ) {
+            $isActiveSubscription = true;
+            $activeUntil = $now;
+        }
+
+        if ($subscription->getMpPreapprovalId() && $subscription->getStatus() !== Subscription::STATUS_CANCELED) {
+            $isActiveSubscription = true;
+            $activeUntil = $activeUntil ?? $now;
         }
 
         $payerEmail = $this->getUser()?->getUserIdentifier();

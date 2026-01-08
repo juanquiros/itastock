@@ -54,7 +54,7 @@ class PlatformBillingPlanController extends AbstractController
                     ]);
 
                     if (!isset($response['id'])) {
-                        throw new MercadoPagoApiException(0, 'Respuesta sin ID de preapproval plan.');
+                        throw new MercadoPagoApiException(0, 'Respuesta sin ID de preapproval plan.', null);
                     }
 
                     $plan->setMpPreapprovalPlanId((string) $response['id']);

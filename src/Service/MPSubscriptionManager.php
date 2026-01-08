@@ -11,12 +11,16 @@ use App\Exception\MercadoPagoApiException;
 use App\Repository\MercadoPagoSubscriptionLinkRepository;
 use App\Service\Result\ReconcileResult;
 use App\Service\Result\StartChangeResult;
+use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Log\LoggerInterface;
+use Symfony\Component\Lock\LockFactory;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 
 class MPSubscriptionManager
 {
+    private ?bool $hasLastAttemptAtColumn = null;
+
     public function __construct(
         private readonly MercadoPagoClient $mercadoPagoClient,
         private readonly EntityManagerInterface $entityManager,
@@ -24,6 +28,7 @@ class MPSubscriptionManager
         private readonly UrlGeneratorInterface $urlGenerator,
         private readonly PlatformNotificationService $platformNotificationService,
         private readonly LoggerInterface $logger,
+        private readonly LockFactory $lockFactory,
     ) {
     }
 
@@ -103,7 +108,19 @@ class MPSubscriptionManager
         }
 
         $link->setIsPrimary(false);
-        $this->entityManager->flush();
+        try {
+            $this->entityManager->flush();
+        } catch (UniqueConstraintViolationException) {
+            $this->entityManager->clear(MercadoPagoSubscriptionLink::class);
+            $existingLink = $this->subscriptionLinkRepository->findOneBy([
+                'mpPreapprovalId' => $response['id'],
+            ]);
+            if ($existingLink instanceof MercadoPagoSubscriptionLink) {
+                $existingLink->setStatus('PENDING');
+                $existingLink->setIsPrimary(false);
+                $this->entityManager->flush();
+            }
+        }
 
         return new StartChangeResult($initPoint, (string) $response['id'], $externalReference);
     }
@@ -127,7 +144,7 @@ class MPSubscriptionManager
         $link->setIsPrimary(true);
         $this->entityManager->flush();
 
-        $this->ensureSingleActiveAfterMutation($business, $mpPreapprovalId);
+        $this->ensureSingleActivePreapproval($business, $mpPreapprovalId);
     }
 
     public function cancelOtherActiveSubscriptions(Business $business, string $keepMpPreapprovalId): void
@@ -152,11 +169,21 @@ class MPSubscriptionManager
         }
     }
 
-    public function ensureSingleActiveAfterMutation(Business $business, ?string $preferredMpPreapprovalId = null): void
+    public function ensureSingleActivePreapproval(Business $business, ?string $preferredPreapprovalId = null): ReconcileResult
     {
+        $businessId = $business->getId();
+        if ($businessId === null) {
+            return new ReconcileResult();
+        }
+        $lock = $this->lockFactory->createLock(sprintf('mp_dedupe_business_%d', $businessId), 30);
+        if (!$lock->acquire()) {
+            return new ReconcileResult();
+        }
+
+        try {
         $preapprovals = $this->fetchPreapprovalsForBusiness($business);
         if ($preapprovals === []) {
-            return;
+            return new ReconcileResult();
         }
 
         $activePreapprovals = [];
@@ -172,31 +199,29 @@ class MPSubscriptionManager
             }
         }
 
-        if ($activePreapprovals === []) {
-            return;
-        }
-
         $activeCount = count($activePreapprovals);
-        $primaryLink = $this->subscriptionLinkRepository->findOneBy([
-            'business' => $business,
-            'isPrimary' => true,
-        ]);
-        $primaryMpPreapprovalId = $primaryLink?->getMpPreapprovalId();
+        if ($activeCount === 0) {
+            return new ReconcileResult([], [], 0, 0, null);
+        }
+        $subscription = $business->getSubscription();
+        $subscriptionMpPreapprovalId = $subscription?->getMpPreapprovalId();
 
         $keepPreapprovalId = null;
-        if ($preferredMpPreapprovalId && isset($activePreapprovals[$preferredMpPreapprovalId])) {
-            $keepPreapprovalId = $preferredMpPreapprovalId;
-        } elseif ($primaryMpPreapprovalId && isset($activePreapprovals[$primaryMpPreapprovalId])) {
-            $keepPreapprovalId = $primaryMpPreapprovalId;
+        if ($preferredPreapprovalId && isset($activePreapprovals[$preferredPreapprovalId])) {
+            $keepPreapprovalId = $preferredPreapprovalId;
+        } elseif ($subscriptionMpPreapprovalId && isset($activePreapprovals[$subscriptionMpPreapprovalId])) {
+            $keepPreapprovalId = $subscriptionMpPreapprovalId;
         } else {
             $keepPreapprovalId = $this->selectMostRecentPreapprovalId($activePreapprovals);
         }
 
         if (!$keepPreapprovalId) {
-            return;
+            return new ReconcileResult([], [], $activeCount, $activeCount, null, 0, $activeCount > 1);
         }
 
         $canceledPreapprovals = [];
+        $pendingCancelPreapprovals = [];
+        $partial = false;
         if ($activeCount > 1) {
             foreach ($activePreapprovals as $preapprovalId => $preapproval) {
                 if ($preapprovalId === $keepPreapprovalId) {
@@ -205,10 +230,14 @@ class MPSubscriptionManager
                 try {
                     $this->mercadoPagoClient->cancelPreapproval($preapprovalId);
                     $canceledPreapprovals[] = $preapprovalId;
+                    usleep(200000);
                 } catch (MercadoPagoApiException $exception) {
+                    $partial = true;
+                    $pendingCancelPreapprovals[] = $preapprovalId;
                     $this->logger->warning('Failed to cancel duplicate MP preapproval.', [
                         'business_id' => $business->getId(),
                         'mp_preapproval_id' => $preapprovalId,
+                        'correlation_id' => $exception->getCorrelationId(),
                         'message' => $exception->getMessage(),
                     ]);
                 }
@@ -216,9 +245,11 @@ class MPSubscriptionManager
         }
 
         $this->subscriptionLinkRepository->clearPrimaryForBusiness($business);
+        $updatedLinks = [];
         foreach ($activePreapprovals as $preapprovalId => $preapproval) {
             $status = strtoupper((string) ($preapproval['status'] ?? 'ACTIVE'));
             $link = $this->resolveLinkForBusiness($business, $preapprovalId, $status);
+            $updatedLinks[] = $preapprovalId;
             if ($preapprovalId === $keepPreapprovalId) {
                 $link->setIsPrimary(true);
             } else {
@@ -226,15 +257,44 @@ class MPSubscriptionManager
                 if (in_array($preapprovalId, $canceledPreapprovals, true)) {
                     $link->setStatus('CANCELED');
                 }
+                if (in_array($preapprovalId, $pendingCancelPreapprovals, true)) {
+                    $link->setStatus('CANCEL_PENDING');
+                    if ($this->hasLastAttemptAtColumn()) {
+                        $link->setLastAttemptAt(new \DateTimeImmutable());
+                    }
+                }
             }
+        }
+
+        if ($subscription instanceof \App\Entity\Subscription) {
+            $subscription
+                ->setMpPreapprovalId($keepPreapprovalId)
+                ->setStatus(\App\Entity\Subscription::STATUS_ACTIVE)
+                ->setLastSyncedAt(new \DateTimeImmutable());
         }
         $this->entityManager->flush();
 
-        $this->logger->info('Ensured single active MP preapproval after mutation.', [
+        $activeAfter = $activeCount - count($canceledPreapprovals);
+
+        $this->logger->info('Ensured single active MP preapproval.', [
             'business_id' => $business->getId(),
+            'active_before' => $activeCount,
+            'active_after' => $activeAfter,
             'kept_preapproval_id' => $keepPreapprovalId,
             'canceled_preapprovals' => $canceledPreapprovals,
+            'pending_cancel_count' => count($pendingCancelPreapprovals),
+            'partial' => $partial,
         ]);
+
+        if ($activeCount > 1) {
+            $this->logger->warning('MP duplicate active preapprovals detected.', [
+                'business_id' => $business->getId(),
+                'active_count' => $activeCount,
+                'kept_preapproval_id' => $keepPreapprovalId,
+                'canceled_count' => count($canceledPreapprovals),
+                'partial' => $partial,
+            ]);
+        }
 
         if ($activeCount > 1 && $canceledPreapprovals !== []) {
             $this->logger->warning('MP inconsistency detected after mutation.', [
@@ -248,6 +308,25 @@ class MPSubscriptionManager
                 count($canceledPreapprovals)
             );
         }
+
+        return new ReconcileResult(
+            $updatedLinks,
+            $canceledPreapprovals,
+            $activeCount,
+            $activeAfter,
+            $keepPreapprovalId,
+            0,
+            $activeCount > 1 || $partial,
+            $partial,
+        );
+        } finally {
+            $lock->release();
+        }
+    }
+
+    public function ensureSingleActiveAfterMutation(Business $business, ?string $preferredMpPreapprovalId = null): void
+    {
+        $this->ensureSingleActivePreapproval($business, $preferredMpPreapprovalId);
     }
 
     public function reconcileBusinessSubscriptions(Business $business): ReconcileResult
@@ -260,6 +339,7 @@ class MPSubscriptionManager
         $updatedLinks = [];
         $activePreapprovals = [];
         $pendingPreapprovals = [];
+        $canceledPreapprovals = [];
         $primaryLink = $this->subscriptionLinkRepository->findOneBy([
             'business' => $business,
             'isPrimary' => true,
@@ -325,21 +405,57 @@ class MPSubscriptionManager
 
         $this->entityManager->flush();
 
-        $this->ensureSingleActiveAfterMutation($business, $primaryMpPreapprovalId);
+        $preferredPreapprovalId = $this->resolvePreferredPreapprovalId(
+            $business,
+            $business->getSubscription()?->getMpPreapprovalId() ?? $primaryMpPreapprovalId
+        );
+        $singleResult = $this->ensureSingleActivePreapproval($business, $preferredPreapprovalId);
 
-        $activeAfter = $activeBefore > 0 ? 1 : 0;
+        $activeAfter = $singleResult->getActiveAfter();
+        $keptPreapprovalId = $singleResult->getKeptPreapprovalId();
+        $canceledPreapprovals = array_values(array_unique(array_merge(
+            $canceledPreapprovals,
+            $singleResult->getCanceledPreapprovals(),
+        )));
 
-        $hasInconsistency = $activeBefore > 1 || $stalePendingCanceled > 0;
+        $hasInconsistency = $singleResult->hasInconsistency() || $stalePendingCanceled > 0 || $singleResult->isPartial();
 
         return new ReconcileResult(
             $updatedLinks,
-            [],
+            $canceledPreapprovals,
             $activeBefore,
             $activeAfter,
-            $primaryMpPreapprovalId,
+            $keptPreapprovalId ?? $primaryMpPreapprovalId,
             $stalePendingCanceled,
             $hasInconsistency,
+            $singleResult->isPartial(),
         );
+    }
+
+    private function resolvePreferredPreapprovalId(Business $business, ?string $fallback): ?string
+    {
+        $pendingChange = $this->entityManager->getRepository(PendingSubscriptionChange::class)
+            ->createQueryBuilder('pendingChange')
+            ->andWhere('pendingChange.business = :business')
+            ->andWhere('pendingChange.status IN (:statuses)')
+            ->setParameter('business', $business)
+            ->setParameter('statuses', [
+                PendingSubscriptionChange::STATUS_CREATED,
+                PendingSubscriptionChange::STATUS_CHECKOUT_STARTED,
+                PendingSubscriptionChange::STATUS_PAID,
+            ])
+            ->setMaxResults(1)
+            ->getQuery()
+            ->getOneOrNullResult();
+
+        if ($pendingChange instanceof PendingSubscriptionChange) {
+            $pendingPreapprovalId = $pendingChange->getMpPreapprovalId();
+            if (is_string($pendingPreapprovalId) && $pendingPreapprovalId !== '') {
+                return $pendingPreapprovalId;
+            }
+        }
+
+        return $fallback;
     }
 
     /**
@@ -504,5 +620,22 @@ class MPSubscriptionManager
             ->getOneOrNullResult();
 
         return $pendingChange instanceof PendingSubscriptionChange;
+    }
+
+    private function hasLastAttemptAtColumn(): bool
+    {
+        if ($this->hasLastAttemptAtColumn !== null) {
+            return $this->hasLastAttemptAtColumn;
+        }
+
+        try {
+            $schemaManager = $this->entityManager->getConnection()->createSchemaManager();
+            $columns = $schemaManager->listTableColumns('mercado_pago_subscription_links');
+            $this->hasLastAttemptAtColumn = array_key_exists('last_attempt_at', $columns);
+        } catch (\Throwable) {
+            $this->hasLastAttemptAtColumn = false;
+        }
+
+        return $this->hasLastAttemptAtColumn;
     }
 }
