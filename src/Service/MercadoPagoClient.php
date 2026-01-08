@@ -202,19 +202,31 @@ class MercadoPagoClient
                 'mode' => $this->mode,
             ]);
 
-            if ($statusCode === 429 && $this->isLocalRateLimited($body)) {
+            if ($statusCode === 429 || $this->isLocalRateLimited($body)) {
                 if ($attempt < $maxRateLimitRetries) {
                     $this->logger->warning('Mercado Pago rate limited, retrying.', [
                         'correlation_id' => $correlationId,
+                        'idempotency_key' => $idempotencyKey,
+                        'status_code' => $statusCode,
                         'method' => $method,
                         'path' => $path,
                         'mode' => $this->mode,
                         'attempt' => $attempt,
                     ]);
+
                     $retryAfter = $this->parseRetryAfter($response->getHeaders(false));
                     $this->sleepWithBackoff($attempt, $retryAfter);
                     continue;
                 }
+
+                $this->logger->error('Mercado Pago rate limit exceeded, giving up.', [
+                    'correlation_id' => $correlationId,
+                    'idempotency_key' => $idempotencyKey,
+                    'status_code' => $statusCode,
+                    'method' => $method,
+                    'path' => $path,
+                    'mode' => $this->mode,
+                ]);
             }
 
             if ($statusCode >= 500 && $statusCode < 600 && $attempt <= $maxServerRetries) {
