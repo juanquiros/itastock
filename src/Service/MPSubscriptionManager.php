@@ -125,6 +125,17 @@ class MPSubscriptionManager
 
         $this->subscriptionLinkRepository->clearPrimaryForBusiness($business);
         $link->setIsPrimary(true);
+
+        $subscription = $business->getSubscription();
+        if ($subscription instanceof \App\Entity\Subscription) {
+            if ($subscription->getMpPreapprovalId() !== $mpPreapprovalId) {
+                $subscription->setMpPreapprovalId($mpPreapprovalId);
+            }
+            if (!$subscription->getExternalReference()) {
+                $subscription->setExternalReference($this->externalReferenceForBusiness($business));
+            }
+        }
+
         $this->entityManager->flush();
 
         $this->ensureSingleActiveAfterMutation($business, $mpPreapprovalId);
