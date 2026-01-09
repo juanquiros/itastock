@@ -6,6 +6,7 @@ use App\Entity\BillingPlan;
 use App\Entity\PendingSubscriptionChange;
 use App\Entity\Subscription;
 use App\Exception\MercadoPagoApiException;
+use App\Repository\MercadoPagoSubscriptionLinkRepository;
 use App\Repository\BillingPlanRepository;
 use App\Service\MercadoPagoClient;
 use App\Service\PlatformNotificationService;
@@ -279,8 +280,17 @@ class BillingSubscriptionController extends AbstractController
         SubscriptionContext $subscriptionContext,
         MercadoPagoClient $mercadoPagoClient,
         EntityManagerInterface $entityManager,
+        MercadoPagoSubscriptionLinkRepository $subscriptionLinkRepository,
     ): RedirectResponse {
-        return $this->handleStatusChange($request, $subscriptionContext, $mercadoPagoClient, $entityManager, 'paused', 'Suscripción pausada.');
+        return $this->handleStatusChange(
+            $request,
+            $subscriptionContext,
+            $mercadoPagoClient,
+            $entityManager,
+            $subscriptionLinkRepository,
+            'paused',
+            'Suscripción pausada.'
+        );
     }
 
     #[Route('/app/billing/subscription/reactivate', name: 'app_billing_reactivate', methods: ['POST'])]
@@ -289,8 +299,17 @@ class BillingSubscriptionController extends AbstractController
         SubscriptionContext $subscriptionContext,
         MercadoPagoClient $mercadoPagoClient,
         EntityManagerInterface $entityManager,
+        MercadoPagoSubscriptionLinkRepository $subscriptionLinkRepository,
     ): RedirectResponse {
-        return $this->handleStatusChange($request, $subscriptionContext, $mercadoPagoClient, $entityManager, 'authorized', 'Suscripción reactivada.');
+        return $this->handleStatusChange(
+            $request,
+            $subscriptionContext,
+            $mercadoPagoClient,
+            $entityManager,
+            $subscriptionLinkRepository,
+            'authorized',
+            'Suscripción reactivada.'
+        );
     }
 
     #[Route('/app/billing/subscription/cancel', name: 'app_billing_cancel', methods: ['POST'])]
@@ -299,8 +318,17 @@ class BillingSubscriptionController extends AbstractController
         SubscriptionContext $subscriptionContext,
         MercadoPagoClient $mercadoPagoClient,
         EntityManagerInterface $entityManager,
+        MercadoPagoSubscriptionLinkRepository $subscriptionLinkRepository,
     ): RedirectResponse {
-        return $this->handleStatusChange($request, $subscriptionContext, $mercadoPagoClient, $entityManager, 'cancelled', 'Suscripción cancelada.');
+        return $this->handleStatusChange(
+            $request,
+            $subscriptionContext,
+            $mercadoPagoClient,
+            $entityManager,
+            $subscriptionLinkRepository,
+            'cancelled',
+            'Suscripción cancelada.'
+        );
     }
 
     #[Route('/app/billing/subscription/pending/cancel', name: 'app_billing_subscription_cancel_pending', methods: ['POST'])]
@@ -371,6 +399,7 @@ class BillingSubscriptionController extends AbstractController
         SubscriptionContext $subscriptionContext,
         MercadoPagoClient $mercadoPagoClient,
         EntityManagerInterface $entityManager,
+        MercadoPagoSubscriptionLinkRepository $subscriptionLinkRepository,
         string $targetStatus,
         string $successMessage,
     ): RedirectResponse {
@@ -379,7 +408,25 @@ class BillingSubscriptionController extends AbstractController
         }
 
         $subscription = $subscriptionContext->getCurrentSubscription($this->getUser());
-        if (!$subscription || !$subscription->getMpPreapprovalId()) {
+        if (!$subscription) {
+            $this->addFlash('warning', 'No hay una suscripción activa para gestionar.');
+
+            return $this->redirectToRoute('app_billing_subscription_show');
+        }
+
+        $mpPreapprovalId = $subscription->getMpPreapprovalId();
+        if (!$mpPreapprovalId && $subscription->getBusiness()) {
+            $primaryLink = $subscriptionLinkRepository->findOneBy([
+                'business' => $subscription->getBusiness(),
+                'isPrimary' => true,
+            ]);
+            $mpPreapprovalId = $primaryLink?->getMpPreapprovalId();
+            if ($mpPreapprovalId) {
+                $subscription->setMpPreapprovalId($mpPreapprovalId);
+            }
+        }
+
+        if (!$mpPreapprovalId) {
             $this->addFlash('warning', 'No hay una suscripción activa para gestionar.');
 
             return $this->redirectToRoute('app_billing_subscription_show');
@@ -387,12 +434,12 @@ class BillingSubscriptionController extends AbstractController
 
         try {
             if ($targetStatus === 'cancelled') {
-                $mercadoPagoClient->cancelPreapproval($subscription->getMpPreapprovalId());
+                $mercadoPagoClient->cancelPreapproval($mpPreapprovalId);
             } else {
-                $mercadoPagoClient->updatePreapproval($subscription->getMpPreapprovalId(), ['status' => $targetStatus]);
+                $mercadoPagoClient->updatePreapproval($mpPreapprovalId, ['status' => $targetStatus]);
             }
 
-            $preapproval = $mercadoPagoClient->getPreapproval($subscription->getMpPreapprovalId());
+            $preapproval = $mercadoPagoClient->getPreapproval($mpPreapprovalId);
             $this->applyPreapprovalToSubscription($subscription, $preapproval);
             $entityManager->flush();
             $this->addFlash('success', $successMessage);
