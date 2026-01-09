@@ -287,6 +287,65 @@ class MPSubscriptionManager
         }
     }
 
+    public function cancelAllActiveAfterMutation(Business $business): void
+    {
+        $preapprovals = $this->fetchPreapprovalsForBusiness($business);
+        if ($preapprovals === []) {
+            return;
+        }
+
+        $preapprovalsById = [];
+        $cancelablePreapprovals = [];
+        foreach ($preapprovals as $preapproval) {
+            $preapprovalId = $preapproval['id'] ?? null;
+            if (!is_string($preapprovalId) || $preapprovalId === '') {
+                continue;
+            }
+
+            $status = $this->normalizeStatus($preapproval['status'] ?? null);
+            $preapprovalsById[$preapprovalId] = $preapproval;
+            if ($this->isCancelableStatus($status)) {
+                $cancelablePreapprovals[$preapprovalId] = $preapproval;
+            }
+        }
+
+        if ($preapprovalsById === []) {
+            return;
+        }
+
+        $canceledPreapprovals = [];
+        foreach ($cancelablePreapprovals as $preapprovalId => $preapproval) {
+            try {
+                $this->mercadoPagoClient->cancelPreapproval($preapprovalId);
+                $canceledPreapprovals[] = $preapprovalId;
+            } catch (MercadoPagoApiException $exception) {
+                $this->markCancellationPending($business, $preapprovalId);
+                $this->logger->warning('Failed to cancel MP preapproval during manual cancel.', [
+                    'business_id' => $business->getId(),
+                    'mp_preapproval_id' => $preapprovalId,
+                    'message' => $exception->getMessage(),
+                ]);
+            }
+        }
+
+        $this->subscriptionLinkRepository->clearPrimaryForBusiness($business);
+        foreach ($preapprovalsById as $preapprovalId => $preapproval) {
+            $status = strtoupper((string) ($preapproval['status'] ?? 'ACTIVE'));
+            $link = $this->resolveLinkForBusiness($business, $preapprovalId, $status);
+            $link->setIsPrimary(false);
+            if (in_array($preapprovalId, $canceledPreapprovals, true)) {
+                $link->setStatus('CANCELLED');
+            }
+        }
+
+        $this->entityManager->flush();
+
+        $this->logger->info('Canceled all MP preapprovals for business.', [
+            'business_id' => $business->getId(),
+            'canceled_preapprovals' => $canceledPreapprovals,
+        ]);
+    }
+
     public function reconcileBusinessSubscriptions(Business $business): ReconcileResult
     {
         $preapprovals = $this->fetchPreapprovalsForBusiness($business);

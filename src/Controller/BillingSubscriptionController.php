@@ -462,7 +462,7 @@ class BillingSubscriptionController extends AbstractController
             }
             $entityManager->flush();
             if ($targetStatus === 'cancelled' && $business) {
-                $subscriptionManager->ensureSingleActiveAfterMutation($business);
+                $subscriptionManager->cancelAllActiveAfterMutation($business);
             }
             $this->addFlash('success', $successMessage);
         } catch (MercadoPagoApiException $exception) {
@@ -485,7 +485,7 @@ class BillingSubscriptionController extends AbstractController
                 }
                 $entityManager->flush();
                 if ($targetStatus === 'cancelled' && $business) {
-                    $subscriptionManager->ensureSingleActiveAfterMutation($business);
+                    $subscriptionManager->cancelAllActiveAfterMutation($business);
                 }
                 $this->addFlash('warning', 'La suscripción ya estaba cancelada en Mercado Pago.');
 
