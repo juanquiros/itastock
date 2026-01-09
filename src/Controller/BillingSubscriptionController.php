@@ -9,6 +9,7 @@ use App\Exception\MercadoPagoApiException;
 use App\Repository\MercadoPagoSubscriptionLinkRepository;
 use App\Repository\BillingPlanRepository;
 use App\Service\MercadoPagoClient;
+use App\Service\MPSubscriptionManager;
 use App\Service\PlatformNotificationService;
 use App\Service\SubscriptionAccessResolver;
 use App\Service\SubscriptionContext;
@@ -281,6 +282,7 @@ class BillingSubscriptionController extends AbstractController
         MercadoPagoClient $mercadoPagoClient,
         EntityManagerInterface $entityManager,
         MercadoPagoSubscriptionLinkRepository $subscriptionLinkRepository,
+        MPSubscriptionManager $subscriptionManager,
     ): RedirectResponse {
         return $this->handleStatusChange(
             $request,
@@ -288,6 +290,7 @@ class BillingSubscriptionController extends AbstractController
             $mercadoPagoClient,
             $entityManager,
             $subscriptionLinkRepository,
+            $subscriptionManager,
             'paused',
             'Suscripción pausada.'
         );
@@ -300,6 +303,7 @@ class BillingSubscriptionController extends AbstractController
         MercadoPagoClient $mercadoPagoClient,
         EntityManagerInterface $entityManager,
         MercadoPagoSubscriptionLinkRepository $subscriptionLinkRepository,
+        MPSubscriptionManager $subscriptionManager,
     ): RedirectResponse {
         return $this->handleStatusChange(
             $request,
@@ -307,6 +311,7 @@ class BillingSubscriptionController extends AbstractController
             $mercadoPagoClient,
             $entityManager,
             $subscriptionLinkRepository,
+            $subscriptionManager,
             'authorized',
             'Suscripción reactivada.'
         );
@@ -319,6 +324,7 @@ class BillingSubscriptionController extends AbstractController
         MercadoPagoClient $mercadoPagoClient,
         EntityManagerInterface $entityManager,
         MercadoPagoSubscriptionLinkRepository $subscriptionLinkRepository,
+        MPSubscriptionManager $subscriptionManager,
     ): RedirectResponse {
         return $this->handleStatusChange(
             $request,
@@ -326,6 +332,7 @@ class BillingSubscriptionController extends AbstractController
             $mercadoPagoClient,
             $entityManager,
             $subscriptionLinkRepository,
+            $subscriptionManager,
             'cancelled',
             'Suscripción cancelada.'
         );
@@ -400,6 +407,7 @@ class BillingSubscriptionController extends AbstractController
         MercadoPagoClient $mercadoPagoClient,
         EntityManagerInterface $entityManager,
         MercadoPagoSubscriptionLinkRepository $subscriptionLinkRepository,
+        MPSubscriptionManager $subscriptionManager,
         string $targetStatus,
         string $successMessage,
     ): RedirectResponse {
@@ -441,7 +449,21 @@ class BillingSubscriptionController extends AbstractController
 
             $preapproval = $mercadoPagoClient->getPreapproval($mpPreapprovalId);
             $this->applyPreapprovalToSubscription($subscription, $preapproval);
+            $business = $subscription->getBusiness();
+            if ($targetStatus === 'cancelled' && $business) {
+                $link = $subscriptionLinkRepository->findOneBy([
+                    'business' => $business,
+                    'mpPreapprovalId' => $mpPreapprovalId,
+                ]);
+                if ($link) {
+                    $link->setStatus('CANCELLED');
+                    $link->setIsPrimary(false);
+                }
+            }
             $entityManager->flush();
+            if ($targetStatus === 'cancelled' && $business) {
+                $subscriptionManager->ensureSingleActiveAfterMutation($business);
+            }
             $this->addFlash('success', $successMessage);
         } catch (MercadoPagoApiException $exception) {
             if (
@@ -450,7 +472,21 @@ class BillingSubscriptionController extends AbstractController
             ) {
                 $preapproval = $mercadoPagoClient->getPreapproval($mpPreapprovalId);
                 $this->applyPreapprovalToSubscription($subscription, $preapproval);
+                $business = $subscription->getBusiness();
+                if ($targetStatus === 'cancelled' && $business) {
+                    $link = $subscriptionLinkRepository->findOneBy([
+                        'business' => $business,
+                        'mpPreapprovalId' => $mpPreapprovalId,
+                    ]);
+                    if ($link) {
+                        $link->setStatus('CANCELLED');
+                        $link->setIsPrimary(false);
+                    }
+                }
                 $entityManager->flush();
+                if ($targetStatus === 'cancelled' && $business) {
+                    $subscriptionManager->ensureSingleActiveAfterMutation($business);
+                }
                 $this->addFlash('warning', 'La suscripción ya estaba cancelada en Mercado Pago.');
 
                 return $this->redirectToRoute('app_billing_subscription_show');

@@ -60,6 +60,11 @@ class MercadoPagoClient
         return $this->request('GET', sprintf('/v1/payments/%s', $paymentId));
     }
 
+    public function getAuthorizedPayment(string $id): array
+    {
+        return $this->request('GET', sprintf('/authorized_payments/%s', $id));
+    }
+
     /**
      * @return array<int, array{id: string, status: string|null, date_created: string|null, last_modified: string|null, reason: string|null, payer_email: string|null}>
      */

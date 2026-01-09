@@ -250,22 +250,26 @@ class MPSubscriptionManager
 
         $this->subscriptionLinkRepository->clearPrimaryForBusiness($business);
         foreach ($preapprovalsById as $preapprovalId => $preapproval) {
+            $normalizedStatus = $this->normalizeStatus($preapproval['status'] ?? null);
             $status = strtoupper((string) ($preapproval['status'] ?? 'ACTIVE'));
             $link = $this->resolveLinkForBusiness($business, $preapprovalId, $status);
             if ($preapprovalId === $keepPreapprovalId) {
                 $link->setIsPrimary(true);
+                if ($this->isActiveStatus($normalizedStatus)) {
+                    $link->setStatus('ACTIVE');
+                }
             } else {
                 $link->setIsPrimary(false);
                 if (in_array($preapprovalId, $canceledPreapprovals, true)) {
-                    $link->setStatus('CANCELED');
+                    $link->setStatus('CANCELLED');
                 }
             }
         }
         $this->entityManager->flush();
 
-        $this->logger->info('Ensured single active MP preapproval after mutation.', [
+        $this->logger->info('Ensured single active MP preapproval for business.', [
             'business_id' => $business->getId(),
-            'kept_preapproval_id' => $keepPreapprovalId,
+            'keep_preapproval_id' => $keepPreapprovalId,
             'canceled_preapprovals' => $canceledPreapprovals,
         ]);
 
@@ -349,7 +353,7 @@ class MPSubscriptionManager
                     'mpPreapprovalId' => $oldestPendingId,
                 ]);
                 if ($link instanceof MercadoPagoSubscriptionLink) {
-                    $link->setStatus('CANCELED');
+                    $link->setStatus('CANCELLED');
                     $link->setIsPrimary(false);
                 }
                 $stalePendingCanceled++;

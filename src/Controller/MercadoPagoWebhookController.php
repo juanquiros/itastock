@@ -48,14 +48,18 @@ class MercadoPagoWebhookController extends AbstractController
         if ($resourceId === null && is_string($resource)) {
             $resourceId = trim((string) basename($resource)) ?: null;
         }
-        $resourceType = $payload['type'] ?? $payload['topic'] ?? null;
+        $rawType = $payload['type'] ?? $payload['topic'] ?? null;
+        $resourceType = $rawType;
         if (!$resourceType && is_string($resource)) {
             $resourceType = str_contains($resource, '/preapproval') ? 'preapproval' : null;
         }
         if (is_string($resourceType)) {
-            if (str_contains($resourceType, 'preapproval')) {
+            $lowerType = strtolower($resourceType);
+            if (str_contains($lowerType, 'preapproval')) {
                 $resourceType = 'preapproval';
-            } elseif (str_contains($resourceType, 'payment')) {
+            } elseif (str_contains($lowerType, 'subscription_authorized_payment')) {
+                $resourceType = 'authorized_payment';
+            } elseif (str_contains($lowerType, 'payment')) {
                 $resourceType = 'payment';
             }
         }
@@ -86,21 +90,22 @@ class MercadoPagoWebhookController extends AbstractController
             return new Response('missing_resource', Response::HTTP_OK);
         }
 
-        if ($resourceType !== null && !in_array($resourceType, ['preapproval', 'subscription', 'payment'], true)) {
+        if ($resourceType !== null && !in_array($resourceType, ['preapproval', 'subscription', 'payment', 'authorized_payment'], true)) {
             $event->setProcessedAt(new \DateTimeImmutable());
             $entityManager->flush();
 
             return new Response('ignored_resource', Response::HTTP_OK);
         }
 
+        $confirmedPreapprovalId = null;
         try {
             $paymentStatus = null;
+            $subscription = null;
             if ($resourceType === 'payment') {
                 $payment = $mercadoPagoClient->getPayment($resourceId);
                 $this->storePaymentDetails($event, $payload, $payment);
                 $paymentStatus = is_string($payment['status'] ?? null) ? $payment['status'] : null;
                 $preapprovalId = $this->extractPreapprovalIdFromPayment($payment);
-                $subscription = null;
                 if (!$preapprovalId) {
                     $externalReference = $payment['external_reference'] ?? null;
                     if (is_string($externalReference)) {
@@ -191,6 +196,116 @@ class MercadoPagoWebhookController extends AbstractController
 
                 $resourceId = (string) $preapprovalId;
             }
+            if ($resourceType === 'authorized_payment') {
+                $authorizedPayment = $mercadoPagoClient->getAuthorizedPayment($resourceId);
+                $this->storeAuthorizedPaymentDetails($event, $payload, $authorizedPayment);
+                $paymentStatus = is_string($authorizedPayment['status'] ?? null) ? $authorizedPayment['status'] : null;
+                $preapprovalId = $this->extractPreapprovalIdFromAuthorizedPayment($authorizedPayment);
+                if (!$preapprovalId) {
+                    $externalReference = $authorizedPayment['external_reference'] ?? null;
+                    if (is_string($externalReference)) {
+                        $subscription = $this->resolveSubscriptionFromExternalReference(
+                            $externalReference,
+                            $subscriptionRepository,
+                            $entityManager,
+                        );
+                        if ($subscription?->getMpPreapprovalId()) {
+                            $preapprovalId = $subscription->getMpPreapprovalId();
+                        }
+                        if ($subscription && $paymentStatus === 'approved') {
+                            $pendingChange = $entityManager->getRepository(PendingSubscriptionChange::class)
+                                ->createQueryBuilder('pendingChange')
+                                ->andWhere('pendingChange.currentSubscription = :subscription')
+                                ->andWhere('pendingChange.status IN (:statuses)')
+                                ->setParameter('subscription', $subscription)
+                                ->setParameter('statuses', [
+                                    PendingSubscriptionChange::STATUS_CREATED,
+                                    PendingSubscriptionChange::STATUS_CHECKOUT_STARTED,
+                                ])
+                                ->setMaxResults(1)
+                                ->getQuery()
+                                ->getOneOrNullResult();
+
+                            if ($pendingChange instanceof PendingSubscriptionChange) {
+                                $pendingChange
+                                    ->setStatus(PendingSubscriptionChange::STATUS_PAID)
+                                    ->setPaidAt(new \DateTimeImmutable());
+                                $logger->info('Pending subscription change marked as paid from authorized payment event.', [
+                                    'pending_change_id' => $pendingChange->getId(),
+                                    'subscription_id' => $subscription->getId(),
+                                ]);
+                                $billingPlan = $pendingChange->getTargetBillingPlan();
+                                $subscriptionNotificationService->onSubscriptionChangePaid(
+                                    $subscription,
+                                    $billingPlan?->getName(),
+                                    $pendingChange->getEffectiveAt()
+                                );
+                                if ($subscription->getBusiness()) {
+                                    $platformNotificationService->notifySubscriptionChangePaid(
+                                        $subscription->getBusiness(),
+                                        $subscription,
+                                        $billingPlan?->getName(),
+                                        $pendingChange->getEffectiveAt(),
+                                        $pendingChange->getPaidAt()
+                                    );
+                                }
+                            }
+                        }
+                    }
+                }
+
+                if (!$preapprovalId && $subscription) {
+                    $previousStatus = $subscription->getStatus();
+                    if ($paymentStatus === 'approved') {
+                        $subscription->setStatus(Subscription::STATUS_ACTIVE);
+                    }
+                    if ($paymentStatus === 'rejected' || $paymentStatus === 'cancelled') {
+                        $subscription->setStatus(Subscription::STATUS_PAST_DUE);
+                    }
+                    $payerEmail = $authorizedPayment['payer_email'] ?? null;
+                    if (!is_string($payerEmail) && is_array($authorizedPayment['payer'] ?? null)) {
+                        $payerEmail = $authorizedPayment['payer']['email'] ?? null;
+                    }
+                    if (is_string($payerEmail)) {
+                        $subscription->setPayerEmail($payerEmail);
+                    }
+                    $subscription->setLastSyncedAt(new \DateTimeImmutable());
+                    $event->setProcessedAt(new \DateTimeImmutable());
+                    $entityManager->flush();
+
+                    if ($previousStatus !== $subscription->getStatus() && $subscription->getStatus() === Subscription::STATUS_ACTIVE) {
+                        $subscriptionNotificationService->onSubscriptionActivated($subscription);
+                    }
+                    if ($paymentStatus === 'approved') {
+                        $subscriptionNotificationService->onPaymentReceived($subscription);
+                    }
+                    if ($paymentStatus === 'rejected' || $paymentStatus === 'cancelled') {
+                        $subscriptionNotificationService->onPaymentFailed($subscription);
+                    }
+
+                    return new Response('authorized_payment_synced', Response::HTTP_OK);
+                }
+
+                if (!$preapprovalId) {
+                    $event->setProcessedAt(new \DateTimeImmutable());
+                    $entityManager->flush();
+
+                    return new Response('missing_preapproval', Response::HTTP_OK);
+                }
+
+                $resourceId = (string) $preapprovalId;
+
+                $link = $subscriptionLinkRepository->findOneBy(['mpPreapprovalId' => $preapprovalId]);
+                $business = $link?->getBusiness() ?? $subscription?->getBusiness();
+                if ($business instanceof Business) {
+                    $subscriptionManager->confirmNewSubscriptionActive($business, $preapprovalId);
+                    $confirmedPreapprovalId = $preapprovalId;
+                    $logger->info('Authorized payment confirmed new MP subscription.', [
+                        'business_id' => $business->getId(),
+                        'mp_preapproval_id' => $preapprovalId,
+                    ]);
+                }
+            }
 
             $preapproval = $mercadoPagoClient->getPreapproval($resourceId);
         } catch (MercadoPagoApiException $exception) {
@@ -239,7 +354,10 @@ class MercadoPagoWebhookController extends AbstractController
                 $subscriptionLinkRepository,
                 $entityManager
             );
-            if ($business instanceof Business) {
+            if (
+                $business instanceof Business
+                && ($confirmedPreapprovalId === null || $confirmedPreapprovalId !== $preapprovalId)
+            ) {
                 $subscriptionManager->confirmNewSubscriptionActive($business, $preapprovalId);
             }
         }
@@ -312,6 +430,31 @@ class MercadoPagoWebhookController extends AbstractController
         $additionalInfo = $payment['additional_info'] ?? null;
         if (is_array($additionalInfo)) {
             $candidate = $additionalInfo['preapproval_id'] ?? $additionalInfo['subscription_id'] ?? null;
+            if (is_string($candidate) && $candidate !== '') {
+                return $candidate;
+            }
+        }
+
+        return null;
+    }
+
+    private function extractPreapprovalIdFromAuthorizedPayment(array $authorizedPayment): ?string
+    {
+        $candidate = $authorizedPayment['preapproval_id'] ?? $authorizedPayment['subscription_id'] ?? null;
+        if (is_string($candidate) && $candidate !== '') {
+            return $candidate;
+        }
+
+        if (is_array($authorizedPayment['preapproval'] ?? null)) {
+            $candidate = $authorizedPayment['preapproval']['id'] ?? null;
+            if (is_string($candidate) && $candidate !== '') {
+                return $candidate;
+            }
+        }
+
+        $metadata = $authorizedPayment['metadata'] ?? null;
+        if (is_array($metadata)) {
+            $candidate = $metadata['preapproval_id'] ?? $metadata['subscription_id'] ?? null;
             if (is_string($candidate) && $candidate !== '') {
                 return $candidate;
             }
@@ -407,6 +550,20 @@ class MercadoPagoWebhookController extends AbstractController
             'external_reference' => $payment['external_reference'] ?? null,
             'preapproval_id' => $payment['preapproval_id'] ?? $payment['subscription_id'] ?? null,
             'date_created' => $payment['date_created'] ?? null,
+        ];
+
+        $event->setPayload(json_encode($payload, JSON_UNESCAPED_UNICODE));
+    }
+
+    private function storeAuthorizedPaymentDetails(BillingWebhookEvent $event, array $payload, array $authorizedPayment): void
+    {
+        $payload['authorized_payment'] = [
+            'id' => $authorizedPayment['id'] ?? null,
+            'status' => $authorizedPayment['status'] ?? null,
+            'status_detail' => $authorizedPayment['status_detail'] ?? null,
+            'external_reference' => $authorizedPayment['external_reference'] ?? null,
+            'preapproval_id' => $authorizedPayment['preapproval_id'] ?? $authorizedPayment['subscription_id'] ?? null,
+            'date_created' => $authorizedPayment['date_created'] ?? null,
         ];
 
         $event->setPayload(json_encode($payload, JSON_UNESCAPED_UNICODE));
