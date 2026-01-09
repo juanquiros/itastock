@@ -444,6 +444,18 @@ class BillingSubscriptionController extends AbstractController
             $entityManager->flush();
             $this->addFlash('success', $successMessage);
         } catch (MercadoPagoApiException $exception) {
+            if (
+                $exception->getStatusCode() === 400
+                && str_contains($exception->getResponseBody(), 'You can not modify a cancelled preapproval.')
+            ) {
+                $preapproval = $mercadoPagoClient->getPreapproval($mpPreapprovalId);
+                $this->applyPreapprovalToSubscription($subscription, $preapproval);
+                $entityManager->flush();
+                $this->addFlash('warning', 'La suscripción ya estaba cancelada en Mercado Pago.');
+
+                return $this->redirectToRoute('app_billing_subscription_show');
+            }
+
             $this->addFlash('danger', sprintf('No pudimos actualizar la suscripción: %s', $exception->getMessage()));
         }
 
