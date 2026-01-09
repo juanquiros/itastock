@@ -144,8 +144,8 @@ class MPSubscriptionManager
                 continue;
             }
 
-            $status = strtolower((string) ($preapproval['status'] ?? ''));
-            if (!in_array($status, ['active', 'authorized'], true)) {
+            $status = $this->normalizeStatus($preapproval['status'] ?? null);
+            if (!$this->isCancelableStatus($status)) {
                 continue;
             }
 
@@ -174,20 +174,26 @@ class MPSubscriptionManager
             return;
         }
 
+        $preapprovalsById = [];
         $activePreapprovals = [];
+        $cancelablePreapprovals = [];
         foreach ($preapprovals as $preapproval) {
             $preapprovalId = $preapproval['id'] ?? null;
             if (!is_string($preapprovalId) || $preapprovalId === '') {
                 continue;
             }
 
-            $status = strtolower((string) ($preapproval['status'] ?? ''));
+            $status = $this->normalizeStatus($preapproval['status'] ?? null);
+            $preapprovalsById[$preapprovalId] = $preapproval;
             if ($this->isActiveStatus($status)) {
                 $activePreapprovals[$preapprovalId] = $preapproval;
             }
+            if ($this->isCancelableStatus($status)) {
+                $cancelablePreapprovals[$preapprovalId] = $preapproval;
+            }
         }
 
-        if ($activePreapprovals === []) {
+        if ($preapprovalsById === []) {
             return;
         }
 
@@ -199,12 +205,14 @@ class MPSubscriptionManager
         $primaryMpPreapprovalId = $primaryLink?->getMpPreapprovalId();
 
         $keepPreapprovalId = null;
-        if ($preferredMpPreapprovalId && isset($activePreapprovals[$preferredMpPreapprovalId])) {
+        if ($preferredMpPreapprovalId && isset($preapprovalsById[$preferredMpPreapprovalId])) {
             $keepPreapprovalId = $preferredMpPreapprovalId;
-        } elseif ($primaryMpPreapprovalId && isset($activePreapprovals[$primaryMpPreapprovalId])) {
+        } elseif ($primaryMpPreapprovalId && isset($preapprovalsById[$primaryMpPreapprovalId])) {
             $keepPreapprovalId = $primaryMpPreapprovalId;
-        } else {
+        } elseif ($activePreapprovals !== []) {
             $keepPreapprovalId = $this->selectMostRecentPreapprovalId($activePreapprovals);
+        } else {
+            $keepPreapprovalId = $this->selectMostRecentPreapprovalId($preapprovalsById);
         }
 
         if (!$keepPreapprovalId) {
@@ -212,27 +220,25 @@ class MPSubscriptionManager
         }
 
         $canceledPreapprovals = [];
-        if ($activeCount > 1) {
-            foreach ($activePreapprovals as $preapprovalId => $preapproval) {
-                if ($preapprovalId === $keepPreapprovalId) {
-                    continue;
-                }
-                try {
-                    $this->mercadoPagoClient->cancelPreapproval($preapprovalId);
-                    $canceledPreapprovals[] = $preapprovalId;
-                } catch (MercadoPagoApiException $exception) {
-                    $this->markCancellationPending($business, $preapprovalId);
-                    $this->logger->warning('Failed to cancel duplicate MP preapproval.', [
-                        'business_id' => $business->getId(),
-                        'mp_preapproval_id' => $preapprovalId,
-                        'message' => $exception->getMessage(),
-                    ]);
-                }
+        foreach ($cancelablePreapprovals as $preapprovalId => $preapproval) {
+            if ($preapprovalId === $keepPreapprovalId) {
+                continue;
+            }
+            try {
+                $this->mercadoPagoClient->cancelPreapproval($preapprovalId);
+                $canceledPreapprovals[] = $preapprovalId;
+            } catch (MercadoPagoApiException $exception) {
+                $this->markCancellationPending($business, $preapprovalId);
+                $this->logger->warning('Failed to cancel duplicate MP preapproval.', [
+                    'business_id' => $business->getId(),
+                    'mp_preapproval_id' => $preapprovalId,
+                    'message' => $exception->getMessage(),
+                ]);
             }
         }
 
         $this->subscriptionLinkRepository->clearPrimaryForBusiness($business);
-        foreach ($activePreapprovals as $preapprovalId => $preapproval) {
+        foreach ($preapprovalsById as $preapprovalId => $preapproval) {
             $status = strtoupper((string) ($preapproval['status'] ?? 'ACTIVE'));
             $link = $this->resolveLinkForBusiness($business, $preapprovalId, $status);
             if ($preapprovalId === $keepPreapprovalId) {
@@ -416,6 +422,18 @@ class MPSubscriptionManager
     private function isPendingStatus(string $status): bool
     {
         return in_array($status, ['pending', 'in_process'], true);
+    }
+
+    private function isCancelableStatus(string $status): bool
+    {
+        return !in_array($status, ['cancelled', 'canceled', 'rejected', 'expired'], true);
+    }
+
+    private function normalizeStatus(?string $status): string
+    {
+        $status = is_string($status) ? strtolower(trim($status)) : '';
+
+        return $status === '' ? 'unknown' : $status;
     }
 
     private function resolveLinkForBusiness(Business $business, string $preapprovalId, string $status): MercadoPagoSubscriptionLink
