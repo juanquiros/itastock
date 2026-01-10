@@ -1,5 +1,7 @@
 import { startStimulusApp } from '@symfony/stimulus-bundle';
+import CatalogLookupController from './controllers/catalog_lookup_controller.js';
+import BrandLogoUploadController from './controllers/brand_logo_upload_controller.js';
 
 const app = startStimulusApp();
-// register any custom, 3rd party controllers here
-// app.register('some_controller_name', SomeImportedController);
+app.register('catalog-lookup', CatalogLookupController);
+app.register('brand-logo-upload', BrandLogoUploadController);

@@ -1,7 +1,18 @@
-{{ form_start(form) }}
+{{ form_start(form, {
+    attr: {
+        'data-controller': 'catalog-lookup',
+        'data-catalog-lookup-barcode-url-value': path('app_catalog_lookup_barcode'),
+        'data-catalog-lookup-name-url-value': path('app_catalog_lookup_name')
+    }
+}) }}
+{{ form_widget(form.catalogProductId, {'attr': {'data-catalog-lookup-target': 'catalogProductId'}}) }}
 <div class="card shadow-sm">
     <div class="card-body">
         <div class="row g-3">
+            <div class="col-12 position-relative">
+                {{ form_row(form.lookupName) }}
+                <div class="list-group position-absolute w-100 shadow-sm" data-catalog-lookup-target="suggestions" style="z-index: 10; display: none;"></div>
+            </div>
             <div class="col-md-6">
                 {{ form_row(form.name) }}
             </div>
@@ -31,6 +42,9 @@
             </div>
             <div class="col-md-4">
                 {{ form_row(form.category) }}
+            </div>
+            <div class="col-md-4">
+                {{ form_row(form.brand) }}
             </div>
             <div class="col-md-4">
                 {{ form_row(form.isActive) }}

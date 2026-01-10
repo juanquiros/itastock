@@ -1,0 +1,82 @@
+{% extends 'platform/base_platform.html.twig' %}
+
+{% block header_title %}Productos globales{% endblock %}
+
+{% block body %}
+    <div class="d-flex flex-wrap gap-2 justify-content-between align-items-center mb-3">
+        <a class="btn btn-primary" href="{{ path('platform_catalog_product_new') }}">Nuevo producto</a>
+        <form method="get" class="d-flex flex-wrap gap-2 align-items-center">
+            <input type="text" name="name" class="form-control" placeholder="Buscar por nombre" value="{{ filters.name }}">
+            <input type="text" name="barcode" class="form-control" placeholder="Código de barras" value="{{ filters.barcode }}">
+            <select name="category" class="form-select">
+                <option value="0">Todas las categorías</option>
+                {% for category in categories %}
+                    <option value="{{ category.id }}" {{ filters.category == category.id ? 'selected' : '' }}>{{ category.name }}</option>
+                {% endfor %}
+            </select>
+            <select name="brand" class="form-select">
+                <option value="0">Todas las marcas</option>
+                {% for brand in brands %}
+                    <option value="{{ brand.id }}" {{ filters.brand == brand.id ? 'selected' : '' }}>{{ brand.name }}</option>
+                {% endfor %}
+            </select>
+            <select name="status" class="form-select">
+                <option value="all" {{ filters.status == 'all' ? 'selected' : '' }}>Todos</option>
+                <option value="active" {{ filters.status == 'active' ? 'selected' : '' }}>Activos</option>
+                <option value="inactive" {{ filters.status == 'inactive' ? 'selected' : '' }}>Inactivos</option>
+            </select>
+            <button class="btn btn-outline-secondary" type="submit">Filtrar</button>
+        </form>
+    </div>
+
+    <div class="table-responsive">
+        <table class="table align-middle">
+            <thead>
+                <tr>
+                    <th>Nombre</th>
+                    <th>Presentación</th>
+                    <th>Categoría</th>
+                    <th>Marca</th>
+                    <th>Barcode</th>
+                    <th>Activo</th>
+                    <th class="text-end">Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for product in products %}
+                    <tr>
+                        <td>{{ product.name }}</td>
+                        <td>{{ product.presentation ?: '-' }}</td>
+                        <td>{{ product.category.name }}</td>
+                        <td>{{ product.brand ? product.brand.name : '-' }}</td>
+                        <td>{{ product.barcode ?: '-' }}</td>
+                        <td>{{ product.isActive ? 'Sí' : 'No' }}</td>
+                        <td class="text-end">
+                            <a class="btn btn-sm btn-outline-secondary" href="{{ path('platform_catalog_product_edit', {id: product.id}) }}">Editar</a>
+                        </td>
+                    </tr>
+                {% else %}
+                    <tr><td colspan="7">Sin productos globales.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    {% if pagination.total_pages > 1 %}
+        <nav class="mt-3">
+            <ul class="pagination">
+                {% set previousPage = pagination.page - 1 %}
+                {% set nextPage = pagination.page + 1 %}
+                <li class="page-item {{ previousPage < 1 ? 'disabled' : '' }}">
+                    <a class="page-link" href="{{ path('platform_catalog_product_index', filters|merge({'page': previousPage})) }}">Anterior</a>
+                </li>
+                <li class="page-item disabled">
+                    <span class="page-link">Página {{ pagination.page }} de {{ pagination.total_pages }}</span>
+                </li>
+                <li class="page-item {{ nextPage > pagination.total_pages ? 'disabled' : '' }}">
+                    <a class="page-link" href="{{ path('platform_catalog_product_index', filters|merge({'page': nextPage})) }}">Siguiente</a>
+                </li>
+            </ul>
+        </nav>
+    {% endif %}
+{% endblock %}

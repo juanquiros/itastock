@@ -1,0 +1,19 @@
+{% extends 'platform/base_platform.html.twig' %}
+
+{% block header_title %}{{ product.id ? 'Editar producto global' : 'Nuevo producto global' }}{% endblock %}
+
+{% block body %}
+    <div class="mb-3">
+        <a class="btn btn-outline-secondary" href="{{ path('platform_catalog_product_index') }}">Volver</a>
+    </div>
+    {{ form_start(form) }}
+        {{ form_row(form.name) }}
+        {{ form_row(form.presentation) }}
+        {{ form_row(form.barcode) }}
+        {{ form_row(form.sku) }}
+        {{ form_row(form.category) }}
+        {{ form_row(form.brand) }}
+        {{ form_row(form.isActive) }}
+        <button class="btn btn-primary mt-3">{{ product.id ? 'Guardar' : 'Crear' }}</button>
+    {{ form_end(form) }}
+{% endblock %}
