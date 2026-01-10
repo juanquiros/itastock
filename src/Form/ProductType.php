@@ -27,19 +27,11 @@ class ProductType extends AbstractType
                 'mapped' => false,
                 'data' => $options['catalog_product_id'],
             ])
-            ->add('lookupName', TextType::class, [
-                'label' => 'Buscar en catálogo global',
-                'required' => false,
-                'mapped' => false,
-                'attr' => [
-                    'data-catalog-lookup-target' => 'lookupName',
-                    'autocomplete' => 'off',
-                ],
-            ])
             ->add('name', TextType::class, [
                 'label' => 'Nombre',
                 'attr' => [
                     'data-catalog-lookup-target' => 'name',
+                    'autocomplete' => 'off',
                 ],
             ])
             ->add('sku', TextType::class, [

@@ -1,7 +1,7 @@
 import { Controller } from '@hotwired/stimulus';
 
 export default class extends Controller {
-    static targets = ['barcode', 'lookupName', 'name', 'catalogProductId', 'suggestions'];
+    static targets = ['barcode', 'name', 'catalogProductId', 'suggestions'];
     static values = {
         barcodeUrl: String,
         nameUrl: String,
@@ -14,9 +14,9 @@ export default class extends Controller {
             this.barcodeTarget.addEventListener('blur', () => this.onBarcodeLookup());
         }
 
-        if (this.hasLookupNameTarget) {
-            this.lookupNameTarget.addEventListener('input', () => this.onLookupInput());
-            this.lookupNameTarget.addEventListener('blur', () => this.hideSuggestions());
+        if (this.hasNameTarget) {
+            this.nameTarget.addEventListener('input', () => this.onLookupInput());
+            this.nameTarget.addEventListener('blur', () => this.hideSuggestions());
         }
     }
 
@@ -39,7 +39,8 @@ export default class extends Controller {
                     return;
                 }
 
-                this.applyCatalogProduct(payload.product);
+                const shouldFillName = !this.hasNameTarget || this.nameTarget.value.trim() === '';
+                this.applyCatalogProduct(payload.product, { fillName: shouldFillName, fillBarcode: true });
             })
             .catch(() => {
                 this.clearCatalogProduct();
@@ -47,11 +48,11 @@ export default class extends Controller {
     }
 
     onLookupInput() {
-        if (!this.hasLookupNameTarget) {
+        if (!this.hasNameTarget) {
             return;
         }
 
-        const query = this.lookupNameTarget.value.trim();
+        const query = this.nameTarget.value.trim();
         this.clearCatalogProduct();
 
         if (query.length < 3) {
@@ -87,8 +88,7 @@ export default class extends Controller {
             button.textContent = item.label;
             button.addEventListener('mousedown', (event) => {
                 event.preventDefault();
-                this.applyCatalogProduct(item);
-                this.lookupNameTarget.value = item.label;
+                this.applyCatalogProduct(item, { fillName: true, fillBarcode: true });
                 this.hideSuggestions();
             });
             this.suggestionsTarget.appendChild(button);
@@ -105,22 +105,18 @@ export default class extends Controller {
         this.suggestionsTarget.style.display = 'none';
     }
 
-    applyCatalogProduct(product) {
+    applyCatalogProduct(product, { fillName = true, fillBarcode = false } = {}) {
         if (this.hasCatalogProductIdTarget) {
             this.catalogProductIdTarget.value = product.id ?? '';
         }
 
-        if (this.hasNameTarget) {
+        if (this.hasNameTarget && fillName) {
             const presentation = product.presentation ? ` ${product.presentation}` : '';
             this.nameTarget.value = `${product.name}${presentation}`.trim();
         }
 
-        if (this.hasBarcodeTarget && product.barcode) {
+        if (this.hasBarcodeTarget && product.barcode && fillBarcode) {
             this.barcodeTarget.value = product.barcode;
-        }
-
-        if (this.hasLookupNameTarget && product.label) {
-            this.lookupNameTarget.value = product.label;
         }
     }
 
