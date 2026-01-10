@@ -1,0 +1,53 @@
+{% extends 'platform/base_platform.html.twig' %}
+
+{% block header_title %}Marcas globales{% endblock %}
+
+{% block body %}
+    <div class="d-flex flex-wrap gap-2 justify-content-between align-items-center mb-3">
+        <a class="btn btn-primary" href="{{ path('platform_catalog_brand_new') }}">Nueva marca</a>
+        <form method="get" class="d-flex flex-wrap gap-2 align-items-center">
+            <input type="text" name="name" class="form-control" placeholder="Buscar por nombre" value="{{ filters.name }}">
+            <select name="status" class="form-select">
+                <option value="all" {{ filters.status == 'all' ? 'selected' : '' }}>Todos</option>
+                <option value="active" {{ filters.status == 'active' ? 'selected' : '' }}>Activos</option>
+                <option value="inactive" {{ filters.status == 'inactive' ? 'selected' : '' }}>Inactivos</option>
+            </select>
+            <button class="btn btn-outline-secondary" type="submit">Filtrar</button>
+        </form>
+    </div>
+
+    <div class="table-responsive">
+        <table class="table align-middle">
+            <thead>
+                <tr>
+                    <th>Nombre</th>
+                    <th>Slug</th>
+                    <th>Logo</th>
+                    <th>Activo</th>
+                    <th class="text-end">Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for brand in brands %}
+                    <tr>
+                        <td>{{ brand.name }}</td>
+                        <td>{{ brand.slug }}</td>
+                        <td>{{ brand.logoPath ?: '-' }}</td>
+                        <td>{{ brand.isActive ? 'Sí' : 'No' }}</td>
+                        <td class="text-end d-flex gap-2 justify-content-end">
+                            <a class="btn btn-sm btn-outline-secondary" href="{{ path('platform_catalog_brand_edit', {id: brand.id}) }}">Editar</a>
+                            <form method="post" action="{{ path('platform_catalog_brand_toggle', {id: brand.id}) }}">
+                                <input type="hidden" name="_token" value="{{ csrf_token('toggle_catalog_brand_' ~ brand.id) }}">
+                                <button class="btn btn-sm btn-outline-{{ brand.isActive ? 'warning' : 'success' }}" type="submit">
+                                    {{ brand.isActive ? 'Desactivar' : 'Activar' }}
+                                </button>
+                            </form>
+                        </td>
+                    </tr>
+                {% else %}
+                    <tr><td colspan="5">Sin marcas globales.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+{% endblock %}

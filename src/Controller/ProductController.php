@@ -3,13 +3,16 @@
 namespace App\Controller;
 
 use App\Entity\Business;
+use App\Entity\CatalogProduct;
 use App\Entity\Product;
 use App\Entity\StockMovement;
 use App\Form\ProductType;
 use App\Form\ProductImportType;
 use App\Entity\User;
+use App\Repository\CatalogProductRepository;
 use App\Repository\ProductRepository;
 use App\Service\ProductCsvImportService;
+use App\Service\ProductCatalogSyncService;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
@@ -103,7 +106,11 @@ class ProductController extends AbstractController
     }
 
     #[Route('/new', name: 'new', methods: ['GET', 'POST'])]
-    public function new(Request $request): Response
+    public function new(
+        Request $request,
+        CatalogProductRepository $catalogProductRepository,
+        ProductCatalogSyncService $catalogSyncService
+    ): Response
     {
         $business = $this->requireBusinessContext();
 
@@ -114,10 +121,12 @@ class ProductController extends AbstractController
             'current_business' => $business,
             'show_stock' => true,
             'current_stock' => $product->getStock(),
+            'catalog_product_id' => $product->getCatalogProduct()?->getId(),
         ]);
         $form->handleRequest($request);
 
         if ($form->isSubmitted() && $form->isValid()) {
+            $this->applyCatalogSelection($form->get('catalogProductId')->getData(), $product, $business, $catalogProductRepository, $catalogSyncService);
             $this->entityManager->persist($product);
             $this->handleStockAdjustment($product, (string) $form->get('stockAdjustment')->getData());
 
@@ -134,7 +143,12 @@ class ProductController extends AbstractController
     }
 
     #[Route('/{id}/edit', name: 'edit', methods: ['GET', 'POST'])]
-    public function edit(Request $request, Product $product): Response
+    public function edit(
+        Request $request,
+        Product $product,
+        CatalogProductRepository $catalogProductRepository,
+        ProductCatalogSyncService $catalogSyncService
+    ): Response
     {
         $business = $this->requireBusinessContext();
         $this->denyIfDifferentBusiness($product, $business);
@@ -143,10 +157,12 @@ class ProductController extends AbstractController
             'current_business' => $business,
             'show_stock' => true,
             'current_stock' => $product->getStock(),
+            'catalog_product_id' => $product->getCatalogProduct()?->getId(),
         ]);
         $form->handleRequest($request);
 
         if ($form->isSubmitted() && $form->isValid()) {
+            $this->applyCatalogSelection($form->get('catalogProductId')->getData(), $product, $business, $catalogProductRepository, $catalogSyncService);
             $this->handleStockAdjustment($product, (string) $form->get('stockAdjustment')->getData());
 
             $this->entityManager->flush();
@@ -211,6 +227,37 @@ class ProductController extends AbstractController
         $movement->setCreatedBy($this->getUser());
 
         $this->entityManager->persist($movement);
+    }
+
+    private function applyCatalogSelection(
+        mixed $catalogProductId,
+        Product $product,
+        Business $business,
+        CatalogProductRepository $catalogProductRepository,
+        ProductCatalogSyncService $catalogSyncService
+    ): void {
+        if ($catalogProductId === null || $catalogProductId === '') {
+            return;
+        }
+
+        if (!is_numeric($catalogProductId)) {
+            return;
+        }
+
+        $catalogProduct = $catalogProductRepository->find((int) $catalogProductId);
+        if (!$catalogProduct instanceof CatalogProduct) {
+            return;
+        }
+
+        $product->setCatalogProduct($catalogProduct);
+
+        $category = $catalogSyncService->ensureLocalCategoryForCatalog($business, $catalogProduct->getCategory());
+        $product->setCategory($category);
+
+        if ($catalogProduct->getBrand() !== null) {
+            $brand = $catalogSyncService->ensureLocalBrandForCatalog($business, $catalogProduct->getBrand());
+            $product->setBrand($brand);
+        }
     }
 
     private function requireBusinessContext(): Business

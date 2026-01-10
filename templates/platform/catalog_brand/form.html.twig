@@ -1,0 +1,15 @@
+{% extends 'platform/base_platform.html.twig' %}
+
+{% block header_title %}{{ brand.id ? 'Editar marca global' : 'Nueva marca global' }}{% endblock %}
+
+{% block body %}
+    <div class="mb-3">
+        <a class="btn btn-outline-secondary" href="{{ path('platform_catalog_brand_index') }}">Volver</a>
+    </div>
+    {{ form_start(form) }}
+        {{ form_row(form.name) }}
+        {{ form_row(form.logoPath) }}
+        {{ form_row(form.isActive) }}
+        <button class="btn btn-primary mt-3">{{ brand.id ? 'Guardar' : 'Crear' }}</button>
+    {{ form_end(form) }}
+{% endblock %}

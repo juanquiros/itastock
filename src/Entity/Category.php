@@ -9,6 +9,7 @@ use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\Validator\Constraints as Assert;
 use App\Entity\Business;
 use App\Entity\Product;
+use App\Entity\CatalogCategory;
 
 #[ORM\Entity(repositoryClass: CategoryRepository::class)]
 #[ORM\Table(name: 'categories')]
@@ -26,6 +27,10 @@ class Category
     #[ORM\ManyToOne(inversedBy: 'categories')]
     #[ORM\JoinColumn(nullable: false)]
     private ?Business $business = null;
+
+    #[ORM\ManyToOne]
+    #[ORM\JoinColumn(onDelete: 'SET NULL')]
+    private ?CatalogCategory $catalogCategory = null;
 
     #[ORM\OneToMany(mappedBy: 'category', targetEntity: Product::class)]
     private Collection $products;
@@ -65,6 +70,18 @@ class Category
     public function setBusiness(?Business $business): self
     {
         $this->business = $business;
+
+        return $this;
+    }
+
+    public function getCatalogCategory(): ?CatalogCategory
+    {
+        return $this->catalogCategory;
+    }
+
+    public function setCatalogCategory(?CatalogCategory $catalogCategory): self
+    {
+        $this->catalogCategory = $catalogCategory;
 
         return $this;
     }

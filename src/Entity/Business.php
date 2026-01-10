@@ -8,6 +8,7 @@ use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Mapping as ORM;
 use DateTimeImmutable;
 use App\Entity\Category;
+use App\Entity\Brand;
 use App\Entity\Product;
 use App\Entity\Subscription;
 use App\Entity\MercadoPagoSubscriptionLink;
@@ -43,6 +44,10 @@ class Business
     #[ORM\OneToMany(mappedBy: 'business', targetEntity: Product::class, orphanRemoval: true)]
     private Collection $products;
 
+    /** @var Collection<int, Brand> */
+    #[ORM\OneToMany(mappedBy: 'business', targetEntity: Brand::class, orphanRemoval: true)]
+    private Collection $brands;
+
     #[ORM\OneToOne(mappedBy: 'business', targetEntity: Subscription::class, cascade: ['persist', 'remove'])]
     private ?Subscription $subscription = null;
 
@@ -55,6 +60,7 @@ class Business
         $this->users = new ArrayCollection();
         $this->categories = new ArrayCollection();
         $this->products = new ArrayCollection();
+        $this->brands = new ArrayCollection();
         $this->mercadoPagoSubscriptionLinks = new ArrayCollection();
         $this->createdAt = new DateTimeImmutable();
     }
@@ -181,6 +187,35 @@ class Business
         if ($this->products->removeElement($product)) {
             if ($product->getBusiness() === $this) {
                 $product->setBusiness(null);
+            }
+        }
+
+        return $this;
+    }
+
+    /**
+     * @return Collection<int, Brand>
+     */
+    public function getBrands(): Collection
+    {
+        return $this->brands;
+    }
+
+    public function addBrand(Brand $brand): self
+    {
+        if (!$this->brands->contains($brand)) {
+            $this->brands->add($brand);
+            $brand->setBusiness($this);
+        }
+
+        return $this;
+    }
+
+    public function removeBrand(Brand $brand): self
+    {
+        if ($this->brands->removeElement($brand)) {
+            if ($brand->getBusiness() === $this) {
+                $brand->setBusiness(null);
             }
         }
 

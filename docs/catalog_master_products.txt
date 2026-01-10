@@ -1,0 +1,61 @@
+Catálogo maestro de productos
+=============================
+
+Entidades globales
+------------------
+- CatalogCategory (tabla catalog_category):
+  - Campos: id, name, slug, isActive, createdAt, updatedAt.
+  - Relación: OneToMany con CatalogProduct.
+
+- CatalogBrand (tabla catalog_brand):
+  - Campos: id, name, slug, logoPath, isActive, createdAt, updatedAt.
+  - Relación: OneToMany con CatalogProduct.
+
+- CatalogProduct (tabla catalog_product):
+  - Campos: id, name, presentation, barcode, sku, isActive, createdAt, updatedAt.
+  - Relaciones: ManyToOne a CatalogCategory (obligatoria) y CatalogBrand (opcional).
+
+Entidades del comercio
+----------------------
+- Category (tabla categories):
+  - Agrega relación opcional catalogCategory (ManyToOne a CatalogCategory).
+
+- Brand (tabla brand):
+  - Campos: id, business, name, slug, logoPath, isActive, createdAt, updatedAt.
+  - Índices únicos por (business_id, name) y (business_id, slug).
+  - Relación: OneToMany con Product.
+
+- Product (tabla products):
+  - Agrega:
+    - catalogProduct (ManyToOne a CatalogProduct, opcional).
+    - brand (ManyToOne a Brand, opcional).
+
+Servicio ProductCatalogSyncService
+----------------------------------
+- ensureLocalCategoryForCatalog(Business, CatalogCategory):
+  - Busca una Category del comercio con catalogCategory.
+  - Si no existe, clona la categoría global y la persiste.
+
+- ensureLocalBrandForCatalog(Business, CatalogBrand):
+  - Busca una Brand del comercio por business + slug.
+  - Si no existe, clona name/logoPath desde CatalogBrand y la persiste.
+
+Flujos de alta rápida
+---------------------
+- Por código de barras:
+  - El formulario consulta app_catalog_lookup_barcode.
+  - Si hay match, prellena name/barcode y guarda catalogProductId oculto.
+  - Al submit, ProductController usa ProductCatalogSyncService para:
+    - Clonar/relacionar Category local.
+    - Clonar/relacionar Brand local (si existe CatalogBrand).
+    - Vincular Product con CatalogProduct.
+
+- Por autocomplete de nombre:
+  - El campo lookupName consulta app_catalog_lookup_name con debounce.
+  - Al seleccionar sugerencia, prellena name/barcode/presentación.
+  - Al submit, se aplica el mismo flujo de sincronización.
+
+Notas de compatibilidad
+-----------------------
+- Si no se selecciona un catálogo global, el alta manual sigue igual.
+- No se modifica la lógica de caja, suscripciones ni procesos existentes.

@@ -2,6 +2,7 @@
 
 namespace App\Form;
 
+use App\Entity\Brand;
 use App\Entity\Category;
 use App\Entity\Product;
 use Doctrine\ORM\EntityRepository;
@@ -9,7 +10,7 @@ use Symfony\Bridge\Doctrine\Form\Type\EntityType;
 use Symfony\Component\Form\AbstractType;
 use Symfony\Component\Form\Extension\Core\Type\CheckboxType;
 use Symfony\Component\Form\Extension\Core\Type\ChoiceType;
-use Symfony\Component\Form\Extension\Core\Type\IntegerType;
+use Symfony\Component\Form\Extension\Core\Type\HiddenType;
 use Symfony\Component\Form\Extension\Core\Type\NumberType;
 use Symfony\Component\Form\Extension\Core\Type\TextType;
 use Symfony\Component\Form\FormEvent;
@@ -22,8 +23,24 @@ class ProductType extends AbstractType
     public function buildForm(FormBuilderInterface $builder, array $options): void
     {
         $builder
+            ->add('catalogProductId', HiddenType::class, [
+                'mapped' => false,
+                'data' => $options['catalog_product_id'],
+            ])
+            ->add('lookupName', TextType::class, [
+                'label' => 'Buscar en catálogo global',
+                'required' => false,
+                'mapped' => false,
+                'attr' => [
+                    'data-catalog-lookup-target' => 'lookupName',
+                    'autocomplete' => 'off',
+                ],
+            ])
             ->add('name', TextType::class, [
                 'label' => 'Nombre',
+                'attr' => [
+                    'data-catalog-lookup-target' => 'name',
+                ],
             ])
             ->add('sku', TextType::class, [
                 'label' => 'SKU',
@@ -31,6 +48,9 @@ class ProductType extends AbstractType
             ->add('barcode', TextType::class, [
                 'label' => 'Código de barras',
                 'required' => false,
+                'attr' => [
+                    'data-catalog-lookup-target' => 'barcode',
+                ],
             ])
             ->add('cost', NumberType::class, [
                 'label' => 'Costo',
@@ -84,6 +104,18 @@ class ProductType extends AbstractType
                         ->where('c.business = :business')
                         ->setParameter('business', $options['current_business'])
                         ->orderBy('c.name', 'ASC');
+                },
+            ])
+            ->add('brand', EntityType::class, [
+                'label' => 'Marca',
+                'class' => Brand::class,
+                'placeholder' => 'Sin marca',
+                'required' => false,
+                'query_builder' => function (EntityRepository $er) use ($options) {
+                    return $er->createQueryBuilder('b')
+                        ->where('b.business = :business')
+                        ->setParameter('business', $options['current_business'])
+                        ->orderBy('b.name', 'ASC');
                 },
             ])
             ->add('isActive', CheckboxType::class, [
@@ -155,6 +187,7 @@ class ProductType extends AbstractType
             'current_business' => null,
             'show_stock' => false,
             'current_stock' => '0.000',
+            'catalog_product_id' => null,
         ]);
     }
 }

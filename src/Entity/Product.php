@@ -9,6 +9,8 @@ use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\Validator\Constraints as Assert;
 use App\Entity\StockMovement;
 use Symfony\Component\Validator\Context\ExecutionContextInterface;
+use App\Entity\Brand;
+use App\Entity\CatalogProduct;
 
 #[ORM\Entity(repositoryClass: ProductRepository::class)]
 #[ORM\Table(name: 'products')]
@@ -73,6 +75,14 @@ class Product
     #[ORM\ManyToOne(inversedBy: 'products')]
     #[ORM\JoinColumn(onDelete: 'SET NULL')]
     private ?Category $category = null;
+
+    #[ORM\ManyToOne(inversedBy: 'products')]
+    #[ORM\JoinColumn(onDelete: 'SET NULL')]
+    private ?Brand $brand = null;
+
+    #[ORM\ManyToOne]
+    #[ORM\JoinColumn(onDelete: 'SET NULL')]
+    private ?CatalogProduct $catalogProduct = null;
 
     /** @var Collection<int, StockMovement> */
     #[ORM\OneToMany(mappedBy: 'product', targetEntity: StockMovement::class, orphanRemoval: true)]
@@ -250,6 +260,30 @@ class Product
     public function setCategory(?Category $category): self
     {
         $this->category = $category;
+
+        return $this;
+    }
+
+    public function getBrand(): ?Brand
+    {
+        return $this->brand;
+    }
+
+    public function setBrand(?Brand $brand): self
+    {
+        $this->brand = $brand;
+
+        return $this;
+    }
+
+    public function getCatalogProduct(): ?CatalogProduct
+    {
+        return $this->catalogProduct;
+    }
+
+    public function setCatalogProduct(?CatalogProduct $catalogProduct): self
+    {
+        $this->catalogProduct = $catalogProduct;
 
         return $this;
     }
