@@ -34,6 +34,7 @@ class Brand
 
     #[ORM\Column(length: 150)]
     #[Assert\NotBlank]
+    #[Assert\Regex(pattern: '/^[a-z0-9]+(?:-[a-z0-9]+)*$/', message: 'El slug solo puede tener letras minúsculas, números y guiones.')]
     private ?string $slug = null;
 
     #[ORM\Column(length: 255, nullable: true)]

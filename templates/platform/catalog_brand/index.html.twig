@@ -32,7 +32,13 @@
                     <tr>
                         <td>{{ brand.name }}</td>
                         <td>{{ brand.slug }}</td>
-                        <td>{{ brand.logoPath ?: '-' }}</td>
+                        <td>
+                            {% if brand.logoPath %}
+                                <img src="{{ brand.logoPath }}" alt="" style="max-height: 32px; max-width: 64px;">
+                            {% else %}
+                                -
+                            {% endif %}
+                        </td>
                         <td>{{ brand.isActive ? 'Sí' : 'No' }}</td>
                         <td class="text-end d-flex gap-2 justify-content-end">
                             <a class="btn btn-sm btn-outline-secondary" href="{{ path('platform_catalog_brand_edit', {id: brand.id}) }}">Editar</a>

@@ -11,7 +11,6 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Annotation\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
-use Symfony\Component\String\Slugger\SluggerInterface;
 
 #[IsGranted('ROLE_PLATFORM_ADMIN')]
 #[Route('/platform/catalog/categories', name: 'platform_catalog_category_')]
@@ -54,14 +53,13 @@ class PlatformCatalogCategoryController extends AbstractController
     }
 
     #[Route('/new', name: 'new', methods: ['GET', 'POST'])]
-    public function new(Request $request, SluggerInterface $slugger): Response
+    public function new(Request $request): Response
     {
         $category = new CatalogCategory();
         $form = $this->createForm(CatalogCategoryType::class, $category);
         $form->handleRequest($request);
 
         if ($form->isSubmitted() && $form->isValid()) {
-            $this->applySlug($category, $slugger);
             $this->entityManager->persist($category);
             $this->entityManager->flush();
 
@@ -77,13 +75,12 @@ class PlatformCatalogCategoryController extends AbstractController
     }
 
     #[Route('/{id}/edit', name: 'edit', methods: ['GET', 'POST'])]
-    public function edit(Request $request, CatalogCategory $category, SluggerInterface $slugger): Response
+    public function edit(Request $request, CatalogCategory $category): Response
     {
         $form = $this->createForm(CatalogCategoryType::class, $category);
         $form->handleRequest($request);
 
         if ($form->isSubmitted() && $form->isValid()) {
-            $this->applySlug($category, $slugger);
             $this->entityManager->flush();
 
             $this->addFlash('success', 'Categoría global actualizada.');
@@ -110,9 +107,4 @@ class PlatformCatalogCategoryController extends AbstractController
         return $this->redirectToRoute('platform_catalog_category_index');
     }
 
-    private function applySlug(CatalogCategory $category, SluggerInterface $slugger): void
-    {
-        $slug = strtolower($slugger->slug($category->getName() ?? '')->toString());
-        $category->setSlug($slug);
-    }
 }

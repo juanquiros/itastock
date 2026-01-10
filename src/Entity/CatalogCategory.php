@@ -28,6 +28,7 @@ class CatalogCategory
 
     #[ORM\Column(length: 150, unique: true)]
     #[Assert\NotBlank]
+    #[Assert\Regex(pattern: '/^[a-z0-9]+(?:-[a-z0-9]+)*$/', message: 'El slug solo puede tener letras minúsculas, números y guiones.')]
     private ?string $slug = null;
 
     #[ORM\Column(options: ['default' => true])]

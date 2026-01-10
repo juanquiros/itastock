@@ -11,7 +11,6 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Annotation\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
-use Symfony\Component\String\Slugger\SluggerInterface;
 
 #[IsGranted('ROLE_PLATFORM_ADMIN')]
 #[Route('/platform/catalog/brands', name: 'platform_catalog_brand_')]
@@ -54,14 +53,13 @@ class PlatformCatalogBrandController extends AbstractController
     }
 
     #[Route('/new', name: 'new', methods: ['GET', 'POST'])]
-    public function new(Request $request, SluggerInterface $slugger): Response
+    public function new(Request $request): Response
     {
         $brand = new CatalogBrand();
         $form = $this->createForm(CatalogBrandType::class, $brand);
         $form->handleRequest($request);
 
         if ($form->isSubmitted() && $form->isValid()) {
-            $this->applySlug($brand, $slugger);
             $this->entityManager->persist($brand);
             $this->entityManager->flush();
 
@@ -77,13 +75,12 @@ class PlatformCatalogBrandController extends AbstractController
     }
 
     #[Route('/{id}/edit', name: 'edit', methods: ['GET', 'POST'])]
-    public function edit(Request $request, CatalogBrand $brand, SluggerInterface $slugger): Response
+    public function edit(Request $request, CatalogBrand $brand): Response
     {
         $form = $this->createForm(CatalogBrandType::class, $brand);
         $form->handleRequest($request);
 
         if ($form->isSubmitted() && $form->isValid()) {
-            $this->applySlug($brand, $slugger);
             $this->entityManager->flush();
 
             $this->addFlash('success', 'Marca global actualizada.');
@@ -110,9 +107,4 @@ class PlatformCatalogBrandController extends AbstractController
         return $this->redirectToRoute('platform_catalog_brand_index');
     }
 
-    private function applySlug(CatalogBrand $brand, SluggerInterface $slugger): void
-    {
-        $slug = strtolower($slugger->slug($brand->getName() ?? '')->toString());
-        $brand->setSlug($slug);
-    }
 }

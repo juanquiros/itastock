@@ -6,9 +6,16 @@
     <div class="mb-3">
         <a class="btn btn-outline-secondary" href="{{ path('platform_catalog_brand_index') }}">Volver</a>
     </div>
-    {{ form_start(form) }}
+    {{ form_start(form, { attr: { 'data-controller': 'brand-logo-upload' } }) }}
         {{ form_row(form.name) }}
         {{ form_row(form.logoPath) }}
+        {{ form_row(form.logoFile) }}
+        <div class="mb-3">
+            <label class="form-label">Vista previa</label>
+            <div>
+                <img src="{{ brand.logoPath ?: '' }}" alt="" class="border rounded" style="max-width: 180px; max-height: 180px;" data-brand-logo-upload-target="preview">
+            </div>
+        </div>
         {{ form_row(form.isActive) }}
         <button class="btn btn-primary mt-3">{{ brand.id ? 'Guardar' : 'Crear' }}</button>
     {{ form_end(form) }}

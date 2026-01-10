@@ -10,6 +10,7 @@ Entidades globales
 - CatalogBrand (tabla catalog_brand):
   - Campos: id, name, slug, logoPath, isActive, createdAt, updatedAt.
   - Relación: OneToMany con CatalogProduct.
+  - El logo se puede cargar desde archivo y se optimiza en el navegador.
 
 - CatalogProduct (tabla catalog_product):
   - Campos: id, name, presentation, barcode, sku, isActive, createdAt, updatedAt.
