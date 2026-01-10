@@ -26,6 +26,9 @@ class CatalogBrandType extends AbstractType
             ->add('name', TextType::class, [
                 'label' => 'Nombre',
             ])
+            ->add('slug', HiddenType::class, [
+                'required' => false,
+            ])
             ->add('logoPath', HiddenType::class, [
                 'required' => false,
                 'attr' => [

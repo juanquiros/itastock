@@ -5,6 +5,7 @@ namespace App\Form;
 use App\Entity\CatalogCategory;
 use Symfony\Component\Form\AbstractType;
 use Symfony\Component\Form\Extension\Core\Type\CheckboxType;
+use Symfony\Component\Form\Extension\Core\Type\HiddenType;
 use Symfony\Component\Form\Extension\Core\Type\TextType;
 use Symfony\Component\Form\FormEvent;
 use Symfony\Component\Form\FormEvents;
@@ -23,6 +24,9 @@ class CatalogCategoryType extends AbstractType
         $builder
             ->add('name', TextType::class, [
                 'label' => 'Nombre',
+            ])
+            ->add('slug', HiddenType::class, [
+                'required' => false,
             ])
             ->add('isActive', CheckboxType::class, [
                 'label' => 'Activo',
