@@ -163,6 +163,7 @@ export default class extends Controller {
         if (existingScript) {
             if (existingScript.src.includes('index.min.js')) {
                 existingScript.remove();
+                this.libraryPromise = null;
                 return this.loadLibraryFallback();
             }
 
@@ -188,7 +189,7 @@ export default class extends Controller {
         }
 
         if (this.libraryPromise) {
-            return this.libraryPromise;
+            return this.libraryPromise.then((loaded) => loaded ? true : this.loadLibraryFallback());
         }
 
         this.libraryPromise = this.loadLibraryFallback();
