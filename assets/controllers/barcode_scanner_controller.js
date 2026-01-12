@@ -11,6 +11,7 @@ export default class extends Controller {
         this.activeInput = null;
         this.scanner = null;
         this.isScanning = false;
+        this.markScannerAvailability();
 
         if (this.hasModalTarget && window.bootstrap?.Modal) {
             this.modalInstance = new window.bootstrap.Modal(this.modalTarget);
@@ -133,6 +134,15 @@ export default class extends Controller {
 
     isCameraSupported() {
         return !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
+    }
+
+    markScannerAvailability() {
+        const hasTouch = navigator.maxTouchPoints > 0 || window.matchMedia('(pointer: coarse)').matches;
+        if (hasTouch && this.isCameraSupported()) {
+            document.body.classList.add('barcode-scanner-available');
+        } else {
+            document.body.classList.remove('barcode-scanner-available');
+        }
     }
 
     isPermissionDenied(error) {

@@ -16,3 +16,7 @@
         display: inline-flex;
     }
 }
+
+body.barcode-scanner-available .barcode-scan-button {
+    display: inline-flex;
+}
