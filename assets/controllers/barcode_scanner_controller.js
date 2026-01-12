@@ -38,10 +38,10 @@ export default class extends Controller {
             return;
         }
 
-        if (!window.Html5Qrcode) {
+        if (!this.resolveLibrary()) {
             this.ensureLibraryLoaded()
                 .then(() => {
-                    if (!window.Html5Qrcode) {
+                    if (!this.resolveLibrary()) {
                         throw new Error('Html5Qrcode missing');
                     }
                     this.open(event);
@@ -100,8 +100,23 @@ export default class extends Controller {
         return this.libraryLoadingPromise;
     }
 
+    resolveLibrary() {
+        if (window.Html5Qrcode) {
+            return window.Html5Qrcode;
+        }
+
+        const fallbackLibrary = window.__Html5QrcodeLibrary__?.Html5Qrcode;
+        if (fallbackLibrary) {
+            window.Html5Qrcode = fallbackLibrary;
+            return window.Html5Qrcode;
+        }
+
+        return null;
+    }
+
     startScanner() {
-        if (!window.Html5Qrcode || !this.hasScannerTarget) {
+        const Html5Qrcode = this.resolveLibrary();
+        if (!Html5Qrcode || !this.hasScannerTarget) {
             return;
         }
 
@@ -114,7 +129,7 @@ export default class extends Controller {
             return;
         }
 
-        this.html5QrCode = new window.Html5Qrcode(scannerId);
+        this.html5QrCode = new Html5Qrcode(scannerId);
         const config = {
             fps: 10,
             qrbox: { width: 280, height: 180 },
