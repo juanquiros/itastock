@@ -5,11 +5,11 @@ import { Controller } from '@hotwired/stimulus';
 // - El botón debe tener data-action="barcode-scanner#open" y data-barcode-scanner-input-id="<id_del_input>".
 // - Alternativamente, el botón puede vivir en el mismo input-group que el input target.
 export default class extends Controller {
-    static targets = ['modal', 'reader', 'status', 'input'];
+    static targets = ['modal', 'scanner', 'status', 'input'];
 
     connect() {
         this.activeInput = null;
-        this.codeReader = null;
+        this.html5Qrcode = null;
         this.isScanning = false;
         this.modalReady = false;
         this.markScannerAvailability();
@@ -32,7 +32,7 @@ export default class extends Controller {
         }
     }
 
-    async open(event) {
+    open(event) {
         event.preventDefault();
         this.activeInput = this.resolveInput(event.currentTarget);
 
@@ -47,8 +47,8 @@ export default class extends Controller {
             return;
         }
 
-        if (!(await this.ensureLibrary())) {
-            this.notifyUser('La librería de escaneo no se cargó correctamente.');
+        if (!this.ensureLibrary()) {
+            this.notifyUser('No se pudo cargar el lector de códigos, verificá la conexión o usá el ingreso manual.');
             return;
         }
 
@@ -59,6 +59,7 @@ export default class extends Controller {
 
         this.clearStatus();
         this.modalInstance?.show();
+        window.setTimeout(() => this.startScanner(), 250);
     }
 
     resolveInput(button) {
@@ -76,25 +77,29 @@ export default class extends Controller {
     }
 
     startScanner() {
-        if (!this.activeInput || this.isScanning || !window.ZXingBrowser?.BrowserMultiFormatReader) {
+        if (!this.activeInput || this.isScanning || !window.Html5Qrcode) {
             return;
         }
 
-        const videoElement = this.ensureVideoElement();
-        if (!videoElement) {
+        const scannerId = this.resolveScannerId();
+        if (!scannerId) {
             this.showStatus('No se pudo iniciar la cámara. Verificá el dispositivo.');
             return;
         }
 
-        this.codeReader = new window.ZXingBrowser.BrowserMultiFormatReader();
-        this.codeReader
-            .decodeFromVideoDevice(null, videoElement, (result, error) => {
-                if (result) {
-                    this.applyScan(result.getText());
-                } else if (error && !(error instanceof window.ZXingBrowser.NotFoundException)) {
-                    this.showStatus('No se pudo leer el código. Intentá nuevamente.');
-                }
-            })
+        this.html5Qrcode = new window.Html5Qrcode(scannerId);
+        const config = {
+            fps: 10,
+            qrbox: { width: 280, height: 180 },
+        };
+
+        this.html5Qrcode
+            .start(
+                { facingMode: 'environment' },
+                config,
+                (decodedText) => this.applyScan(decodedText),
+                (errorMessage) => this.onScanFailure(errorMessage),
+            )
             .then(() => {
                 this.isScanning = true;
             })
@@ -118,129 +123,51 @@ export default class extends Controller {
             this.activeInput.dispatchEvent(new Event(type, { bubbles: true }));
         });
 
-        this.modalInstance?.hide();
+        this.closeModal();
     }
 
-    ensureVideoElement() {
-        if (!this.hasReaderTarget) {
-            return null;
-        }
-
-        const existingVideo = this.readerTarget.querySelector('video');
-        if (existingVideo) {
-            return existingVideo;
-        }
-
-        this.readerTarget.innerHTML = '';
-        const video = document.createElement('video');
-        video.setAttribute('playsinline', 'true');
-        video.classList.add('w-100');
-        this.readerTarget.appendChild(video);
-        return video;
+    onScanFailure(_errorMessage) {
+        // Lecturas fallidas son frecuentes; no interrumpir al usuario.
     }
 
     stopScanner() {
-        if (!this.codeReader || !this.isScanning) {
+        if (!this.html5Qrcode || !this.isScanning) {
             return;
         }
 
-        try {
-            this.codeReader.reset();
-        } catch (error) {
-            // Ignore cleanup errors to avoid blocking the modal close flow.
-        } finally {
-            this.codeReader = null;
-            this.isScanning = false;
-        }
+        this.html5Qrcode
+            .stop()
+            .then(() => this.html5Qrcode.clear())
+            .catch(() => {})
+            .finally(() => {
+                this.html5Qrcode = null;
+                this.isScanning = false;
+            });
     }
 
     ensureLibrary() {
-        if (typeof window.ZXingBrowser !== 'undefined') {
-            return Promise.resolve(true);
-        }
-
-        const existingScript = document.querySelector('script[src*="@zxing/browser"]');
-        if (existingScript) {
-            if (existingScript.src.includes('index.min.js')) {
-                const [primarySource] = this.getLibrarySources();
-                existingScript.dataset.loaded = 'false';
-                existingScript.src = primarySource;
-                this.libraryPromise = null;
-                return new Promise((resolve) => {
-                    existingScript.addEventListener('load', () => resolve(typeof window.ZXingBrowser !== 'undefined'), { once: true });
-                    existingScript.addEventListener('error', () => resolve(false), { once: true });
-                    setTimeout(() => resolve(typeof window.ZXingBrowser !== 'undefined'), 2500);
-                }).then((loaded) => loaded ? true : this.loadLibraryFallback());
-            }
-
-            return new Promise((resolve) => {
-                if (existingScript.dataset.loaded === 'true' || existingScript.readyState === 'complete' || existingScript.readyState === 'loaded') {
-                    resolve(typeof window.ZXingBrowser !== 'undefined');
-                    return;
-                }
-
-                let resolved = false;
-                const finalize = (value) => {
-                    if (resolved) {
-                        return;
-                    }
-                    resolved = true;
-                    resolve(value);
-                };
-
-                existingScript.addEventListener('load', () => finalize(typeof window.ZXingBrowser !== 'undefined'), { once: true });
-                existingScript.addEventListener('error', () => finalize(false), { once: true });
-                setTimeout(() => finalize(typeof window.ZXingBrowser !== 'undefined'), 2500);
-            }).then((loaded) => loaded ? true : this.loadLibraryFallback());
-        }
-
-        if (this.libraryPromise) {
-            return this.libraryPromise.then((loaded) => loaded ? true : this.loadLibraryFallback());
-        }
-
-        this.libraryPromise = this.loadLibraryFallback();
-
-        return this.libraryPromise;
-    }
-
-    loadLibraryFallback() {
-        const sources = this.getLibrarySources();
-
-        const tryLoad = (index) => new Promise((resolve) => {
-            if (typeof window.ZXingBrowser !== 'undefined') {
-                resolve(true);
-                return;
-            }
-
-            const script = document.createElement('script');
-            script.src = sources[index];
-            script.async = true;
-            script.onload = () => {
-                script.dataset.loaded = 'true';
-                resolve(typeof window.ZXingBrowser !== 'undefined');
-            };
-            script.onerror = () => resolve(false);
-            document.head.appendChild(script);
-        }).then((loaded) => {
-            if (loaded || index >= sources.length - 1) {
-                return loaded;
-            }
-
-            return tryLoad(index + 1);
-        });
-
-        return tryLoad(0);
-    }
-
-    getLibrarySources() {
-        return [
-            'https://cdn.jsdelivr.net/npm/@zxing/browser@0.1.5/umd/zxing-browser.min.js',
-            'https://unpkg.com/@zxing/browser@0.1.5/umd/zxing-browser.min.js',
-        ];
+        return typeof window.Html5Qrcode !== 'undefined';
     }
 
     isCameraSupported() {
         return !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
+    }
+
+    resolveScannerId() {
+        if (!this.hasScannerTarget) {
+            return null;
+        }
+
+        if (!this.scannerTarget.id) {
+            this.scannerTarget.id = 'barcode-scanner-reader';
+        }
+
+        return this.scannerTarget.id;
+    }
+
+    closeModal() {
+        this.modalInstance?.hide();
+        this.stopScanner();
     }
 
     markScannerAvailability() {
@@ -250,6 +177,10 @@ export default class extends Controller {
         } else {
             document.body.classList.remove('barcode-scanner-available');
         }
+    }
+
+    disconnect() {
+        this.stopScanner();
     }
 
     isPermissionDenied(error) {

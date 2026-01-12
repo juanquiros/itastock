@@ -65,7 +65,7 @@
             }
         </style>
         {% block stylesheets %}{% endblock %}
-        <script src="https://cdn.jsdelivr.net/npm/@zxing/browser@0.1.5/umd/zxing-browser.min.js" defer></script>
+        <script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.10/html5-qrcode.min.js" defer></script>
         <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous" defer></script>
         {{ importmap('app') }}
         {% block javascripts %}{% endblock %}
@@ -180,7 +180,7 @@
                         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
                     </div>
                     <div class="modal-body">
-                        <div class="barcode-scanner-reader mb-3" data-barcode-scanner-target="reader"></div>
+                        <div class="barcode-scanner-reader mb-3" data-barcode-scanner-target="scanner"></div>
                         <div class="alert alert-warning d-none" role="alert" data-barcode-scanner-target="status"></div>
                         <p class="text-muted small mb-0">Alineá el código dentro del recuadro para capturarlo.</p>
                     </div>
