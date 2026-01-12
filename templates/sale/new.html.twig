@@ -15,7 +15,7 @@
             </div>
 
             <div class="card shadow-sm p-4 mb-4" id="customer-step">
-                <form method="post" id="sale-form" data-controller="barcode-scanner" data-barcode-scanner-script-url-value="{{ asset('vendor/html5-qrcode.min.js') }}">
+                <form method="post" id="sale-form" data-controller="barcode-scanner" data-barcode-scanner-script-url-value="{{ asset('vendor/html5-qrcode.min.js') }}" data-barcode-scanner-continuous-value="true" {% if barcodeScanSoundPath %}data-barcode-scanner-success-sound-url-value="{{ barcodeScanSoundPath }}"{% endif %}>
                     <div class="mb-4">
                         <input type="hidden" name="customer_id" id="customer-id" value="">
                         <input type="hidden" name="payment_method" id="payment-method" value="CASH">
@@ -52,6 +52,7 @@
                                                     Escanear
                                                 </button>
                                             </div>
+                                            <div id="barcode-scan-alert" class="alert alert-warning d-none mt-3" role="alert"></div>
                                             <div class="form-text">Escribí para filtrar y agregá con un clic.</div>
                                         </div>
 
@@ -178,6 +179,7 @@
             const saleWorkspace = document.getElementById('sale-workspace');
             const confirmSale = document.getElementById('confirm-sale');
             const finalizeSale = document.getElementById('finalize-sale');
+            const scanAlert = document.getElementById('barcode-scan-alert');
             let currentTotal = 0;
 
             function formatMoney(value) {
@@ -211,6 +213,21 @@
                 }
 
                 return product.uomBase !== 'UNIT' ? 0.001 : 1;
+            }
+
+            function showScanAlert(message) {
+                if (!scanAlert) {
+                    return;
+                }
+
+                if (!message) {
+                    scanAlert.textContent = '';
+                    scanAlert.classList.add('d-none');
+                    return;
+                }
+
+                scanAlert.textContent = message;
+                scanAlert.classList.remove('d-none');
             }
 
             function normalizeQty(value, item) {
@@ -495,6 +512,7 @@
             });
 
             searchInput.addEventListener('input', (event) => {
+                showScanAlert('');
                 renderResults(event.target.value);
             });
 
@@ -507,6 +525,24 @@
                         searchInput.select();
                     }
                 }
+            });
+
+            searchInput.addEventListener('barcode-scanner:scan', (event) => {
+                const code = (event.detail?.code || '').trim();
+                if (!code) {
+                    return;
+                }
+
+                const match = products.find((product) => product.barcode && product.barcode.toLowerCase() === code.toLowerCase());
+                if (match) {
+                    addItem(match.id);
+                    showScanAlert('');
+                } else {
+                    showScanAlert(`No se encontró coincidencia para el código "${code}".`);
+                }
+
+                searchInput.value = '';
+                renderResults('');
             });
 
             const saleForm = document.getElementById('sale-form');

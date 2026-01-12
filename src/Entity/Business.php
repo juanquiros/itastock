@@ -32,6 +32,9 @@ class Business
     #[ORM\Column]
     private ?DateTimeImmutable $createdAt = null;
 
+    #[ORM\Column(type: 'text', nullable: true)]
+    private ?string $barcodeScanSoundPath = null;
+
     /** @var Collection<int, User> */
     #[ORM\OneToMany(mappedBy: 'business', targetEntity: User::class, orphanRemoval: true)]
     private Collection $users;
@@ -102,6 +105,18 @@ class Business
     public function setStatus(string $status): self
     {
         $this->status = $status;
+
+        return $this;
+    }
+
+    public function getBarcodeScanSoundPath(): ?string
+    {
+        return $this->barcodeScanSoundPath;
+    }
+
+    public function setBarcodeScanSoundPath(?string $barcodeScanSoundPath): self
+    {
+        $this->barcodeScanSoundPath = $barcodeScanSoundPath;
 
         return $this;
     }

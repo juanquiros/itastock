@@ -90,6 +90,7 @@ class SaleController extends AbstractController
             ], $priceLists),
             'priceListPrices' => $priceListPrices,
             'defaultPriceListId' => $defaultPriceList?->getId(),
+            'barcodeScanSoundPath' => $business->getBarcodeScanSoundPath(),
         ]);
     }
 

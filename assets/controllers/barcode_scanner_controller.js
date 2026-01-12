@@ -9,6 +9,8 @@ export default class extends Controller {
     static targets = ['input', 'modal', 'scanner'];
     static values = {
         scriptUrl: String,
+        successSoundUrl: String,
+        continuous: Boolean,
     };
 
     connect() {
@@ -17,6 +19,8 @@ export default class extends Controller {
         this.html5QrCode = null;
         this.libraryLoadingPromise = null;
         this.modalListenerAttached = false;
+        this.lastScan = { text: null, time: 0 };
+        this.successSound = null;
         this.handleModalHidden = this.handleModalHidden.bind(this);
     }
 
@@ -152,16 +156,26 @@ export default class extends Controller {
             return;
         }
 
+        const now = Date.now();
+        if (decodedText === this.lastScan.text && now - this.lastScan.time < 800) {
+            return;
+        }
+        this.lastScan = { text: decodedText, time: now };
+
         this.activeInput.value = decodedText;
         this.activeInput.dispatchEvent(new Event('input', { bubbles: true }));
         this.activeInput.dispatchEvent(new Event('change', { bubbles: true }));
         this.activeInput.dispatchEvent(new Event('blur', { bubbles: true }));
+        this.activeInput.dispatchEvent(new CustomEvent('barcode-scanner:scan', { bubbles: true, detail: { code: decodedText } }));
 
-        if (this.modalInstance) {
-            this.modalInstance.hide();
+        this.playSuccessSound();
+
+        if (!this.continuousValue) {
+            if (this.modalInstance) {
+                this.modalInstance.hide();
+            }
+            this.stopScanner();
         }
-
-        this.stopScanner();
     }
 
     onScanFailure() {
@@ -215,6 +229,26 @@ export default class extends Controller {
                 });
         } else {
             qrCode.clear().catch(() => null);
+        }
+    }
+
+    playSuccessSound() {
+        if (!this.hasSuccessSoundUrlValue) {
+            return;
+        }
+
+        if (!this.successSound || this.successSound.src !== this.successSoundUrlValue) {
+            this.successSound = new Audio(this.successSoundUrlValue);
+        }
+
+        try {
+            this.successSound.currentTime = 0;
+            const playback = this.successSound.play();
+            if (playback && typeof playback.catch === 'function') {
+                playback.catch(() => null);
+            }
+        } catch (error) {
+            console.warn('Unable to play scan sound', error);
         }
     }
 }
