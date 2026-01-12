@@ -171,16 +171,32 @@ export default class extends Controller {
                 existingScript.addEventListener('load', () => finalize(typeof window.Html5Qrcode !== 'undefined'), { once: true });
                 existingScript.addEventListener('error', () => finalize(false), { once: true });
                 setTimeout(() => finalize(typeof window.Html5Qrcode !== 'undefined'), 2500);
-            });
+            }).then((loaded) => loaded ? true : this.loadLibraryFallback());
         }
 
         if (this.libraryPromise) {
             return this.libraryPromise;
         }
 
-        this.libraryPromise = new Promise((resolve) => {
+        this.libraryPromise = this.loadLibraryFallback();
+
+        return this.libraryPromise;
+    }
+
+    loadLibraryFallback() {
+        const sources = [
+            'https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.10/html5-qrcode.min.js',
+            'https://unpkg.com/html5-qrcode@2.3.10/html5-qrcode.min.js',
+        ];
+
+        const tryLoad = (index) => new Promise((resolve) => {
+            if (typeof window.Html5Qrcode !== 'undefined') {
+                resolve(true);
+                return;
+            }
+
             const script = document.createElement('script');
-            script.src = 'https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.10/html5-qrcode.min.js';
+            script.src = sources[index];
             script.async = true;
             script.onload = () => {
                 script.dataset.loaded = 'true';
@@ -188,9 +204,15 @@ export default class extends Controller {
             };
             script.onerror = () => resolve(false);
             document.head.appendChild(script);
+        }).then((loaded) => {
+            if (loaded || index >= sources.length - 1) {
+                return loaded;
+            }
+
+            return tryLoad(index + 1);
         });
 
-        return this.libraryPromise;
+        return tryLoad(0);
     }
 
     isCameraSupported() {
