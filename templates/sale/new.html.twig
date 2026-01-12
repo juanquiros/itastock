@@ -15,7 +15,7 @@
             </div>
 
             <div class="card shadow-sm p-4 mb-4" id="customer-step">
-                <form method="post" id="sale-form" data-controller="barcode-scanner">
+                <form method="post" id="sale-form" data-controller="barcode-scanner" data-barcode-scanner-script-url-value="{{ asset('vendor/html5-qrcode.min.js') }}">
                     <div class="mb-4">
                         <input type="hidden" name="customer_id" id="customer-id" value="">
                         <input type="hidden" name="payment_method" id="payment-method" value="CASH">

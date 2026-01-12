@@ -7,11 +7,15 @@ import { Controller } from '@hotwired/stimulus';
 //   con data-barcode-scanner-target="scanner" dentro del mismo scope del controller.
 export default class extends Controller {
     static targets = ['input', 'modal', 'scanner'];
+    static values = {
+        scriptUrl: String,
+    };
 
     connect() {
         this.activeInput = null;
         this.modalInstance = null;
         this.html5QrCode = null;
+        this.libraryLoadingPromise = null;
         this.modalListenerAttached = false;
         this.handleModalHidden = this.handleModalHidden.bind(this);
     }
@@ -35,7 +39,16 @@ export default class extends Controller {
         }
 
         if (!window.Html5Qrcode) {
-            window.alert('El escáner no está disponible en este navegador. Podés ingresar el código manualmente.');
+            this.ensureLibraryLoaded()
+                .then(() => {
+                    if (!window.Html5Qrcode) {
+                        throw new Error('Html5Qrcode missing');
+                    }
+                    this.open(event);
+                })
+                .catch(() => {
+                    window.alert('La librería de escaneo no se cargó correctamente. Podés ingresar el código manualmente.');
+                });
             return;
         }
 
@@ -57,6 +70,34 @@ export default class extends Controller {
         window.setTimeout(() => {
             this.startScanner();
         }, 200);
+    }
+
+    ensureLibraryLoaded() {
+        if (this.libraryLoadingPromise) {
+            return this.libraryLoadingPromise;
+        }
+
+        const scriptUrl = this.hasScriptUrlValue ? this.scriptUrlValue : '/vendor/html5-qrcode.min.js';
+        this.libraryLoadingPromise = new Promise((resolve, reject) => {
+            const existingScript = document.querySelector(`script[src="${scriptUrl}"]`);
+            if (existingScript) {
+                existingScript.addEventListener('load', () => resolve(), { once: true });
+                existingScript.addEventListener('error', () => reject(new Error('Failed to load script')), { once: true });
+                if (window.Html5Qrcode) {
+                    resolve();
+                }
+                return;
+            }
+
+            const script = document.createElement('script');
+            script.src = scriptUrl;
+            script.defer = true;
+            script.onload = () => resolve();
+            script.onerror = () => reject(new Error('Failed to load script'));
+            document.head.appendChild(script);
+        });
+
+        return this.libraryLoadingPromise;
     }
 
     startScanner() {

@@ -8,7 +8,8 @@
     </div>
     {{ form_start(form, {
         attr: {
-            'data-controller': 'barcode-scanner'
+            'data-controller': 'barcode-scanner',
+            'data-barcode-scanner-script-url-value': asset('vendor/html5-qrcode.min.js')
         }
     }) }}
         {{ form_row(form.name) }}

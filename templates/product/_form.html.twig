@@ -2,7 +2,8 @@
     attr: {
         'data-controller': 'catalog-lookup barcode-scanner',
         'data-catalog-lookup-barcode-url-value': path('app_catalog_lookup_barcode'),
-        'data-catalog-lookup-name-url-value': path('app_catalog_lookup_name')
+        'data-catalog-lookup-name-url-value': path('app_catalog_lookup_name'),
+        'data-barcode-scanner-script-url-value': asset('vendor/html5-qrcode.min.js')
     }
 }) }}
 {{ form_widget(form.catalogProductId, {'attr': {'data-catalog-lookup-target': 'catalogProductId'}}) }}
