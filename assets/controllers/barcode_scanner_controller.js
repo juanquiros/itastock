@@ -11,12 +11,24 @@ export default class extends Controller {
         this.activeInput = null;
         this.scanner = null;
         this.isScanning = false;
+        this.modalReady = false;
         this.markScannerAvailability();
+        this.setupModal();
+    }
 
-        if (this.hasModalTarget && window.bootstrap?.Modal) {
+    setupModal() {
+        if (!this.hasModalTarget || !window.bootstrap?.Modal) {
+            return;
+        }
+
+        if (!this.modalInstance) {
             this.modalInstance = new window.bootstrap.Modal(this.modalTarget);
+        }
+
+        if (!this.modalReady) {
             this.modalTarget.addEventListener('shown.bs.modal', () => this.startScanner());
             this.modalTarget.addEventListener('hidden.bs.modal', () => this.stopScanner());
+            this.modalReady = true;
         }
     }
 
@@ -29,13 +41,19 @@ export default class extends Controller {
             return;
         }
 
+        this.setupModal();
+        if (!this.modalInstance) {
+            this.notifyUser('No se pudo abrir el escáner. Actualizá la página e intentá nuevamente.');
+            return;
+        }
+
         if (!this.ensureLibrary()) {
-            this.showStatus('La librería de escaneo no se cargó correctamente.');
+            this.notifyUser('La librería de escaneo no se cargó correctamente.');
             return;
         }
 
         if (!this.isCameraSupported()) {
-            this.showStatus('Este dispositivo no soporta cámara o no permite acceso.');
+            this.notifyUser('Este dispositivo no soporta cámara o no permite acceso.');
             return;
         }
 
