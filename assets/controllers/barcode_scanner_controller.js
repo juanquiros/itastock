@@ -162,9 +162,15 @@ export default class extends Controller {
         const existingScript = document.querySelector('script[src*="@zxing/browser"]');
         if (existingScript) {
             if (existingScript.src.includes('index.min.js')) {
-                existingScript.remove();
+                const [primarySource] = this.getLibrarySources();
+                existingScript.dataset.loaded = 'false';
+                existingScript.src = primarySource;
                 this.libraryPromise = null;
-                return this.loadLibraryFallback();
+                return new Promise((resolve) => {
+                    existingScript.addEventListener('load', () => resolve(typeof window.ZXingBrowser !== 'undefined'), { once: true });
+                    existingScript.addEventListener('error', () => resolve(false), { once: true });
+                    setTimeout(() => resolve(typeof window.ZXingBrowser !== 'undefined'), 2500);
+                }).then((loaded) => loaded ? true : this.loadLibraryFallback());
             }
 
             return new Promise((resolve) => {
@@ -198,10 +204,7 @@ export default class extends Controller {
     }
 
     loadLibraryFallback() {
-        const sources = [
-            'https://cdn.jsdelivr.net/npm/@zxing/browser@0.1.5/umd/zxing-browser.min.js',
-            'https://unpkg.com/@zxing/browser@0.1.5/umd/zxing-browser.min.js',
-        ];
+        const sources = this.getLibrarySources();
 
         const tryLoad = (index) => new Promise((resolve) => {
             if (typeof window.ZXingBrowser !== 'undefined') {
@@ -227,6 +230,13 @@ export default class extends Controller {
         });
 
         return tryLoad(0);
+    }
+
+    getLibrarySources() {
+        return [
+            'https://cdn.jsdelivr.net/npm/@zxing/browser@0.1.5/umd/zxing-browser.min.js',
+            'https://unpkg.com/@zxing/browser@0.1.5/umd/zxing-browser.min.js',
+        ];
     }
 
     isCameraSupported() {
