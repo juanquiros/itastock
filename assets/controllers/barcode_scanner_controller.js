@@ -159,8 +159,13 @@ export default class extends Controller {
             return Promise.resolve(true);
         }
 
-        const existingScript = document.querySelector('script[src*="zxing-browser"]');
+        const existingScript = document.querySelector('script[src*="@zxing/browser"]');
         if (existingScript) {
+            if (existingScript.src.includes('index.min.js')) {
+                existingScript.remove();
+                return this.loadLibraryFallback();
+            }
+
             return new Promise((resolve) => {
                 if (existingScript.dataset.loaded === 'true' || existingScript.readyState === 'complete' || existingScript.readyState === 'loaded') {
                     resolve(typeof window.ZXingBrowser !== 'undefined');
