@@ -9,7 +9,7 @@ export default class extends Controller {
 
     connect() {
         this.activeInput = null;
-        this.scanner = null;
+        this.codeReader = null;
         this.isScanning = false;
         this.modalReady = false;
         this.markScannerAvailability();
@@ -76,36 +76,25 @@ export default class extends Controller {
     }
 
     startScanner() {
-        if (!this.activeInput || this.isScanning || !window.Html5Qrcode) {
+        if (!this.activeInput || this.isScanning || !window.ZXing?.BrowserMultiFormatReader) {
             return;
         }
 
-        const readerId = this.readerTarget?.id || 'barcode-scanner-reader';
-        if (this.readerTarget && !this.readerTarget.id) {
-            this.readerTarget.id = readerId;
+        const videoElement = this.ensureVideoElement();
+        if (!videoElement) {
+            this.showStatus('No se pudo iniciar la cámara. Verificá el dispositivo.');
+            return;
         }
 
-        this.scanner = new window.Html5Qrcode(readerId);
-        const config = {
-            fps: 10,
-            qrbox: { width: 280, height: 180 },
-            rememberLastUsedCamera: true,
-        };
-
-        if (window.Html5QrcodeSupportedFormats) {
-            config.formatsToSupport = [
-                window.Html5QrcodeSupportedFormats.EAN_13,
-                window.Html5QrcodeSupportedFormats.EAN_8,
-                window.Html5QrcodeSupportedFormats.UPC_A,
-                window.Html5QrcodeSupportedFormats.UPC_E,
-                window.Html5QrcodeSupportedFormats.CODE_128,
-                window.Html5QrcodeSupportedFormats.CODE_39,
-                window.Html5QrcodeSupportedFormats.ITF,
-            ];
-        }
-
-        this.scanner
-            .start({ facingMode: 'environment' }, config, (decodedText) => this.applyScan(decodedText))
+        this.codeReader = new window.ZXing.BrowserMultiFormatReader();
+        this.codeReader
+            .decodeFromVideoDevice(null, videoElement, (result, error) => {
+                if (result) {
+                    this.applyScan(result.getText());
+                } else if (error && !(error instanceof window.ZXing.NotFoundException)) {
+                    this.showStatus('No se pudo leer el código. Intentá nuevamente.');
+                }
+            })
             .then(() => {
                 this.isScanning = true;
             })
@@ -132,30 +121,49 @@ export default class extends Controller {
         this.modalInstance?.hide();
     }
 
+    ensureVideoElement() {
+        if (!this.hasReaderTarget) {
+            return null;
+        }
+
+        const existingVideo = this.readerTarget.querySelector('video');
+        if (existingVideo) {
+            return existingVideo;
+        }
+
+        this.readerTarget.innerHTML = '';
+        const video = document.createElement('video');
+        video.setAttribute('playsinline', 'true');
+        video.classList.add('w-100');
+        this.readerTarget.appendChild(video);
+        return video;
+    }
+
     stopScanner() {
-        if (!this.scanner || !this.isScanning) {
+        if (!this.codeReader || !this.isScanning) {
             return;
         }
 
-        this.scanner
-            .stop()
-            .then(() => this.scanner.clear())
-            .catch(() => {})
-            .finally(() => {
-                this.isScanning = false;
-            });
+        try {
+            this.codeReader.reset();
+        } catch (error) {
+            // Ignore cleanup errors to avoid blocking the modal close flow.
+        } finally {
+            this.codeReader = null;
+            this.isScanning = false;
+        }
     }
 
     ensureLibrary() {
-        if (typeof window.Html5Qrcode !== 'undefined') {
+        if (typeof window.ZXing !== 'undefined') {
             return Promise.resolve(true);
         }
 
-        const existingScript = document.querySelector('script[src*="html5-qrcode"]');
+        const existingScript = document.querySelector('script[src*="@zxing/browser"]');
         if (existingScript) {
             return new Promise((resolve) => {
                 if (existingScript.dataset.loaded === 'true' || existingScript.readyState === 'complete' || existingScript.readyState === 'loaded') {
-                    resolve(typeof window.Html5Qrcode !== 'undefined');
+                    resolve(typeof window.ZXing !== 'undefined');
                     return;
                 }
 
@@ -168,9 +176,9 @@ export default class extends Controller {
                     resolve(value);
                 };
 
-                existingScript.addEventListener('load', () => finalize(typeof window.Html5Qrcode !== 'undefined'), { once: true });
+                existingScript.addEventListener('load', () => finalize(typeof window.ZXing !== 'undefined'), { once: true });
                 existingScript.addEventListener('error', () => finalize(false), { once: true });
-                setTimeout(() => finalize(typeof window.Html5Qrcode !== 'undefined'), 2500);
+                setTimeout(() => finalize(typeof window.ZXing !== 'undefined'), 2500);
             }).then((loaded) => loaded ? true : this.loadLibraryFallback());
         }
 
@@ -185,12 +193,12 @@ export default class extends Controller {
 
     loadLibraryFallback() {
         const sources = [
-            'https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.10/html5-qrcode.min.js',
-            'https://unpkg.com/html5-qrcode@2.3.10/html5-qrcode.min.js',
+            'https://cdn.jsdelivr.net/npm/@zxing/browser@0.1.5/umd/index.min.js',
+            'https://unpkg.com/@zxing/browser@0.1.5/umd/index.min.js',
         ];
 
         const tryLoad = (index) => new Promise((resolve) => {
-            if (typeof window.Html5Qrcode !== 'undefined') {
+            if (typeof window.ZXing !== 'undefined') {
                 resolve(true);
                 return;
             }
@@ -200,7 +208,7 @@ export default class extends Controller {
             script.async = true;
             script.onload = () => {
                 script.dataset.loaded = 'true';
-                resolve(typeof window.Html5Qrcode !== 'undefined');
+                resolve(typeof window.ZXing !== 'undefined');
             };
             script.onerror = () => resolve(false);
             document.head.appendChild(script);
