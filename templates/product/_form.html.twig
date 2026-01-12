@@ -19,7 +19,20 @@
                 {{ form_row(form.sku) }}
             </div>
             <div class="col-md-3">
-                {{ form_row(form.barcode) }}
+                {# Convención escaneo: input con data-barcode-scanner-target="input" + botón con data-action y data-barcode-scanner-input-id #}
+                {{ form_label(form.barcode) }}
+                <div class="input-group" data-barcode-scanner-scope>
+                    {{ form_widget(form.barcode) }}
+                    <button
+                        type="button"
+                        class="btn btn-outline-secondary d-inline-flex d-md-none align-items-center"
+                        data-action="barcode-scanner#open"
+                        data-barcode-scanner-input-id="{{ form.barcode.vars.id }}"
+                    >
+                        Escanear
+                    </button>
+                </div>
+                {{ form_errors(form.barcode) }}
             </div>
             <div class="col-md-4">
                 {{ form_row(form.cost) }}

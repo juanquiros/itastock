@@ -28,6 +28,10 @@ class CatalogProductType extends AbstractType
             ->add('barcode', TextType::class, [
                 'label' => 'Código de barras',
                 'required' => false,
+                'attr' => [
+                    'data-barcode-scanner-target' => 'input',
+                    'data-role' => 'barcode-input',
+                ],
             ])
             ->add('sku', TextType::class, [
                 'label' => 'SKU',

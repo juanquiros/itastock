@@ -42,6 +42,8 @@ class ProductType extends AbstractType
                 'required' => false,
                 'attr' => [
                     'data-catalog-lookup-target' => 'barcode',
+                    'data-barcode-scanner-target' => 'input',
+                    'data-role' => 'barcode-input',
                 ],
             ])
             ->add('cost', NumberType::class, [
