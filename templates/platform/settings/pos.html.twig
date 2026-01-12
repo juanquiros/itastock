@@ -1,0 +1,23 @@
+{% extends 'platform/base_platform.html.twig' %}
+
+{% block header_title %}Configuración POS{% endblock %}
+
+{% block body %}
+    <div class="mb-3">
+        <a class="btn btn-outline-secondary" href="{{ path('platform_business_index') }}">Volver</a>
+    </div>
+
+    {{ form_start(form, { attr: { 'data-controller': 'barcode-sound-upload' } }) }}
+        {{ form_widget(form.barcodeScanSoundPath, { attr: { 'data-barcode-sound-upload-target': 'soundPath' } }) }}
+        <div class="mb-3">
+            <label class="form-label">Sonido de escaneo global</label>
+            <input type="file" class="form-control" accept="audio/*" data-barcode-sound-upload-target="soundFile">
+            <div class="form-text">El sonido se aplica a todos los comercios. Solo administradores de plataforma.</div>
+            <div class="d-flex align-items-center gap-2 mt-2">
+                <audio controls class="{{ settings.barcodeScanSoundPath ? '' : 'd-none' }}" data-barcode-sound-upload-target="preview" src="{{ settings.barcodeScanSoundPath ?: '' }}"></audio>
+                <button type="button" class="btn btn-outline-secondary btn-sm" data-barcode-sound-upload-target="clearButton">Quitar</button>
+            </div>
+        </div>
+        <button class="btn btn-primary">Guardar</button>
+    {{ form_end(form) }}
+{% endblock %}

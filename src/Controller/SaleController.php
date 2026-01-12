@@ -12,6 +12,7 @@ use App\Entity\SaleItem;
 use App\Entity\StockMovement;
 use App\Entity\User;
 use App\Repository\CashSessionRepository;
+use App\Repository\PlatformSettingsRepository;
 use App\Repository\PriceListItemRepository;
 use App\Repository\PriceListRepository;
 use App\Service\CustomerAccountService;
@@ -33,6 +34,7 @@ class SaleController extends AbstractController
         private readonly CashSessionRepository $cashSessionRepository,
         private readonly PriceListRepository $priceListRepository,
         private readonly PriceListItemRepository $priceListItemRepository,
+        private readonly PlatformSettingsRepository $platformSettingsRepository,
         private readonly PricingService $pricingService,
         private readonly CustomerAccountService $customerAccountService,
     ) {
@@ -63,6 +65,8 @@ class SaleController extends AbstractController
             return $this->handleSubmission($request, $business, $products, $user);
         }
 
+        $settings = $this->platformSettingsRepository->findOneBy([]);
+
         return $this->render('sale/new.html.twig', [
             'products' => $products,
             'productPayload' => array_map(fn (Product $product) => [
@@ -90,7 +94,7 @@ class SaleController extends AbstractController
             ], $priceLists),
             'priceListPrices' => $priceListPrices,
             'defaultPriceListId' => $defaultPriceList?->getId(),
-            'barcodeScanSoundPath' => $business->getBarcodeScanSoundPath(),
+            'barcodeScanSoundPath' => $settings?->getBarcodeScanSoundPath(),
         ]);
     }
 
