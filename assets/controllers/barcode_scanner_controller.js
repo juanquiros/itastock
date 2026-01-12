@@ -129,10 +129,15 @@ export default class extends Controller {
             return;
         }
 
-        this.html5QrCode = new Html5Qrcode(scannerId);
+        this.html5QrCode = new Html5Qrcode(scannerId, {
+            useBarCodeDetectorIfSupported: false,
+            experimentalFeatures: { useBarCodeDetectorIfSupported: false },
+        });
         const config = {
             fps: 10,
             qrbox: { width: 280, height: 180 },
+            useBarCodeDetectorIfSupported: false,
+            experimentalFeatures: { useBarCodeDetectorIfSupported: false },
         };
 
         this.html5QrCode
