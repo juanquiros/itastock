@@ -6,3 +6,13 @@
     overflow: hidden;
     background: #000;
 }
+
+.barcode-scan-button {
+    display: none;
+}
+
+@media (hover: none) and (pointer: coarse) {
+    .barcode-scan-button {
+        display: inline-flex;
+    }
+}
