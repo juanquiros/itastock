@@ -154,13 +154,23 @@ export default class extends Controller {
         const existingScript = document.querySelector('script[src*="html5-qrcode"]');
         if (existingScript) {
             return new Promise((resolve) => {
-                if (existingScript.dataset.loaded === 'true') {
+                if (existingScript.dataset.loaded === 'true' || existingScript.readyState === 'complete' || existingScript.readyState === 'loaded') {
                     resolve(typeof window.Html5Qrcode !== 'undefined');
                     return;
                 }
 
-                existingScript.addEventListener('load', () => resolve(typeof window.Html5Qrcode !== 'undefined'), { once: true });
-                existingScript.addEventListener('error', () => resolve(false), { once: true });
+                let resolved = false;
+                const finalize = (value) => {
+                    if (resolved) {
+                        return;
+                    }
+                    resolved = true;
+                    resolve(value);
+                };
+
+                existingScript.addEventListener('load', () => finalize(typeof window.Html5Qrcode !== 'undefined'), { once: true });
+                existingScript.addEventListener('error', () => finalize(false), { once: true });
+                setTimeout(() => finalize(typeof window.Html5Qrcode !== 'undefined'), 2500);
             });
         }
 
