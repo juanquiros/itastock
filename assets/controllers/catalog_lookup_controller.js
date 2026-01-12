@@ -94,7 +94,7 @@ export default class extends Controller {
             this.suggestionsTarget.appendChild(button);
         });
 
-        this.suggestionsTarget.style.display = 'block';
+        this.suggestionsTarget.classList.remove('d-none');
     }
 
     hideSuggestions() {
@@ -102,7 +102,7 @@ export default class extends Controller {
             return;
         }
 
-        this.suggestionsTarget.style.display = 'none';
+        this.suggestionsTarget.classList.add('d-none');
     }
 
     applyCatalogProduct(product, { fillName = true, fillBarcode = false } = {}) {
