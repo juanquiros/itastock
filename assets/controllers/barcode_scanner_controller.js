@@ -76,7 +76,7 @@ export default class extends Controller {
     }
 
     startScanner() {
-        if (!this.activeInput || this.isScanning || !window.ZXing?.BrowserMultiFormatReader) {
+        if (!this.activeInput || this.isScanning || !window.ZXingBrowser?.BrowserMultiFormatReader) {
             return;
         }
 
@@ -86,12 +86,12 @@ export default class extends Controller {
             return;
         }
 
-        this.codeReader = new window.ZXing.BrowserMultiFormatReader();
+        this.codeReader = new window.ZXingBrowser.BrowserMultiFormatReader();
         this.codeReader
             .decodeFromVideoDevice(null, videoElement, (result, error) => {
                 if (result) {
                     this.applyScan(result.getText());
-                } else if (error && !(error instanceof window.ZXing.NotFoundException)) {
+                } else if (error && !(error instanceof window.ZXingBrowser.NotFoundException)) {
                     this.showStatus('No se pudo leer el código. Intentá nuevamente.');
                 }
             })
@@ -155,15 +155,15 @@ export default class extends Controller {
     }
 
     ensureLibrary() {
-        if (typeof window.ZXing !== 'undefined') {
+        if (typeof window.ZXingBrowser !== 'undefined') {
             return Promise.resolve(true);
         }
 
-        const existingScript = document.querySelector('script[src*="@zxing/browser"]');
+        const existingScript = document.querySelector('script[src*="zxing-browser"]');
         if (existingScript) {
             return new Promise((resolve) => {
                 if (existingScript.dataset.loaded === 'true' || existingScript.readyState === 'complete' || existingScript.readyState === 'loaded') {
-                    resolve(typeof window.ZXing !== 'undefined');
+                    resolve(typeof window.ZXingBrowser !== 'undefined');
                     return;
                 }
 
@@ -176,9 +176,9 @@ export default class extends Controller {
                     resolve(value);
                 };
 
-                existingScript.addEventListener('load', () => finalize(typeof window.ZXing !== 'undefined'), { once: true });
+                existingScript.addEventListener('load', () => finalize(typeof window.ZXingBrowser !== 'undefined'), { once: true });
                 existingScript.addEventListener('error', () => finalize(false), { once: true });
-                setTimeout(() => finalize(typeof window.ZXing !== 'undefined'), 2500);
+                setTimeout(() => finalize(typeof window.ZXingBrowser !== 'undefined'), 2500);
             }).then((loaded) => loaded ? true : this.loadLibraryFallback());
         }
 
@@ -193,12 +193,12 @@ export default class extends Controller {
 
     loadLibraryFallback() {
         const sources = [
-            'https://cdn.jsdelivr.net/npm/@zxing/browser@0.1.5/umd/index.min.js',
-            'https://unpkg.com/@zxing/browser@0.1.5/umd/index.min.js',
+            'https://cdn.jsdelivr.net/npm/@zxing/browser@0.1.5/umd/zxing-browser.min.js',
+            'https://unpkg.com/@zxing/browser@0.1.5/umd/zxing-browser.min.js',
         ];
 
         const tryLoad = (index) => new Promise((resolve) => {
-            if (typeof window.ZXing !== 'undefined') {
+            if (typeof window.ZXingBrowser !== 'undefined') {
                 resolve(true);
                 return;
             }
@@ -208,7 +208,7 @@ export default class extends Controller {
             script.async = true;
             script.onload = () => {
                 script.dataset.loaded = 'true';
-                resolve(typeof window.ZXing !== 'undefined');
+                resolve(typeof window.ZXingBrowser !== 'undefined');
             };
             script.onerror = () => resolve(false);
             document.head.appendChild(script);
