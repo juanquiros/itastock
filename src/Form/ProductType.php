@@ -91,6 +91,9 @@ class ProductType extends AbstractType
                 'class' => Category::class,
                 'placeholder' => 'Sin categoría',
                 'required' => false,
+                'attr' => [
+                    'data-catalog-lookup-target' => 'category',
+                ],
                 'query_builder' => function (EntityRepository $er) use ($options) {
                     return $er->createQueryBuilder('c')
                         ->where('c.business = :business')
@@ -103,6 +106,9 @@ class ProductType extends AbstractType
                 'class' => Brand::class,
                 'placeholder' => 'Sin marca',
                 'required' => false,
+                'attr' => [
+                    'data-catalog-lookup-target' => 'brand',
+                ],
                 'query_builder' => function (EntityRepository $er) use ($options) {
                     return $er->createQueryBuilder('b')
                         ->where('b.business = :business')

@@ -1,7 +1,7 @@
 import { Controller } from '@hotwired/stimulus';
 
 export default class extends Controller {
-    static targets = ['barcode', 'name', 'catalogProductId', 'suggestions'];
+    static targets = ['barcode', 'name', 'catalogProductId', 'category', 'brand', 'suggestions'];
     static values = {
         barcodeUrl: String,
         nameUrl: String,
@@ -118,11 +118,34 @@ export default class extends Controller {
         if (this.hasBarcodeTarget && product.barcode && fillBarcode) {
             this.barcodeTarget.value = product.barcode;
         }
+
+        if (this.hasCategoryTarget && product.localCategory) {
+            this.setSelectValue(this.categoryTarget, product.localCategory);
+        }
+
+        if (this.hasBrandTarget && product.localBrand) {
+            this.setSelectValue(this.brandTarget, product.localBrand);
+        }
     }
 
     clearCatalogProduct() {
         if (this.hasCatalogProductIdTarget) {
             this.catalogProductIdTarget.value = '';
         }
+    }
+
+    setSelectValue(selectElement, optionPayload) {
+        if (!selectElement || !optionPayload || !optionPayload.id) {
+            return;
+        }
+
+        const optionValue = String(optionPayload.id);
+        let option = Array.from(selectElement.options).find((item) => item.value === optionValue);
+        if (!option) {
+            option = new Option(optionPayload.name ?? optionValue, optionValue, true, true);
+            selectElement.add(option);
+        }
+        selectElement.value = optionValue;
+        selectElement.dispatchEvent(new Event('change', { bubbles: true }));
     }
 }

@@ -2,8 +2,11 @@
 
 namespace App\Controller;
 
+use App\Entity\Business;
 use App\Entity\CatalogProduct;
 use App\Repository\CatalogProductRepository;
+use App\Service\ProductCatalogSyncService;
+use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -14,7 +17,12 @@ use Symfony\Component\Security\Http\Attribute\Security;
 class CatalogLookupController extends AbstractController
 {
     #[Route('/app/catalog/lookup/barcode', name: 'app_catalog_lookup_barcode', methods: ['GET'])]
-    public function barcode(Request $request, CatalogProductRepository $catalogProductRepository): JsonResponse
+    public function barcode(
+        Request $request,
+        CatalogProductRepository $catalogProductRepository,
+        ProductCatalogSyncService $productCatalogSyncService,
+        EntityManagerInterface $entityManager
+    ): JsonResponse
     {
         $barcode = trim((string) $request->query->get('barcode', ''));
 
@@ -31,9 +39,54 @@ class CatalogLookupController extends AbstractController
             return $this->json(['found' => false]);
         }
 
+        $business = $this->getBusinessContext();
+        $payload = $this->serializeCatalogProduct($product);
+
+        if ($business instanceof Business) {
+            $shouldFlush = false;
+            $pendingCategory = null;
+            $pendingBrand = null;
+
+            if ($product->getCategory()) {
+                $localCategory = $productCatalogSyncService->ensureLocalCategoryForCatalog($business, $product->getCategory());
+                $isNewCategory = $localCategory->getId() === null;
+                $payload['localCategory'] = [
+                    'id' => $localCategory->getId(),
+                    'name' => $localCategory->getName(),
+                ];
+                $shouldFlush = $shouldFlush || $isNewCategory;
+                if ($isNewCategory) {
+                    $pendingCategory = $localCategory;
+                }
+            }
+
+            if ($product->getBrand()) {
+                $localBrand = $productCatalogSyncService->ensureLocalBrandForCatalog($business, $product->getBrand());
+                $isNewBrand = $localBrand->getId() === null;
+                $payload['localBrand'] = [
+                    'id' => $localBrand->getId(),
+                    'name' => $localBrand->getName(),
+                ];
+                $shouldFlush = $shouldFlush || $isNewBrand;
+                if ($isNewBrand) {
+                    $pendingBrand = $localBrand;
+                }
+            }
+
+            if ($shouldFlush) {
+                $entityManager->flush();
+                if (isset($pendingCategory)) {
+                    $payload['localCategory']['id'] = $pendingCategory->getId();
+                }
+                if (isset($pendingBrand)) {
+                    $payload['localBrand']['id'] = $pendingBrand->getId();
+                }
+            }
+        }
+
         return $this->json([
             'found' => true,
-            'product' => $this->serializeCatalogProduct($product),
+            'product' => $payload,
         ]);
     }
 
@@ -98,5 +151,12 @@ class CatalogLookupController extends AbstractController
         }
 
         return $payload;
+    }
+
+    private function getBusinessContext(): ?Business
+    {
+        $business = $this->getUser()?->getBusiness();
+
+        return $business instanceof Business ? $business : null;
     }
 }
