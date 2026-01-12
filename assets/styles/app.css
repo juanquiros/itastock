@@ -1,1 +1,22 @@
 /* App-level styles */
+.barcode-scanner-reader {
+    width: 100%;
+    min-height: 240px;
+    border-radius: 12px;
+    overflow: hidden;
+    background: #000;
+}
+
+.barcode-scan-button {
+    display: none;
+}
+
+@media (hover: none) and (pointer: coarse) {
+    .barcode-scan-button {
+        display: inline-flex;
+    }
+}
+
+body.barcode-scanner-available .barcode-scan-button {
+    display: inline-flex;
+}
