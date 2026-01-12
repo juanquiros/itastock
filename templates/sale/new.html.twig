@@ -146,7 +146,13 @@
 {% block javascripts %}
     {{ parent() }}
     <script>
-        document.addEventListener('DOMContentLoaded', () => {
+        const initializeSalePage = () => {
+            const saleForm = document.getElementById('sale-form');
+            if (!saleForm || saleForm.dataset.saleInitialized === 'true') {
+                return;
+            }
+
+            saleForm.dataset.saleInitialized = 'true';
             const products = {{ productPayload|json_encode|raw }};
             const customers = {{ customersPayload|json_encode|raw }};
             const priceLists = {{ priceLists|json_encode|raw }};
@@ -551,8 +557,6 @@
                 renderResults('');
             });
 
-            const saleForm = document.getElementById('sale-form');
-
             saleForm.addEventListener('keydown', (event) => {
                 if (event.key === 'Enter' && !(event.target instanceof HTMLButtonElement && event.target.type === 'submit')) {
                     event.preventDefault();
@@ -592,6 +596,9 @@
             renderResults('');
             syncPaymentMethod();
             showWorkspace();
-        });
+        };
+
+        document.addEventListener('DOMContentLoaded', initializeSalePage);
+        document.addEventListener('turbo:load', initializeSalePage);
     </script>
 {% endblock %}
