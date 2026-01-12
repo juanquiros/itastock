@@ -32,7 +32,7 @@ export default class extends Controller {
         }
     }
 
-    open(event) {
+    async open(event) {
         event.preventDefault();
         this.activeInput = this.resolveInput(event.currentTarget);
 
@@ -47,7 +47,7 @@ export default class extends Controller {
             return;
         }
 
-        if (!this.ensureLibrary()) {
+        if (!(await this.ensureLibrary())) {
             this.notifyUser('La librería de escaneo no se cargó correctamente.');
             return;
         }
@@ -76,7 +76,7 @@ export default class extends Controller {
     }
 
     startScanner() {
-        if (!this.activeInput || this.isScanning || !this.ensureLibrary()) {
+        if (!this.activeInput || this.isScanning || !window.Html5Qrcode) {
             return;
         }
 
@@ -147,7 +147,24 @@ export default class extends Controller {
     }
 
     ensureLibrary() {
-        return typeof window.Html5Qrcode !== 'undefined';
+        if (typeof window.Html5Qrcode !== 'undefined') {
+            return Promise.resolve(true);
+        }
+
+        if (this.libraryPromise) {
+            return this.libraryPromise;
+        }
+
+        this.libraryPromise = new Promise((resolve) => {
+            const script = document.createElement('script');
+            script.src = 'https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.10/html5-qrcode.min.js';
+            script.async = true;
+            script.onload = () => resolve(typeof window.Html5Qrcode !== 'undefined');
+            script.onerror = () => resolve(false);
+            document.head.appendChild(script);
+        });
+
+        return this.libraryPromise;
     }
 
     isCameraSupported() {
