@@ -6,14 +6,34 @@
     <div class="mb-3">
         <a class="btn btn-outline-secondary" href="{{ path('platform_catalog_product_index') }}">Volver</a>
     </div>
-    {{ form_start(form) }}
+    {{ form_start(form, {
+        attr: {
+            'data-controller': 'barcode-scanner'
+        }
+    }) }}
         {{ form_row(form.name) }}
         {{ form_row(form.presentation) }}
-        {{ form_row(form.barcode) }}
+        <div class="mb-3" data-barcode-scanner-input-group>
+            {{ form_label(form.barcode) }}
+            <div class="input-group">
+                {{ form_widget(form.barcode, {
+                    attr: {
+                        'data-barcode-scanner-target': 'input',
+                        'data-barcode-scanner-input': 'true'
+                    }
+                }) }}
+                <button class="btn btn-outline-secondary d-inline-flex d-lg-none" type="button" data-action="barcode-scanner#open" data-barcode-scanner-input-id-param="{{ form.barcode.vars.id }}">
+                    Escanear
+                </button>
+            </div>
+            {{ form_errors(form.barcode) }}
+            {{ form_help(form.barcode) }}
+        </div>
         {{ form_row(form.sku) }}
         {{ form_row(form.category) }}
         {{ form_row(form.brand) }}
         {{ form_row(form.isActive) }}
         <button class="btn btn-primary mt-3">{{ product.id ? 'Guardar' : 'Crear' }}</button>
+        {% include 'shared/_barcode_scanner_modal.html.twig' %}
     {{ form_end(form) }}
 {% endblock %}

@@ -1,6 +1,6 @@
 {{ form_start(form, {
     attr: {
-        'data-controller': 'catalog-lookup',
+        'data-controller': 'catalog-lookup barcode-scanner',
         'data-catalog-lookup-barcode-url-value': path('app_catalog_lookup_barcode'),
         'data-catalog-lookup-name-url-value': path('app_catalog_lookup_name')
     }
@@ -19,7 +19,22 @@
                 {{ form_row(form.sku) }}
             </div>
             <div class="col-md-3">
-                {{ form_row(form.barcode) }}
+                <div class="mb-3" data-barcode-scanner-input-group>
+                    {{ form_label(form.barcode) }}
+                    <div class="input-group">
+                        {{ form_widget(form.barcode, {
+                            attr: {
+                                'data-barcode-scanner-target': 'input',
+                                'data-barcode-scanner-input': 'true'
+                            }
+                        }) }}
+                        <button class="btn btn-outline-secondary d-inline-flex d-lg-none" type="button" data-action="barcode-scanner#open" data-barcode-scanner-input-id-param="{{ form.barcode.vars.id }}">
+                            Escanear
+                        </button>
+                    </div>
+                    {{ form_errors(form.barcode) }}
+                    {{ form_help(form.barcode) }}
+                </div>
             </div>
             <div class="col-md-4">
                 {{ form_row(form.cost) }}
@@ -63,4 +78,5 @@
         </div>
     </div>
 </div>
+{% include 'shared/_barcode_scanner_modal.html.twig' %}
 {{ form_end(form) }}
