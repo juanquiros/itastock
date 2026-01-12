@@ -151,6 +151,19 @@ export default class extends Controller {
             return Promise.resolve(true);
         }
 
+        const existingScript = document.querySelector('script[src*="html5-qrcode"]');
+        if (existingScript) {
+            return new Promise((resolve) => {
+                if (existingScript.dataset.loaded === 'true') {
+                    resolve(typeof window.Html5Qrcode !== 'undefined');
+                    return;
+                }
+
+                existingScript.addEventListener('load', () => resolve(typeof window.Html5Qrcode !== 'undefined'), { once: true });
+                existingScript.addEventListener('error', () => resolve(false), { once: true });
+            });
+        }
+
         if (this.libraryPromise) {
             return this.libraryPromise;
         }
@@ -159,7 +172,10 @@ export default class extends Controller {
             const script = document.createElement('script');
             script.src = 'https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.10/html5-qrcode.min.js';
             script.async = true;
-            script.onload = () => resolve(typeof window.Html5Qrcode !== 'undefined');
+            script.onload = () => {
+                script.dataset.loaded = 'true';
+                resolve(typeof window.Html5Qrcode !== 'undefined');
+            };
             script.onerror = () => resolve(false);
             document.head.appendChild(script);
         });
