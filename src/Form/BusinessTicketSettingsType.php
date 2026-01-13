@@ -18,7 +18,7 @@ class BusinessTicketSettingsType extends AbstractType
             ->add('ticketHeaderLines', TextareaType::class, [
                 'label' => 'Líneas del encabezado',
                 'required' => false,
-                'help' => 'Una línea por renglón. Ejemplo: "CUIT: 2037220408".',
+                'help' => 'Una línea por renglón. Ejemplo: "CUIT: 12345678901".',
                 'attr' => [
                     'rows' => 4,
                 ],
