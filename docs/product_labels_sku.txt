@@ -1,0 +1,8 @@
+Etiquetas de productos y SKU automático
+
+- El SKU se sugiere automáticamente al crear un producto nuevo con el formato
+  K{businessId}-00001, K{businessId}-00002, etc.
+- Podés editar el SKU sugerido antes de guardar el producto.
+- El sistema valida que el SKU sea único dentro del comercio.
+- En las etiquetas podés elegir usar el EAN del producto (si existe) o el SKU
+  como origen del código de barras.

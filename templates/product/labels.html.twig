@@ -1,0 +1,60 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Etiquetas de productos · ItaStock{% endblock %}
+
+{% block body %}
+    <div class="d-flex align-items-center justify-content-between mb-3">
+        <div>
+            <p class="text-uppercase text-muted mb-1 small fw-semibold">Inventario</p>
+            <h1 class="h4 mb-0">Etiquetas de productos</h1>
+            <p class="text-secondary mb-0">Generá un PDF A4 con etiquetas listas para imprimir.</p>
+        </div>
+        <a class="btn btn-outline-secondary" href="{{ path('app_product_index') }}">Volver a productos</a>
+    </div>
+
+    <div class="card shadow-sm">
+        <div class="card-body">
+            {{ form_start(form) }}
+            <div class="row g-3">
+                <div class="col-12">
+                    <h2 class="h6 text-uppercase text-muted">Filtros</h2>
+                    <p class="text-muted small mb-0">Si seleccionás productos específicos, se ignoran los filtros por categoría, marca y fecha.</p>
+                </div>
+                <div class="col-12">
+                    {{ form_row(form.products) }}
+                </div>
+                <div class="col-md-4">
+                    {{ form_row(form.categories) }}
+                </div>
+                <div class="col-md-4">
+                    {{ form_row(form.brands) }}
+                </div>
+                <div class="col-md-4">
+                    {{ form_row(form.updatedSince) }}
+                </div>
+                <div class="col-12 mt-3">
+                    <h2 class="h6 text-uppercase text-muted">Contenido de etiqueta</h2>
+                </div>
+                <div class="col-md-4">
+                    {{ form_row(form.includeBarcode) }}
+                </div>
+                <div class="col-md-4">
+                    {{ form_row(form.barcodeSource) }}
+                </div>
+                <div class="col-md-4">
+                    {{ form_row(form.showPrice) }}
+                </div>
+                <div class="col-md-4">
+                    {{ form_row(form.showOnlyName) }}
+                </div>
+                <div class="col-md-4">
+                    {{ form_row(form.labelsPerProduct) }}
+                </div>
+            </div>
+            <div class="mt-4 d-flex justify-content-end gap-2">
+                <button class="btn btn-primary" type="submit">Generar PDF</button>
+            </div>
+            {{ form_end(form) }}
+        </div>
+    </div>
+{% endblock %}

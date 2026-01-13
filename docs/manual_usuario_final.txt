@@ -8,3 +8,6 @@ Administrador del comercio (ROLE_ADMIN)
 - Configuración de ticket (/app/settings/ticket): define líneas personalizadas,
   icono e imagen final del remito no fiscal.
 - Usuarios (/app/admin/users): asigná el número de puesto de venta por usuario.
+- Etiquetas de productos (/app/admin/products/labels): imprimí etiquetas en PDF
+  A4 con filtros por producto, categoría, marca o fecha de modificación, y
+  configurá si se muestran códigos de barras, precio o solo el nombre.

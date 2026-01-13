@@ -36,6 +36,7 @@ class ProductType extends AbstractType
             ])
             ->add('sku', TextType::class, [
                 'label' => 'SKU',
+                'help' => 'Se genera automáticamente, podés modificarlo.',
             ])
             ->add('barcode', TextType::class, [
                 'label' => 'Código de barras',

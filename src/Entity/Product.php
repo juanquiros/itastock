@@ -11,6 +11,7 @@ use App\Entity\StockMovement;
 use Symfony\Component\Validator\Context\ExecutionContextInterface;
 use App\Entity\Brand;
 use App\Entity\CatalogProduct;
+use Doctrine\DBAL\Types\Types;
 
 #[ORM\Entity(repositoryClass: ProductRepository::class)]
 #[ORM\Table(name: 'products')]
@@ -38,6 +39,9 @@ class Product
 
     #[ORM\Column(length: 128, nullable: true)]
     private ?string $barcode = null;
+
+    #[ORM\Column(type: Types::DATETIME_IMMUTABLE)]
+    private ?\DateTimeImmutable $updatedAt = null;
 
     #[ORM\Column(type: 'decimal', precision: 10, scale: 2)]
     #[Assert\PositiveOrZero]
@@ -90,6 +94,7 @@ class Product
 
     public function __construct()
     {
+        $this->updatedAt = new \DateTimeImmutable();
         $this->stockMovements = new ArrayCollection();
     }
 
@@ -132,6 +137,11 @@ class Product
         $this->barcode = $barcode;
 
         return $this;
+    }
+
+    public function getUpdatedAt(): ?\DateTimeImmutable
+    {
+        return $this->updatedAt;
     }
 
     public function getCost(): ?string
@@ -315,6 +325,13 @@ class Product
         }
 
         return $this;
+    }
+
+    #[ORM\PrePersist]
+    #[ORM\PreUpdate]
+    public function touch(): void
+    {
+        $this->updatedAt = new \DateTimeImmutable();
     }
 
     #[ORM\PrePersist]

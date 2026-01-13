@@ -13,8 +13,11 @@ use App\Repository\CatalogProductRepository;
 use App\Repository\ProductRepository;
 use App\Service\ProductCsvImportService;
 use App\Service\ProductCatalogSyncService;
+use App\Service\SkuGenerator;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Component\Form\FormError;
+use Symfony\Component\Form\FormInterface;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -109,13 +112,18 @@ class ProductController extends AbstractController
     public function new(
         Request $request,
         CatalogProductRepository $catalogProductRepository,
-        ProductCatalogSyncService $catalogSyncService
+        ProductCatalogSyncService $catalogSyncService,
+        SkuGenerator $skuGenerator,
+        ProductRepository $productRepository
     ): Response
     {
         $business = $this->requireBusinessContext();
 
         $product = new Product();
         $product->setBusiness($business);
+        if ($product->getSku() === null || $product->getSku() === '') {
+            $product->setSku($skuGenerator->generateNextSkuForBusiness($business));
+        }
 
         $form = $this->createForm(ProductType::class, $product, [
             'current_business' => $business,
@@ -124,6 +132,10 @@ class ProductController extends AbstractController
             'catalog_product_id' => $product->getCatalogProduct()?->getId(),
         ]);
         $form->handleRequest($request);
+
+        if ($form->isSubmitted()) {
+            $this->validateSkuUniqueness($form, $product, $business, $productRepository);
+        }
 
         if ($form->isSubmitted() && $form->isValid()) {
             $this->applyCatalogSelection($form->get('catalogProductId')->getData(), $product, $business, $catalogProductRepository, $catalogSyncService);
@@ -147,7 +159,8 @@ class ProductController extends AbstractController
         Request $request,
         Product $product,
         CatalogProductRepository $catalogProductRepository,
-        ProductCatalogSyncService $catalogSyncService
+        ProductCatalogSyncService $catalogSyncService,
+        ProductRepository $productRepository
     ): Response
     {
         $business = $this->requireBusinessContext();
@@ -160,6 +173,10 @@ class ProductController extends AbstractController
             'catalog_product_id' => $product->getCatalogProduct()?->getId(),
         ]);
         $form->handleRequest($request);
+
+        if ($form->isSubmitted()) {
+            $this->validateSkuUniqueness($form, $product, $business, $productRepository);
+        }
 
         if ($form->isSubmitted() && $form->isValid()) {
             $this->applyCatalogSelection($form->get('catalogProductId')->getData(), $product, $business, $catalogProductRepository, $catalogSyncService);
@@ -257,6 +274,19 @@ class ProductController extends AbstractController
         if ($catalogProduct->getBrand() !== null) {
             $brand = $catalogSyncService->ensureLocalBrandForCatalog($business, $catalogProduct->getBrand());
             $product->setBrand($brand);
+        }
+    }
+
+    private function validateSkuUniqueness(FormInterface $form, Product $product, Business $business, ProductRepository $productRepository): void
+    {
+        $sku = trim((string) $product->getSku());
+        if ($sku === '') {
+            return;
+        }
+
+        $existing = $productRepository->findOneByBusinessAndSku($business, $sku);
+        if ($existing !== null && $existing->getId() !== $product->getId()) {
+            $form->get('sku')->addError(new FormError('Ya existe un producto con este SKU en el comercio.'));
         }
     }
 
