@@ -63,10 +63,42 @@
                     </div>
                 </div>
 
+                <hr class="my-4">
+                <div class="row">
+                    <div class="col-lg-12">
+                        <h2 class="h6 mb-2">Impresión directa (extensión + app)</h2>
+                        <p class="text-muted small mb-3">
+                            Instalá la extensión según tu navegador y descargá la app local para enviar tickets directo a la impresora.
+                        </p>
+                        <div class="d-flex flex-wrap gap-2">
+                            <a class="btn btn-outline-secondary d-none" data-browser-install="chrome" href="{{ asset('downloads/itastock-print-extension-chrome.txt') }}">
+                                Instalar extensión (Chrome/Edge)
+                            </a>
+                            <a class="btn btn-outline-secondary d-none" data-browser-install="firefox" href="{{ asset('downloads/itastock-print-extension-firefox.txt') }}">
+                                Instalar complemento (Firefox)
+                            </a>
+                            <a class="btn btn-outline-primary" href="{{ asset('downloads/itastock-print-app.txt') }}">
+                                Descargar app de impresión
+                            </a>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="d-flex justify-content-end gap-2 mt-4">
                     <button class="btn btn-primary">Guardar</button>
                 </div>
             {{ form_end(form) }}
         </div>
     </div>
+
+    <script>
+        const ua = navigator.userAgent || '';
+        const isFirefox = ua.toLowerCase().includes('firefox');
+        const isChrome = ua.toLowerCase().includes('chrome') || ua.toLowerCase().includes('edg');
+        if (isFirefox) {
+            document.querySelectorAll('[data-browser-install=\"firefox\"]').forEach((el) => el.classList.remove('d-none'));
+        } else if (isChrome) {
+            document.querySelectorAll('[data-browser-install=\"chrome\"]').forEach((el) => el.classList.remove('d-none'));
+        }
+    </script>
 {% endblock %}

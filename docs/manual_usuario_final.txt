@@ -9,4 +9,6 @@ Administrador del comercio (ROLE_ADMIN)
   icono e imagen final del remito no fiscal, además de los datos de impresora
   preferida para su equipo y el ancho de hoja (58mm, 80mm, etc.). La impresión
   directa sin diálogo requiere integración nativa.
+- En Configuración de ticket podés instalar la extensión del navegador y
+  descargar la app local para impresión directa de tickets.
 - Usuarios (/app/admin/users): asigná el número de puesto de venta por usuario.
