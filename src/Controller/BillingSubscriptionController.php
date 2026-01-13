@@ -3,6 +3,7 @@
 namespace App\Controller;
 
 use App\Entity\BillingPlan;
+use App\Entity\MercadoPagoSubscriptionLink;
 use App\Entity\PendingSubscriptionChange;
 use App\Entity\Subscription;
 use App\Exception\MercadoPagoApiException;
@@ -67,6 +68,7 @@ class BillingSubscriptionController extends AbstractController
         Request $request,
         SubscriptionContext $subscriptionContext,
         MercadoPagoClient $mercadoPagoClient,
+        MercadoPagoSubscriptionLinkRepository $subscriptionLinkRepository,
         EntityManagerInterface $entityManager,
         SubscriptionNotificationService $subscriptionNotificationService,
         PlatformNotificationService $platformNotificationService,
@@ -151,7 +153,7 @@ class BillingSubscriptionController extends AbstractController
         }
 
         try {
-            $response = $mercadoPagoClient->createPreapproval([
+            $payload = [
                 'reason' => $billingPlan->getName(),
                 'payer_email' => $payerEmail,
                 'payer' => [
@@ -159,13 +161,20 @@ class BillingSubscriptionController extends AbstractController
                 ],
                 'external_reference' => $externalReference,
                 'back_url' => $this->generateUrl('app_billing_return', [], UrlGeneratorInterface::ABSOLUTE_URL),
-                'auto_recurring' => [
+            ];
+
+            if ($billingPlan->getMpPreapprovalPlanId()) {
+                $payload['preapproval_plan_id'] = $billingPlan->getMpPreapprovalPlanId();
+            } else {
+                $payload['auto_recurring'] = [
                     'frequency' => $billingPlan->getFrequency(),
                     'frequency_type' => $billingPlan->getFrequencyType(),
                     'transaction_amount' => (float) $billingPlan->getPrice(),
                     'currency_id' => $billingPlan->getCurrency(),
-                ],
-            ]);
+                ];
+            }
+
+            $response = $mercadoPagoClient->createPreapproval($payload);
         } catch (MercadoPagoApiException $exception) {
             $this->addFlash('danger', sprintf('Error al iniciar la suscripción en Mercado Pago: %s', $exception->getMessage()));
 
@@ -186,6 +195,22 @@ class BillingSubscriptionController extends AbstractController
             $this->addFlash('danger', 'Mercado Pago no devolvió un link de pago.');
 
             return $this->redirectToRoute('app_billing_subscription_show');
+        }
+
+        $mpPreapprovalId = (string) $response['id'];
+        if ($subscription->getBusiness()) {
+            $link = $subscriptionLinkRepository->findOneBy(['mpPreapprovalId' => $mpPreapprovalId]);
+            if (!$link instanceof MercadoPagoSubscriptionLink) {
+                $link = new MercadoPagoSubscriptionLink($mpPreapprovalId, 'PENDING');
+                $link->setBusiness($subscription->getBusiness());
+                $entityManager->persist($link);
+            } else {
+                $link->setStatus('PENDING');
+                if ($link->getBusiness() === null) {
+                    $link->setBusiness($subscription->getBusiness());
+                }
+            }
+            $link->setIsPrimary(false);
         }
 
         if ($isActiveSubscription) {
@@ -233,7 +258,7 @@ class BillingSubscriptionController extends AbstractController
                 ->setType($type)
                 ->setStatus(PendingSubscriptionChange::STATUS_CHECKOUT_STARTED)
                 ->setEffectiveAt($effectiveAt)
-                ->setMpPreapprovalId((string) $response['id'])
+                ->setMpPreapprovalId($mpPreapprovalId)
                 ->setExternalReference($externalReference)
                 ->setInitPoint($initPoint);
 
@@ -262,8 +287,21 @@ class BillingSubscriptionController extends AbstractController
                 )
             );
         } else {
+            $pendingChange = new PendingSubscriptionChange();
+            $pendingChange
+                ->setBusiness($subscription->getBusiness())
+                ->setCurrentSubscription($subscription)
+                ->setTargetBillingPlan($billingPlan)
+                ->setType(PendingSubscriptionChange::TYPE_RENEWAL)
+                ->setStatus(PendingSubscriptionChange::STATUS_CHECKOUT_STARTED)
+                ->setEffectiveAt($now)
+                ->setMpPreapprovalId($mpPreapprovalId)
+                ->setExternalReference($externalReference)
+                ->setInitPoint($initPoint);
+            $entityManager->persist($pendingChange);
+
             $subscription
-                ->setMpPreapprovalId((string) $response['id'])
+                ->setMpPreapprovalId($mpPreapprovalId)
                 ->setExternalReference($externalReference)
                 ->setPayerEmail($payerEmail)
                 ->setLastSyncedAt(new \DateTimeImmutable())
