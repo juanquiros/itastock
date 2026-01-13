@@ -6,9 +6,7 @@ use App\Entity\Business;
 use Symfony\Component\Form\AbstractType;
 use Symfony\Component\Form\Extension\Core\Type\FileType;
 use Symfony\Component\Form\Extension\Core\Type\HiddenType;
-use Symfony\Component\Form\Extension\Core\Type\IntegerType;
 use Symfony\Component\Form\Extension\Core\Type\TextareaType;
-use Symfony\Component\Form\Extension\Core\Type\TextType;
 use Symfony\Component\Form\FormBuilderInterface;
 use Symfony\Component\OptionsResolver\OptionsResolver;
 
@@ -65,28 +63,7 @@ class BusinessTicketSettingsType extends AbstractType
                 ],
                 'help' => 'Se optimiza en el navegador y se guarda como data URL.',
             ])
-            ->add('ticketPrinterName', TextType::class, [
-                'label' => 'Impresora preferida',
-                'required' => false,
-                'help' => 'Nombre de impresora configurada en el sistema operativo.',
-            ])
-            ->add('ticketPrinterSettings', TextareaType::class, [
-                'label' => 'Parámetros de impresora',
-                'required' => false,
-                'help' => 'Opcional. Configuración adicional para futuras integraciones de impresión directa.',
-                'attr' => [
-                    'rows' => 3,
-                ],
-            ])
-            ->add('ticketPaperWidthMm', IntegerType::class, [
-                'label' => 'Ancho de hoja (mm)',
-                'required' => false,
-                'help' => 'Ej: 58, 80. Se usa para el formato de impresión del ticket.',
-                'attr' => [
-                    'min' => 40,
-                    'max' => 120,
-                ],
-            ]);
+            ;
     }
 
     public function configureOptions(OptionsResolver $resolver): void

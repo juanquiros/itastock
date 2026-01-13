@@ -67,14 +67,6 @@ class Business
     #[ORM\Column(type: 'text', nullable: true)]
     private ?string $ticketFooterImagePath = null;
 
-    #[ORM\Column(length: 255, nullable: true)]
-    private ?string $ticketPrinterName = null;
-
-    #[ORM\Column(type: 'text', nullable: true)]
-    private ?string $ticketPrinterSettings = null;
-
-    #[ORM\Column(nullable: true)]
-    private ?int $ticketPaperWidthMm = null;
 
     public function __construct()
     {
@@ -342,39 +334,4 @@ class Business
         return $this;
     }
 
-    public function getTicketPrinterName(): ?string
-    {
-        return $this->ticketPrinterName;
-    }
-
-    public function setTicketPrinterName(?string $ticketPrinterName): self
-    {
-        $this->ticketPrinterName = $ticketPrinterName;
-
-        return $this;
-    }
-
-    public function getTicketPrinterSettings(): ?string
-    {
-        return $this->ticketPrinterSettings;
-    }
-
-    public function setTicketPrinterSettings(?string $ticketPrinterSettings): self
-    {
-        $this->ticketPrinterSettings = $ticketPrinterSettings;
-
-        return $this;
-    }
-
-    public function getTicketPaperWidthMm(): ?int
-    {
-        return $this->ticketPaperWidthMm;
-    }
-
-    public function setTicketPaperWidthMm(?int $ticketPaperWidthMm): self
-    {
-        $this->ticketPaperWidthMm = $ticketPaperWidthMm;
-
-        return $this;
-    }
 }

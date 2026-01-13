@@ -1,8 +1,0 @@
-ItaStock - App de impresión directa (placeholder)
-
-Este archivo es un marcador para el instalador de la app local de impresión.
-Una implementación real incluirá un ejecutable firmado que:
-- Reciba el ticket desde el navegador.
-- Envíe el contenido directamente a la impresora térmica.
-
-Reemplazar este archivo por el instalador correspondiente.

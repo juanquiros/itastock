@@ -1,6 +1,0 @@
-ItaStock - Extensión de impresión directa (Chrome)
-
-Marcador de posición para el paquete de la extensión de Chrome.
-Publicar en Chrome Web Store o entregar como paquete interno.
-
-Reemplazar este archivo por el paquete real de la extensión.

@@ -1,6 +1,0 @@
-ItaStock - Complemento de impresión directa (Firefox)
-
-Marcador de posición para el paquete del complemento de Firefox.
-Publicar en Mozilla Add-ons o entregar como paquete interno.
-
-Reemplazar este archivo por el paquete real del complemento.

@@ -2,7 +2,6 @@
 <html>
 <head>
     <meta charset="UTF-8">
-    {% set paperWidth = business.ticketPaperWidthMm ?? 80 %}
     <style>
         body { font-family: Arial, sans-serif; font-size: 12px; color: #222; }
         h1 { font-size: 18px; margin-bottom: 4px; }
@@ -14,14 +13,10 @@
         .meta div { margin-bottom: 4px; }
         .totals { margin-top: 8px; text-align: right; }
         .legend { margin-top: 16px; font-size: 11px; color: #555; }
-        .page {
-            max-width: {{ paperWidth }}mm;
-        }
     </style>
 </head>
 <body>
-    <div class="page">
-        <h1>Remito de venta</h1>
+    <h1>Remito de venta</h1>
 
     <div class="meta">
         {% if business.ticketHeaderImagePath %}
@@ -30,10 +25,6 @@
             </div>
         {% endif %}
         <div><strong>Comercio:</strong> {{ business.name }}</div>
-        <div><strong>Fecha:</strong> {{ sale.createdAt|date('d/m/Y H:i') }}</div>
-        <div><strong>N° de remito:</strong> {{ remitoNumber }}</div>
-        <div><strong>Generado:</strong> {{ generatedAt|date('d/m/Y H:i') }}</div>
-        <div><strong>Cliente:</strong> {{ sale.customer ? sale.customer.name : 'Consumidor Final' }}</div>
         {% set headerLines = business.ticketHeaderLines ? business.ticketHeaderLines|replace({'\r': ''})|split('\n') : [] %}
         {% if headerLines %}
             <div style="margin-top: 6px;">
@@ -44,6 +35,10 @@
                 {% endfor %}
             </div>
         {% endif %}
+        <div><strong>Fecha:</strong> {{ sale.createdAt|date('d/m/Y H:i') }}</div>
+        <div><strong>N° de remito:</strong> {{ remitoNumber }}</div>
+        <div><strong>Generado:</strong> {{ generatedAt|date('d/m/Y H:i') }}</div>
+        <div><strong>Cliente:</strong> {{ sale.customer ? sale.customer.name : 'Consumidor Final' }}</div>
     </div>
 
     <h2>Detalle de ítems</h2>
@@ -105,10 +100,9 @@
         </div>
     {% endif %}
 
-        <div class="legend">
-            <strong>NO VÁLIDO COMO TICKET FISCAL</strong><br>
-            Este documento actúa como remito no fiscal emitido desde ItaStock.
-        </div>
+    <div class="legend">
+        <strong>NO VÁLIDO COMO TICKET FISCAL</strong><br>
+        Este documento actúa como remito no fiscal emitido desde ItaStock.
     </div>
 </body>
 </html>
