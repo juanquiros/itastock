@@ -152,7 +152,14 @@
                                             {% endif %}
                                         </td>
                                         <td class="text-end">
-                                            {% if subscription and subscription.plan and subscription.plan.id == plan.id %}
+                                            {% set isCurrentPlan = subscription
+                                                and subscription.plan
+                                                and (
+                                                    (subscription.mpPreapprovalPlanId and plan.mpPreapprovalPlanId and subscription.mpPreapprovalPlanId == plan.mpPreapprovalPlanId)
+                                                    or subscription.plan.name == plan.name
+                                                )
+                                            %}
+                                            {% if isCurrentPlan %}
                                                 <span class="badge text-bg-primary">Plan actual</span>
                                             {% else %}
                                                 <form method="post" action="{{ path('app_billing_subscription_choose', {id: plan.id}) }}" data-turbo="false">
