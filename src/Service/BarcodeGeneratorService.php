@@ -12,6 +12,14 @@ class BarcodeGeneratorService
             return '';
         }
 
+        if (!extension_loaded('gd')) {
+            return '';
+        }
+
+        if ($type === 'EAN13' && preg_match('/^\d{13}$/', $value) !== 1) {
+            return '';
+        }
+
         $generator = new BarcodeGeneratorPNG();
         $barcodeType = match ($type) {
             'EAN13' => $generator::TYPE_EAN_13,
