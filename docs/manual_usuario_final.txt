@@ -1,0 +1,116 @@
+Manual de usuario final - ItaStock
+=================================
+
+Descripción general
+-------------------
+ItaStock es una aplicación web para la gestión integral de comercios. Permite
+administrar el catálogo de productos, el stock, los clientes, las listas de
+precios, las ventas, la caja y los reportes operativos. Además incluye un
+backoffice de plataforma para administrar comercios, planes y contenido
+público, y una sección pública para visitantes sin cuenta.
+
+Acceso al sistema
+-----------------
+1) Ingresá en /login con tus credenciales.
+2) Si olvidaste tu contraseña, usá la opción de recuperación en
+   /password/forgot. Recibirás un email con un enlace para restablecerla.
+3) Una vez autenticado, el sistema redirige al dashboard principal /app.
+
+Roles y manual de uso
+---------------------
+
+1) Administrador del comercio (ROLE_ADMIN)
+------------------------------------------
+Funcionalidades principales:
+- Dashboard operativo (/app o /app/dashboard): KPIs diarios y mensuales,
+  gráficos de ventas, alertas de stock bajo y deudores, y actividad reciente.
+- POS / Ventas (/app/pos/new): alta de ventas con selección de productos,
+  clientes, medios de pago y emisión de ticket.
+- Caja (/app/cash): apertura y cierre de caja, totales por medio de pago y
+  acceso a reportes de caja.
+- Gestión de productos (/app/admin/products): alta, edición y desactivación
+  de productos con precios base, stock y códigos de barras.
+- Categorías (/app/admin/categories): organización del catálogo.
+- Stock (/app/admin/stock): ajustes y movimientos de stock.
+- Clientes (/app/admin/customers): alta y seguimiento de clientes y cuentas
+  corrientes.
+- Listas de precios (/app/admin/price-lists): definición de listas y precios
+  diferenciados por cliente.
+- Ventas (backoffice) (/app/admin/sales): consulta y exportación de ventas
+  (CSV/PDF) y anulación de ventas confirmadas cuando corresponda.
+- Reportes (/app/admin/reports): acceso a reportes con exportación (CSV/PDF).
+- Caja (backoffice) (/app/admin/cash-sessions): visualización de cierres y
+  reportes históricos.
+- Usuarios (/app/admin/users): creación y administración de usuarios
+  administradores y vendedores del comercio.
+- Preferencias de email (/app/admin/email-preferences): configuración de
+  notificaciones operativas por negocio.
+- Suscripciones y facturación (/app/billing/subscription): consulta del plan
+  actual y solicitud de cambio de plan vía Mercado Pago.
+
+Pasos típicos de uso (ejemplo):
+1) Iniciar sesión y abrir caja en /app/cash.
+2) Registrar ventas desde /app/pos/new.
+3) Revisar KPIs y alertas en /app/dashboard.
+4) Gestionar productos y stock desde el backoffice.
+5) Exportar reportes de ventas o caja cuando sea necesario.
+
+2) Vendedor (ROLE_SELLER)
+-------------------------
+Funcionalidades principales:
+- POS / Ventas (/app/pos/new): registra ventas con los productos disponibles.
+- Caja (/app/cash): apertura y cierre de caja personal, con acceso a sus
+  propios reportes de caja.
+
+Pasos típicos de uso:
+1) Abrir caja al inicio de turno.
+2) Registrar ventas durante la jornada.
+3) Cerrar caja al finalizar el turno y revisar el reporte.
+
+3) Administrador del comercio limitado (ROLE_BUSINESS_ADMIN)
+-----------------------------------------------------------
+Funcionalidades principales:
+- Dashboard operativo (/app o /app/dashboard): seguimiento de KPIs y
+  performance del negocio.
+- Búsqueda de catálogo maestro: acceso a herramientas de consulta del
+  catálogo central (cuando estén habilitadas).
+
+Nota: este rol está pensado para lectura/consulta operativa y puede tener
+accesos más acotados que el administrador completo.
+
+4) Administrador de plataforma (ROLE_PLATFORM_ADMIN)
+-----------------------------------------------------
+Funcionalidades principales (backoffice de plataforma):
+- Panel de plataforma (/platform): visión general de la operación.
+- Comercios: alta, edición y administración de comercios y sus administradores.
+- Planes y suscripciones: gestión de planes de facturación, seguimiento de
+  suscripciones y cambios de plan.
+- Catálogo maestro: gestión de productos, categorías y marcas a nivel
+  plataforma.
+- Leads y contactos: seguimiento de solicitudes de demo o contacto recibidas
+  desde el sitio público.
+- Configuración: ajustes globales (por ejemplo, sonido de lector de códigos).
+- Reportes y logs: auditoría de emails y reportes agregados.
+
+5) Usuario anónimo (sin cuenta)
+--------------------------------
+Funcionalidades disponibles:
+- Home pública (/): información general y solicitud de demo.
+- Funcionalidades (/features): detalle de características.
+- Precios (/pricing): planes disponibles y beneficios.
+- Contacto (/contact): envío de consultas a través del formulario.
+- Términos y privacidad (/terms, /privacy): contenido legal publicado.
+- Páginas públicas personalizadas (/p/{slug}): contenido informativo
+  administrado desde la plataforma.
+
+Buenas prácticas
+----------------
+- Asegurate de abrir y cerrar caja en cada turno para evitar diferencias.
+- Mantené el stock actualizado para mejorar la precisión del POS.
+- Usá listas de precios cuando tengas precios diferenciales por cliente.
+- Revisá el dashboard diariamente para detectar alertas de stock o deudores.
+
+Soporte
+-------
+Si tenés dudas o necesitás ayuda, utilizá el formulario de contacto en /contact
+para comunicarte con el equipo de ItaStock.
