@@ -124,6 +124,9 @@ class UserController extends AbstractController
     private function handleUserPersistence(User $user, ?string $plainPassword, string $selectedRole): void
     {
         $user->setRoles([$selectedRole]);
+        if ($selectedRole === 'ROLE_ADMIN') {
+            $user->setPosNumber(1);
+        }
 
         if (!empty($plainPassword)) {
             $hashedPassword = $this->passwordHasher->hashPassword($user, $plainPassword);

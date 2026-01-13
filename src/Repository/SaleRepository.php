@@ -192,4 +192,18 @@ class SaleRepository extends ServiceEntityRepository
             ->getQuery()
             ->getArrayResult();
     }
+
+    public function nextPosSequence(Business $business, int $posNumber): int
+    {
+        $maxSequence = $this->createQueryBuilder('s')
+            ->select('MAX(s.posSequence) as seq')
+            ->andWhere('s.business = :business')
+            ->andWhere('s.posNumber = :posNumber')
+            ->setParameter('business', $business)
+            ->setParameter('posNumber', $posNumber)
+            ->getQuery()
+            ->getSingleScalarResult();
+
+        return ((int) $maxSequence) + 1;
+    }
 }

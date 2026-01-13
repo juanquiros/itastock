@@ -5,3 +5,7 @@ Administrador del comercio (ROLE_ADMIN)
 - POS / Ventas (/app/pos/new): alta de ventas con selección de productos,
   clientes, medios de pago y emisión de ticket/remito no fiscal (NO VÁLIDO COMO
   TICKET FISCAL), con opciones de impresión y descarga en PDF.
+- Configuración de ticket (/app/settings/ticket): define líneas personalizadas,
+  icono e imagen final del remito no fiscal, además de los datos de impresora
+  preferida para su equipo.
+- Usuarios (/app/admin/users): asigná el número de puesto de venta por usuario.

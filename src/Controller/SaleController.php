@@ -15,6 +15,7 @@ use App\Repository\CashSessionRepository;
 use App\Repository\PlatformSettingsRepository;
 use App\Repository\PriceListItemRepository;
 use App\Repository\PriceListRepository;
+use App\Repository\SaleRepository;
 use App\Service\CustomerAccountService;
 use App\Service\PdfService;
 use App\Service\PricingService;
@@ -111,6 +112,7 @@ class SaleController extends AbstractController
 
         return $this->render('sale/ticket.html.twig', [
             'sale' => $sale,
+            'remitoNumber' => $this->formatRemitoNumber($sale),
         ]);
     }
 
@@ -126,6 +128,7 @@ class SaleController extends AbstractController
         return $this->pdfService->render('sale/ticket_pdf.html.twig', [
             'business' => $business,
             'sale' => $sale,
+            'remitoNumber' => $this->formatRemitoNumber($sale),
             'generatedAt' => new \DateTimeImmutable(),
         ], sprintf('remito-venta-%d.pdf', $sale->getId()));
     }
@@ -181,6 +184,9 @@ class SaleController extends AbstractController
         $sale->setBusiness($business);
         $sale->setCreatedBy($user);
         $sale->setCustomer($customer);
+        $posNumber = $this->resolvePosNumber($user);
+        $sale->setPosNumber($posNumber);
+        $sale->setPosSequence($this->nextPosSequence($business, $posNumber));
 
         $totalCents = 0;
 
@@ -384,6 +390,48 @@ class SaleController extends AbstractController
         }
 
         return $sign * (int) $intString;
+    }
+
+    private function resolvePosNumber(User $user): int
+    {
+        if ($user->getPosNumber() !== null) {
+            return $user->getPosNumber();
+        }
+
+        if (in_array('ROLE_ADMIN', $user->getRoles(), true)) {
+            return 1;
+        }
+
+        return $user->getId() ?? 1;
+    }
+
+    private function nextPosSequence(Business $business, int $posNumber): int
+    {
+        /** @var SaleRepository $saleRepository */
+        $saleRepository = $this->entityManager->getRepository(Sale::class);
+
+        return $saleRepository->nextPosSequence($business, $posNumber);
+    }
+
+    private function formatRemitoNumber(Sale $sale): string
+    {
+        $posNumber = $sale->getPosNumber();
+        $sequence = $sale->getPosSequence();
+
+        if ($posNumber === null) {
+            $creator = $sale->getCreatedBy();
+            if ($creator instanceof User) {
+                $posNumber = $this->resolvePosNumber($creator);
+            } else {
+                $posNumber = 1;
+            }
+        }
+
+        if ($sequence === null) {
+            $sequence = $sale->getId() ?? 0;
+        }
+
+        return sprintf('R%05d-%08d', $posNumber, $sequence);
     }
 
     private function requireBusinessContext(): Business

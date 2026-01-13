@@ -47,6 +47,9 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\Column(options: ['default' => true])]
     private bool $isActive = true;
 
+    #[ORM\Column(nullable: true)]
+    private ?int $posNumber = null;
+
     public function getId(): ?int
     {
         return $this->id;
@@ -162,6 +165,18 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     public function setIsActive(bool $isActive): self
     {
         $this->isActive = $isActive;
+
+        return $this;
+    }
+
+    public function getPosNumber(): ?int
+    {
+        return $this->posNumber;
+    }
+
+    public function setPosNumber(?int $posNumber): self
+    {
+        $this->posNumber = $posNumber;
 
         return $this;
     }

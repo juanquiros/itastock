@@ -55,6 +55,24 @@ class Business
     #[ORM\OneToMany(mappedBy: 'business', targetEntity: MercadoPagoSubscriptionLink::class, orphanRemoval: true)]
     private Collection $mercadoPagoSubscriptionLinks;
 
+    #[ORM\Column(type: 'text', nullable: true)]
+    private ?string $ticketHeaderLines = null;
+
+    #[ORM\Column(type: 'text', nullable: true)]
+    private ?string $ticketFooterLines = null;
+
+    #[ORM\Column(type: 'text', nullable: true)]
+    private ?string $ticketHeaderImagePath = null;
+
+    #[ORM\Column(type: 'text', nullable: true)]
+    private ?string $ticketFooterImagePath = null;
+
+    #[ORM\Column(length: 255, nullable: true)]
+    private ?string $ticketPrinterName = null;
+
+    #[ORM\Column(type: 'text', nullable: true)]
+    private ?string $ticketPrinterSettings = null;
+
     public function __construct()
     {
         $this->users = new ArrayCollection();
@@ -269,6 +287,78 @@ class Business
                 $link->setBusiness(null);
             }
         }
+
+        return $this;
+    }
+
+    public function getTicketHeaderLines(): ?string
+    {
+        return $this->ticketHeaderLines;
+    }
+
+    public function setTicketHeaderLines(?string $ticketHeaderLines): self
+    {
+        $this->ticketHeaderLines = $ticketHeaderLines;
+
+        return $this;
+    }
+
+    public function getTicketFooterLines(): ?string
+    {
+        return $this->ticketFooterLines;
+    }
+
+    public function setTicketFooterLines(?string $ticketFooterLines): self
+    {
+        $this->ticketFooterLines = $ticketFooterLines;
+
+        return $this;
+    }
+
+    public function getTicketHeaderImagePath(): ?string
+    {
+        return $this->ticketHeaderImagePath;
+    }
+
+    public function setTicketHeaderImagePath(?string $ticketHeaderImagePath): self
+    {
+        $this->ticketHeaderImagePath = $ticketHeaderImagePath;
+
+        return $this;
+    }
+
+    public function getTicketFooterImagePath(): ?string
+    {
+        return $this->ticketFooterImagePath;
+    }
+
+    public function setTicketFooterImagePath(?string $ticketFooterImagePath): self
+    {
+        $this->ticketFooterImagePath = $ticketFooterImagePath;
+
+        return $this;
+    }
+
+    public function getTicketPrinterName(): ?string
+    {
+        return $this->ticketPrinterName;
+    }
+
+    public function setTicketPrinterName(?string $ticketPrinterName): self
+    {
+        $this->ticketPrinterName = $ticketPrinterName;
+
+        return $this;
+    }
+
+    public function getTicketPrinterSettings(): ?string
+    {
+        return $this->ticketPrinterSettings;
+    }
+
+    public function setTicketPrinterSettings(?string $ticketPrinterSettings): self
+    {
+        $this->ticketPrinterSettings = $ticketPrinterSettings;
 
         return $this;
     }

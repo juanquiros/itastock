@@ -1,0 +1,63 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Configuración de ticket | ItaStock{% endblock %}
+
+{% block body %}
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <div>
+            <h1 class="h4 mb-1">Configuración de ticket</h1>
+            <p class="text-muted mb-0">Personalizá el remito no fiscal y la impresora preferida.</p>
+        </div>
+    </div>
+
+    <div class="card shadow-sm">
+        <div class="card-body">
+            {{ form_start(form) }}
+                <div class="row">
+                    <div class="col-lg-6">
+                        {{ form_row(form.ticketHeaderLines) }}
+                    </div>
+                    <div class="col-lg-6">
+                        {{ form_row(form.ticketFooterLines) }}
+                    </div>
+                </div>
+
+                <div class="row mt-3">
+                    <div class="col-lg-6">
+                        <div data-controller="ticket-image-upload">
+                            {{ form_widget(form.ticketHeaderImagePath) }}
+                            {{ form_row(form.ticketHeaderImageFile) }}
+                            <div class="mt-2 d-flex align-items-center gap-2">
+                                <img src="{{ business.ticketHeaderImagePath ?: '' }}" alt="" class="border rounded {{ business.ticketHeaderImagePath ? '' : 'd-none' }}" style="max-width: 180px; max-height: 120px;" data-ticket-image-upload-target="preview">
+                                <button type="button" class="btn btn-outline-secondary btn-sm" data-ticket-image-upload-target="clearButton">Quitar</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-lg-6">
+                        <div data-controller="ticket-image-upload">
+                            {{ form_widget(form.ticketFooterImagePath) }}
+                            {{ form_row(form.ticketFooterImageFile) }}
+                            <div class="mt-2 d-flex align-items-center gap-2">
+                                <img src="{{ business.ticketFooterImagePath ?: '' }}" alt="" class="border rounded {{ business.ticketFooterImagePath ? '' : 'd-none' }}" style="max-width: 180px; max-height: 120px;" data-ticket-image-upload-target="preview">
+                                <button type="button" class="btn btn-outline-secondary btn-sm" data-ticket-image-upload-target="clearButton">Quitar</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row mt-3">
+                    <div class="col-lg-6">
+                        {{ form_row(form.ticketPrinterName) }}
+                    </div>
+                    <div class="col-lg-6">
+                        {{ form_row(form.ticketPrinterSettings) }}
+                    </div>
+                </div>
+
+                <div class="d-flex justify-content-end gap-2 mt-4">
+                    <button class="btn btn-primary">Guardar</button>
+                </div>
+            {{ form_end(form) }}
+        </div>
+    </div>
+{% endblock %}

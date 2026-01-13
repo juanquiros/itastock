@@ -32,8 +32,8 @@
                 <div class="card-body">
                     <div class="d-flex justify-content-between align-items-start mb-3">
                         <div>
-                            <p class="text-uppercase text-muted mb-1 small">Ticket</p>
-                            <h1 class="h4 mb-0">Venta #{{ sale.id }}</h1>
+                            <p class="text-uppercase text-muted mb-1 small">Remito</p>
+                            <h1 class="h4 mb-0">N° {{ remitoNumber }}</h1>
                             <p class="mb-0 text-muted">{{ sale.createdAt|date('d/m/Y H:i') }}</p>
                             <div class="mt-2">
                                 {% if sale.status == 'VOIDED' %}
@@ -56,6 +56,7 @@
                         </div>
                     </div>
 
+                    {% set headerLines = sale.business.ticketHeaderLines ? sale.business.ticketHeaderLines|replace({'\r': ''})|split('\n') : [] %}
                     <div class="mt-3">
                         <span class="badge bg-warning text-dark">
                             NO VÁLIDO COMO TICKET FISCAL
@@ -64,6 +65,22 @@
                             Comprobante tipo remito no fiscal emitido desde ItaStock.
                         </div>
                     </div>
+
+                    {% if sale.business.ticketHeaderImagePath %}
+                        <div class="mt-3 text-center">
+                            <img src="{{ sale.business.ticketHeaderImagePath }}" alt="Icono del comercio" style="max-height: 120px; max-width: 100%;">
+                        </div>
+                    {% endif %}
+
+                    {% if headerLines %}
+                        <div class="mt-3 text-muted small text-center">
+                            {% for line in headerLines %}
+                                {% if line|trim %}
+                                    <div>{{ line }}</div>
+                                {% endif %}
+                            {% endfor %}
+                        </div>
+                    {% endif %}
 
                     <div class="mb-3">
                         <div class="fw-semibold">Comercio</div>
@@ -135,6 +152,23 @@
                                 <div class="mb-0">{{ sale.voidReason }}</div>
                             </div>
                         {% endif %}
+                    {% endif %}
+
+                    {% set footerLines = sale.business.ticketFooterLines ? sale.business.ticketFooterLines|replace({'\r': ''})|split('\n') : [] %}
+                    {% if footerLines %}
+                        <div class="mt-3 text-muted small text-center">
+                            {% for line in footerLines %}
+                                {% if line|trim %}
+                                    <div>{{ line }}</div>
+                                {% endif %}
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+
+                    {% if sale.business.ticketFooterImagePath %}
+                        <div class="mt-3 text-center">
+                            <img src="{{ sale.business.ticketFooterImagePath }}" alt="Imagen final del ticket" style="max-height: 160px; max-width: 100%;">
+                        </div>
                     {% endif %}
                 </div>
             </div>

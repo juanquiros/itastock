@@ -8,6 +8,7 @@ use Symfony\Bridge\Doctrine\Form\Type\EntityType;
 use Symfony\Component\Form\AbstractType;
 use Symfony\Component\Form\Extension\Core\Type\ChoiceType;
 use Symfony\Component\Form\Extension\Core\Type\EmailType;
+use Symfony\Component\Form\Extension\Core\Type\IntegerType;
 use Symfony\Component\Form\Extension\Core\Type\PasswordType;
 use Symfony\Component\Form\Extension\Core\Type\TextType;
 use Symfony\Component\Form\FormBuilderInterface;
@@ -56,6 +57,14 @@ class UserType extends AbstractType
                 ],
                 'mapped' => false,
                 'data' => $currentRole,
+            ])
+            ->add('posNumber', IntegerType::class, [
+                'label' => 'Puesto de venta',
+                'required' => false,
+                'attr' => [
+                    'min' => 1,
+                ],
+                'help' => 'El administrador del comercio usa el puesto 1. Los demás usuarios deben tener un número propio.',
             ])
             ->add('plainPassword', PasswordType::class, [
                 'label' => $options['require_password'] ? 'Contraseña' : 'Nueva contraseña',

@@ -19,11 +19,26 @@
     <h1>Remito de venta</h1>
 
     <div class="meta">
+        {% if business.ticketHeaderImagePath %}
+            <div style="margin-bottom: 8px;">
+                <img src="{{ business.ticketHeaderImagePath }}" alt="Icono del comercio" style="max-height: 120px; max-width: 100%;">
+            </div>
+        {% endif %}
         <div><strong>Comercio:</strong> {{ business.name }}</div>
         <div><strong>Fecha:</strong> {{ sale.createdAt|date('d/m/Y H:i') }}</div>
-        <div><strong>N° de venta:</strong> {{ sale.id }}</div>
+        <div><strong>N° de remito:</strong> {{ remitoNumber }}</div>
         <div><strong>Generado:</strong> {{ generatedAt|date('d/m/Y H:i') }}</div>
         <div><strong>Cliente:</strong> {{ sale.customer ? sale.customer.name : 'Consumidor Final' }}</div>
+        {% set headerLines = business.ticketHeaderLines ? business.ticketHeaderLines|replace({'\r': ''})|split('\n') : [] %}
+        {% if headerLines %}
+            <div style="margin-top: 6px;">
+                {% for line in headerLines %}
+                    {% if line|trim %}
+                        <div>{{ line }}</div>
+                    {% endif %}
+                {% endfor %}
+            </div>
+        {% endif %}
     </div>
 
     <h2>Detalle de ítems</h2>
@@ -66,6 +81,23 @@
         {% if sale.voidReason %}
             <p><strong>Motivo de anulación:</strong> {{ sale.voidReason }}</p>
         {% endif %}
+    {% endif %}
+
+    {% set footerLines = business.ticketFooterLines ? business.ticketFooterLines|replace({'\r': ''})|split('\n') : [] %}
+    {% if footerLines %}
+        <div style="margin-top: 8px;">
+            {% for line in footerLines %}
+                {% if line|trim %}
+                    <div>{{ line }}</div>
+                {% endif %}
+            {% endfor %}
+        </div>
+    {% endif %}
+
+    {% if business.ticketFooterImagePath %}
+        <div style="margin-top: 8px;">
+            <img src="{{ business.ticketFooterImagePath }}" alt="Imagen final del ticket" style="max-height: 160px; max-width: 100%;">
+        </div>
     {% endif %}
 
     <div class="legend">

@@ -50,6 +50,12 @@ class Sale
     #[ORM\Column(type: 'text', nullable: true)]
     private ?string $voidReason = null;
 
+    #[ORM\Column(nullable: true)]
+    private ?int $posNumber = null;
+
+    #[ORM\Column(nullable: true)]
+    private ?int $posSequence = null;
+
     /** @var Collection<int, SaleItem> */
     #[ORM\OneToMany(mappedBy: 'sale', targetEntity: SaleItem::class, cascade: ['persist'], orphanRemoval: true)]
     private Collection $items;
@@ -174,6 +180,30 @@ class Sale
     public function setVoidReason(?string $voidReason): self
     {
         $this->voidReason = $voidReason;
+
+        return $this;
+    }
+
+    public function getPosNumber(): ?int
+    {
+        return $this->posNumber;
+    }
+
+    public function setPosNumber(?int $posNumber): self
+    {
+        $this->posNumber = $posNumber;
+
+        return $this;
+    }
+
+    public function getPosSequence(): ?int
+    {
+        return $this->posSequence;
+    }
+
+    public function setPosSequence(?int $posSequence): self
+    {
+        $this->posSequence = $posSequence;
 
         return $this;
     }
