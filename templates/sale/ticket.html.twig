@@ -89,7 +89,28 @@
 
                     <div class="mb-3">
                         <div class="fw-semibold">Cliente</div>
-                        <div class="text-muted">{{ sale.customer ? sale.customer.name : 'Consumidor Final' }}</div>
+                        {% if sale.customer %}
+                            <div class="text-muted">{{ sale.customer.name }}</div>
+                            {% if sale.customer.documentType or sale.customer.documentNumber %}
+                                <div class="text-muted">
+                                    {{ sale.customer.documentType ?: 'Documento' }}: {{ sale.customer.documentNumber ?: '-' }}
+                                </div>
+                            {% endif %}
+                            {% if sale.customer.phone %}
+                                <div class="text-muted">Teléfono: {{ sale.customer.phone }}</div>
+                            {% endif %}
+                            {% if sale.customer.address %}
+                                <div class="text-muted">Dirección: {{ sale.customer.address }}</div>
+                            {% endif %}
+                            {% if sale.customer.customerType %}
+                                <div class="text-muted">Tipo: {{ sale.customer.customerType }}</div>
+                            {% endif %}
+                            {% if sale.customer.priceList %}
+                                <div class="text-muted">Lista: {{ sale.customer.priceList.name }}</div>
+                            {% endif %}
+                        {% else %}
+                            <div class="text-muted">Consumidor Final</div>
+                        {% endif %}
                     </div>
 
                     <div class="table-responsive mb-3">

@@ -39,6 +39,23 @@
         <div><strong>N° de remito:</strong> {{ remitoNumber }}</div>
         <div><strong>Generado:</strong> {{ generatedAt|date('d/m/Y H:i') }}</div>
         <div><strong>Cliente:</strong> {{ sale.customer ? sale.customer.name : 'Consumidor Final' }}</div>
+        {% if sale.customer %}
+            {% if sale.customer.documentType or sale.customer.documentNumber %}
+                <div><strong>{{ sale.customer.documentType ?: 'Documento' }}:</strong> {{ sale.customer.documentNumber ?: '-' }}</div>
+            {% endif %}
+            {% if sale.customer.phone %}
+                <div><strong>Teléfono:</strong> {{ sale.customer.phone }}</div>
+            {% endif %}
+            {% if sale.customer.address %}
+                <div><strong>Dirección:</strong> {{ sale.customer.address }}</div>
+            {% endif %}
+            {% if sale.customer.customerType %}
+                <div><strong>Tipo:</strong> {{ sale.customer.customerType }}</div>
+            {% endif %}
+            {% if sale.customer.priceList %}
+                <div><strong>Lista:</strong> {{ sale.customer.priceList.name }}</div>
+            {% endif %}
+        {% endif %}
     </div>
 
     <h2>Detalle de ítems</h2>
