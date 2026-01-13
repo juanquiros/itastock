@@ -9,7 +9,9 @@ use App\Entity\StockMovement;
 use App\Form\ProductType;
 use App\Form\ProductImportType;
 use App\Entity\User;
+use App\Repository\BrandRepository;
 use App\Repository\CatalogProductRepository;
+use App\Repository\CategoryRepository;
 use App\Repository\ProductRepository;
 use App\Service\ProductCsvImportService;
 use App\Service\ProductCatalogSyncService;
@@ -34,12 +36,37 @@ class ProductController extends AbstractController
     }
 
     #[Route('', name: 'index', methods: ['GET'])]
-    public function index(ProductRepository $productRepository): Response
+    public function index(
+        Request $request,
+        ProductRepository $productRepository,
+        CategoryRepository $categoryRepository,
+        BrandRepository $brandRepository
+    ): Response
     {
         $business = $this->requireBusinessContext();
+        $name = trim((string) $request->query->get('name'));
+        $sku = trim((string) $request->query->get('sku'));
+        $barcode = trim((string) $request->query->get('barcode'));
+        $categoryIds = array_values(array_filter(array_map(
+            static fn (string $value): int => (int) $value,
+            $request->query->all('categories')
+        )));
+        $brandIds = array_values(array_filter(array_map(
+            static fn (string $value): int => (int) $value,
+            $request->query->all('brands')
+        )));
 
         return $this->render('product/index.html.twig', [
-            'products' => $productRepository->findBy(['business' => $business], ['name' => 'ASC']),
+            'products' => $productRepository->findForAdminFilters($business, $name, $sku, $barcode, $categoryIds, $brandIds),
+            'filters' => [
+                'name' => $name,
+                'sku' => $sku,
+                'barcode' => $barcode,
+                'categories' => $categoryIds,
+                'brands' => $brandIds,
+            ],
+            'categories' => $categoryRepository->findBy(['business' => $business], ['name' => 'ASC']),
+            'brands' => $brandRepository->findBy(['business' => $business], ['name' => 'ASC']),
         ]);
     }
 

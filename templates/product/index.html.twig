@@ -18,6 +18,51 @@
         </div>
     </div>
 
+    <div class="card shadow-sm mb-3">
+        <div class="card-body">
+            <form method="get" class="row g-3 align-items-end">
+                <div class="col-lg-3 col-md-4">
+                    <label class="form-label">Nombre</label>
+                    <input type="text" name="name" class="form-control" value="{{ filters.name }}">
+                </div>
+                <div class="col-lg-2 col-md-4">
+                    <label class="form-label">SKU</label>
+                    <input type="text" name="sku" class="form-control" value="{{ filters.sku }}">
+                </div>
+                <div class="col-lg-2 col-md-4">
+                    <label class="form-label">Código de barra</label>
+                    <input type="text" name="barcode" class="form-control" value="{{ filters.barcode }}">
+                </div>
+                <div class="col-lg-2 col-md-6">
+                    <label class="form-label">Categorías</label>
+                    <select name="categories[]" class="form-select" multiple>
+                        {% for category in categories %}
+                            <option value="{{ category.id }}" {{ category.id in filters.categories ? 'selected' : '' }}>
+                                {{ category.name }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-lg-2 col-md-6">
+                    <label class="form-label">Marcas</label>
+                    <select name="brands[]" class="form-select" multiple>
+                        {% for brand in brands %}
+                            <option value="{{ brand.id }}" {{ brand.id in filters.brands ? 'selected' : '' }}>
+                                {{ brand.name }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-lg-1 col-md-12 d-grid">
+                    <button class="btn btn-outline-secondary" type="submit">Filtrar</button>
+                </div>
+                <div class="col-lg-2 col-md-12 d-grid">
+                    <a class="btn btn-link text-decoration-none" href="{{ path('app_product_index') }}">Limpiar filtros</a>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <div class="card shadow-sm">
         <div class="card-body p-0">
             <div class="table-responsive">

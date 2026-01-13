@@ -115,4 +115,51 @@ class ProductRepository extends ServiceEntityRepository
             'min' => (float) $row['min'],
         ], $rows);
     }
+
+    /**
+     * @param int[] $categoryIds
+     * @param int[] $brandIds
+     *
+     * @return Product[]
+     */
+    public function findForAdminFilters(
+        Business $business,
+        ?string $name,
+        ?string $sku,
+        ?string $barcode,
+        array $categoryIds,
+        array $brandIds
+    ): array {
+        $qb = $this->createQueryBuilder('p')
+            ->andWhere('p.business = :business')
+            ->setParameter('business', $business)
+            ->orderBy('p.name', 'ASC');
+
+        if ($name !== null && $name !== '') {
+            $qb->andWhere('LOWER(p.name) LIKE :name')
+                ->setParameter('name', '%'.mb_strtolower($name).'%');
+        }
+
+        if ($sku !== null && $sku !== '') {
+            $qb->andWhere('LOWER(p.sku) LIKE :sku')
+                ->setParameter('sku', '%'.mb_strtolower($sku).'%');
+        }
+
+        if ($barcode !== null && $barcode !== '') {
+            $qb->andWhere('p.barcode LIKE :barcode')
+                ->setParameter('barcode', '%'.$barcode.'%');
+        }
+
+        if ($categoryIds !== []) {
+            $qb->andWhere('p.category IN (:categories)')
+                ->setParameter('categories', $categoryIds);
+        }
+
+        if ($brandIds !== []) {
+            $qb->andWhere('p.brand IN (:brands)')
+                ->setParameter('brands', $brandIds);
+        }
+
+        return $qb->getQuery()->getResult();
+    }
 }
