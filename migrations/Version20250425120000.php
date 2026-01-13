@@ -16,7 +16,7 @@ final class Version20250425120000 extends AbstractMigration
 
     public function up(Schema $schema): void
     {
-        $this->addSql('ALTER TABLE business ADD ticket_header_lines LONGTEXT DEFAULT NULL, ADD ticket_footer_lines LONGTEXT DEFAULT NULL, ADD ticket_header_image_path LONGTEXT DEFAULT NULL, ADD ticket_footer_image_path LONGTEXT DEFAULT NULL, ADD ticket_printer_name VARCHAR(255) DEFAULT NULL, ADD ticket_printer_settings LONGTEXT DEFAULT NULL');
+        $this->addSql('ALTER TABLE business ADD ticket_header_lines LONGTEXT DEFAULT NULL, ADD ticket_footer_lines LONGTEXT DEFAULT NULL, ADD ticket_header_image_path LONGTEXT DEFAULT NULL, ADD ticket_footer_image_path LONGTEXT DEFAULT NULL, ADD ticket_printer_name VARCHAR(255) DEFAULT NULL, ADD ticket_printer_settings LONGTEXT DEFAULT NULL, ADD ticket_paper_width_mm INT DEFAULT NULL');
         $this->addSql('ALTER TABLE users ADD pos_number INT DEFAULT NULL');
         $this->addSql('ALTER TABLE sales ADD pos_number INT DEFAULT NULL, ADD pos_sequence INT DEFAULT NULL');
 
@@ -27,7 +27,7 @@ final class Version20250425120000 extends AbstractMigration
 
     public function down(Schema $schema): void
     {
-        $this->addSql('ALTER TABLE business DROP ticket_header_lines, DROP ticket_footer_lines, DROP ticket_header_image_path, DROP ticket_footer_image_path, DROP ticket_printer_name, DROP ticket_printer_settings');
+        $this->addSql('ALTER TABLE business DROP ticket_header_lines, DROP ticket_footer_lines, DROP ticket_header_image_path, DROP ticket_footer_image_path, DROP ticket_printer_name, DROP ticket_printer_settings, DROP ticket_paper_width_mm');
         $this->addSql('ALTER TABLE users DROP pos_number');
         $this->addSql('ALTER TABLE sales DROP pos_number, DROP pos_sequence');
     }

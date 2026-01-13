@@ -73,6 +73,9 @@ class Business
     #[ORM\Column(type: 'text', nullable: true)]
     private ?string $ticketPrinterSettings = null;
 
+    #[ORM\Column(nullable: true)]
+    private ?int $ticketPaperWidthMm = null;
+
     public function __construct()
     {
         $this->users = new ArrayCollection();
@@ -359,6 +362,18 @@ class Business
     public function setTicketPrinterSettings(?string $ticketPrinterSettings): self
     {
         $this->ticketPrinterSettings = $ticketPrinterSettings;
+
+        return $this;
+    }
+
+    public function getTicketPaperWidthMm(): ?int
+    {
+        return $this->ticketPaperWidthMm;
+    }
+
+    public function setTicketPaperWidthMm(?int $ticketPaperWidthMm): self
+    {
+        $this->ticketPaperWidthMm = $ticketPaperWidthMm;
 
         return $this;
     }

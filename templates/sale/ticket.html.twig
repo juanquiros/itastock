@@ -4,8 +4,13 @@
 
 {% block stylesheets %}
     {{ parent() }}
+    {% set paperWidth = sale.business.ticketPaperWidthMm ?? 80 %}
     <style>
         @media print {
+            @page {
+                size: {{ paperWidth }}mm auto;
+                margin: 6mm;
+            }
             header,
             nav,
             .navbar,
@@ -21,6 +26,10 @@
             body {
                 background: #fff !important;
             }
+            .ticket-print {
+                width: {{ paperWidth }}mm;
+                max-width: 100%;
+            }
         }
     </style>
 {% endblock %}
@@ -28,7 +37,7 @@
 {% block body %}
     <div class="row justify-content-center">
         <div class="col-lg-6">
-            <div class="card shadow-sm mb-3">
+            <div class="card shadow-sm mb-3 ticket-print">
                 <div class="card-body">
                     <div class="d-flex justify-content-between align-items-start mb-3">
                         <div>

@@ -7,5 +7,6 @@ Administrador del comercio (ROLE_ADMIN)
   TICKET FISCAL), con opciones de impresión y descarga en PDF.
 - Configuración de ticket (/app/settings/ticket): define líneas personalizadas,
   icono e imagen final del remito no fiscal, además de los datos de impresora
-  preferida para su equipo.
+  preferida para su equipo y el ancho de hoja (58mm, 80mm, etc.). La impresión
+  directa sin diálogo requiere integración nativa.
 - Usuarios (/app/admin/users): asigná el número de puesto de venta por usuario.
