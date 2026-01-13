@@ -2,6 +2,29 @@
 
 {% block title %}Ticket de venta - ItaStock{% endblock %}
 
+{% block stylesheets %}
+    {{ parent() }}
+    <style>
+        @media print {
+            header,
+            nav,
+            .navbar,
+            .btn-group,
+            .btn,
+            .alert {
+                display: none !important;
+            }
+            .card {
+                box-shadow: none !important;
+                border: none !important;
+            }
+            body {
+                background: #fff !important;
+            }
+        }
+    </style>
+{% endblock %}
+
 {% block body %}
     <div class="row justify-content-center">
         <div class="col-lg-6">
@@ -20,7 +43,26 @@
                                 {% endif %}
                             </div>
                         </div>
-                        <a class="btn btn-outline-secondary" href="{{ path('app_sale_new') }}">Nueva venta</a>
+                        <div class="btn-group">
+                            <button type="button" class="btn btn-outline-secondary" onclick="window.print()">
+                                Imprimir
+                            </button>
+                            <a class="btn btn-outline-primary" href="{{ path('app_sale_ticket_pdf', { id: sale.id }) }}">
+                                PDF
+                            </a>
+                            <a class="btn btn-outline-secondary" href="{{ path('app_sale_new') }}">
+                                Nueva venta
+                            </a>
+                        </div>
+                    </div>
+
+                    <div class="mt-3">
+                        <span class="badge bg-warning text-dark">
+                            NO VÁLIDO COMO TICKET FISCAL
+                        </span>
+                        <div class="small text-muted">
+                            Comprobante tipo remito no fiscal emitido desde ItaStock.
+                        </div>
                     </div>
 
                     <div class="mb-3">
@@ -97,7 +139,8 @@
                 </div>
             </div>
             <div class="text-center text-muted small">
-                Imprimí este ticket desde tu navegador si lo necesitás.
+                Este documento actúa como remito no fiscal.
+                <strong>NO VÁLIDO COMO TICKET FISCAL</strong>.
             </div>
         </div>
     </div>

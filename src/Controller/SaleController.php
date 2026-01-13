@@ -16,6 +16,7 @@ use App\Repository\PlatformSettingsRepository;
 use App\Repository\PriceListItemRepository;
 use App\Repository\PriceListRepository;
 use App\Service\CustomerAccountService;
+use App\Service\PdfService;
 use App\Service\PricingService;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -37,6 +38,7 @@ class SaleController extends AbstractController
         private readonly PlatformSettingsRepository $platformSettingsRepository,
         private readonly PricingService $pricingService,
         private readonly CustomerAccountService $customerAccountService,
+        private readonly PdfService $pdfService,
     ) {
     }
 
@@ -110,6 +112,22 @@ class SaleController extends AbstractController
         return $this->render('sale/ticket.html.twig', [
             'sale' => $sale,
         ]);
+    }
+
+    #[Route('/{id}/ticket/pdf', name: 'ticket_pdf', methods: ['GET'])]
+    public function ticketPdf(Sale $sale): Response
+    {
+        $business = $this->requireBusinessContext();
+
+        if ($sale->getBusiness() !== $business) {
+            throw new AccessDeniedException('Solo podés ver tickets de tu comercio.');
+        }
+
+        return $this->pdfService->render('sale/ticket_pdf.html.twig', [
+            'business' => $business,
+            'sale' => $sale,
+            'generatedAt' => new \DateTimeImmutable(),
+        ], sprintf('remito-venta-%d.pdf', $sale->getId()));
     }
 
     private function handleSubmission(Request $request, Business $business, array $products, User $user): Response

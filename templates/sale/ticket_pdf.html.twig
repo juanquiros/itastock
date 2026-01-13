@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body { font-family: Arial, sans-serif; font-size: 12px; color: #222; }
+        h1 { font-size: 18px; margin-bottom: 4px; }
+        h2 { font-size: 14px; margin: 12px 0 6px; }
+        table { width: 100%; border-collapse: collapse; margin-bottom: 12px; }
+        th, td { border: 1px solid #ddd; padding: 6px; }
+        th { background: #f5f5f5; text-align: left; }
+        .meta { margin-bottom: 12px; }
+        .meta div { margin-bottom: 4px; }
+        .totals { margin-top: 8px; text-align: right; }
+        .legend { margin-top: 16px; font-size: 11px; color: #555; }
+    </style>
+</head>
+<body>
+    <h1>Remito de venta</h1>
+
+    <div class="meta">
+        <div><strong>Comercio:</strong> {{ business.name }}</div>
+        <div><strong>Fecha:</strong> {{ sale.createdAt|date('d/m/Y H:i') }}</div>
+        <div><strong>N° de venta:</strong> {{ sale.id }}</div>
+        <div><strong>Generado:</strong> {{ generatedAt|date('d/m/Y H:i') }}</div>
+        <div><strong>Cliente:</strong> {{ sale.customer ? sale.customer.name : 'Consumidor Final' }}</div>
+    </div>
+
+    <h2>Detalle de ítems</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>Producto</th>
+                <th style="text-align: right;">Cant.</th>
+                <th style="text-align: right;">Precio</th>
+                <th style="text-align: right;">Total</th>
+            </tr>
+        </thead>
+        <tbody>
+        {% for item in sale.items %}
+            <tr>
+                <td>{{ item.description }}</td>
+                <td style="text-align: right;">{{ item.qty|number_format(3, '.', ',') }}</td>
+                <td style="text-align: right;">${{ item.unitPrice }}</td>
+                <td style="text-align: right;">${{ item.lineTotal }}</td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+
+    <div class="totals">
+        <div><strong>Total:</strong> ${{ sale.total }}</div>
+    </div>
+
+    <h2>Pagos</h2>
+    <ul>
+        {% for payment in sale.payments %}
+            <li>{{ payment.method }} · ${{ payment.amount }}</li>
+        {% else %}
+            <li>Sin pagos registrados</li>
+        {% endfor %}
+    </ul>
+
+    {% if sale.status == 'VOIDED' %}
+        <p><strong>Estado:</strong> ANULADA</p>
+        {% if sale.voidReason %}
+            <p><strong>Motivo de anulación:</strong> {{ sale.voidReason }}</p>
+        {% endif %}
+    {% endif %}
+
+    <div class="legend">
+        <strong>NO VÁLIDO COMO TICKET FISCAL</strong><br>
+        Este documento actúa como remito no fiscal emitido desde ItaStock.
+    </div>
+</body>
+</html>

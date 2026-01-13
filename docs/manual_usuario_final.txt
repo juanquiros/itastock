@@ -1,0 +1,7 @@
+Manual de usuario - ItaStock
+
+Administrador del comercio (ROLE_ADMIN)
+
+- POS / Ventas (/app/pos/new): alta de ventas con selección de productos,
+  clientes, medios de pago y emisión de ticket/remito no fiscal (NO VÁLIDO COMO
+  TICKET FISCAL), con opciones de impresión y descarga en PDF.
