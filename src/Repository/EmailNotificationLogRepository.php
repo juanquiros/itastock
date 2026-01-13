@@ -22,8 +22,6 @@ class EmailNotificationLogRepository extends ServiceEntityRepository
     public function findPlatformLogs(string $query, int $page, int $limit): array
     {
         $qb = $this->createQueryBuilder('e')
-            ->where('e.recipientRole = :role')
-            ->setParameter('role', EmailNotificationLog::ROLE_PLATFORM)
             ->orderBy('e.createdAt', 'DESC');
 
         if ($query !== '') {
