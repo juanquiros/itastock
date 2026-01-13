@@ -1,0 +1,218 @@
+Manual técnico (nivel analista de sistemas) - ItaStock
+======================================================
+
+1. Stack y arquitectura
+-----------------------
+- Backend: Symfony (framework PHP) con controladores anotados y servicios.
+- UI: Twig + Bootstrap para plantillas y layouts.
+- Persistencia: Doctrine ORM con entidades y repositorios.
+- Enfoque: arquitectura por capas (Controllers -> Services/Repositories -> Entities).
+
+2. Roles y permisos (seguridad)
+-------------------------------
+Roles principales y alcance funcional:
+- ROLE_ADMIN: acceso completo al backoffice del comercio, POS y caja.
+- ROLE_SELLER: acceso limitado a POS y caja.
+- ROLE_PLATFORM_ADMIN: acceso al backoffice de plataforma.
+- ROLE_BUSINESS_ADMIN: acceso operativo al dashboard y funciones de consulta.
+
+Implementación de seguridad:
+- Control de acceso por anotaciones (#[IsGranted] / #[Security]) en controladores.
+- Restricción por rol en rutas clave (backoffice, caja, POS, plataforma).
+- Manejo de sesión y login mediante /login y /logout.
+- Recupero de contraseña con token y expiración (1 hora) vía /password/*.
+- Validaciones de contexto de negocio para impedir acceso cruzado entre comercios.
+- Validación CSRF en acciones de alto impacto (creación/edición/baja, caja).
+
+3. Rutas públicas (usuario anónimo)
+----------------------------------
+- GET/POST / : Home pública + solicitud de demo.
+- GET /features : Página de funcionalidades.
+- GET /pricing : Planes y precios.
+- GET/POST /contact : Formulario de contacto.
+- GET /terms : Términos y condiciones.
+- GET /privacy : Política de privacidad.
+- GET /p/{slug} : Página pública personalizada.
+- POST /webhooks/mercadopago : Webhook de Mercado Pago.
+
+4. Autenticación y cuenta
+-------------------------
+- GET/POST /login : formulario de ingreso.
+- GET /logout : cierre de sesión.
+- GET/POST /password/forgot : solicitud de recuperación.
+- GET/POST /password/reset/{token} : restablecimiento de contraseña.
+
+5. Dashboard y operación del comercio
+-------------------------------------
+- GET /app : alias al dashboard principal.
+- GET /app/dashboard : dashboard operativo (KPIs, alertas y actividad).
+- GET /app/dashboard/data/summary : endpoint de datos para el dashboard.
+
+6. POS (ventas) y caja
+----------------------
+POS (ROLE_USER):
+- GET/POST /app/pos/new : alta de venta.
+- GET /app/pos/{id}/ticket : ticket/recibo de venta.
+
+Caja (ROLE_USER):
+- GET /app/cash : estado de caja actual.
+- POST /app/cash/open : apertura de caja.
+- POST /app/cash/close : cierre de caja.
+- GET /app/cash/report/{id} : reporte de caja.
+
+7. Backoffice del comercio (ROLE_ADMIN)
+---------------------------------------
+Productos:
+- GET /app/admin/products : listado.
+- GET /app/admin/products/export.csv : exportación CSV.
+- GET/POST /app/admin/products/import : importación.
+- GET/POST /app/admin/products/new : alta.
+- GET/POST /app/admin/products/{id}/edit : edición.
+- POST /app/admin/products/{id} : baja/desactivación.
+
+Categorías:
+- GET /app/admin/categories : listado.
+- GET/POST /app/admin/categories/new : alta.
+- GET/POST /app/admin/categories/{id}/edit : edición.
+- POST /app/admin/categories/{id} : baja.
+
+Stock:
+- GET/POST /app/admin/stock/import : importación/ajustes.
+
+Clientes:
+- GET /app/admin/customers : listado.
+- GET/POST /app/admin/customers/new : alta.
+- GET/POST /app/admin/customers/{id}/edit : edición.
+- GET /app/admin/customers/{id}/account : cuenta corriente.
+- GET /app/admin/customers/{id}/account/export.csv : exportación CSV.
+- GET /app/admin/customers/{id}/account/pdf : exportación PDF.
+- GET/POST /app/admin/customers/{id}/collect : cobranza.
+- POST /app/admin/customers/{id} : baja.
+
+Listas de precios:
+- GET /app/admin/price-lists : listado.
+- GET/POST /app/admin/price-lists/new : alta.
+- GET/POST /app/admin/price-lists/{id}/edit : edición.
+- POST /app/admin/price-lists/{id} : baja.
+- GET/POST /app/admin/price-lists/{id}/products : precios por producto.
+
+Ventas (backoffice):
+- GET /app/admin/sales/export.{_format} : exportación HTML/CSV.
+- GET /app/admin/sales/pdf : exportación PDF.
+- POST /app/admin/sales/{id}/void : anulación de venta.
+
+Caja (backoffice):
+- GET /app/admin/cash-sessions/{id}/pdf : reporte PDF.
+
+Reportes:
+- GET /app/admin/reports : índice de reportes.
+- GET /app/admin/reports/debtors : reporte de deudores.
+- GET /app/admin/reports/debtors/pdf : reporte deudores (PDF).
+- GET /app/admin/reports/stock-low/pdf : reporte stock bajo (PDF).
+
+Usuarios:
+- GET /app/admin/users : listado.
+- GET/POST /app/admin/users/new : alta.
+- GET/POST /app/admin/users/{id}/edit : edición.
+- POST /app/admin/users/{id} : baja.
+
+Preferencias de email:
+- GET/POST /app/settings/emails : configuración de notificaciones.
+
+Suscripciones (comercio):
+- GET /app/billing/subscription : estado y planes.
+- POST /app/billing/subscription/choose/{id} : iniciar cambio de plan.
+- POST /app/billing/subscription/pause : pausar suscripción.
+- POST /app/billing/subscription/reactivate : reactivar suscripción.
+- POST /app/billing/subscription/cancel : cancelar suscripción.
+- POST /app/billing/subscription/pending/cancel : cancelar cambio pendiente.
+- GET /app/billing/return : retorno de Mercado Pago.
+
+Bloqueo por suscripción:
+- GET /app/subscription/blocked : pantalla de acceso bloqueado.
+
+8. Backoffice de plataforma (ROLE_PLATFORM_ADMIN)
+-------------------------------------------------
+Dashboard plataforma:
+- GET /platform : panel principal.
+
+Comercios:
+- GET /platform/businesses : listado.
+- GET/POST /platform/businesses/new : alta.
+- GET /platform/businesses/{id} : detalle.
+- GET/POST /platform/businesses/{id}/edit : edición.
+
+Administradores de comercio (plataforma):
+- GET/POST /platform/businesses/{id}/admins/new : crear admin.
+
+Usuarios del comercio (plataforma):
+- GET /platform/businesses/{id}/users : listado de usuarios.
+- POST /platform/businesses/{businessId}/users/{userId}/toggle : activar/desactivar.
+
+Leads:
+- GET/POST /platform/leads : listado y filtros.
+- GET /platform/leads/{id} : detalle.
+- POST /platform/leads/{id}/create-demo : crear demo.
+
+Páginas públicas:
+- GET /platform/pages : listado.
+- GET/POST /platform/pages/new : alta.
+- GET /platform/pages/{id} : detalle.
+- GET/POST /platform/pages/{id}/edit : edición.
+
+Emails y reportes:
+- GET /platform/emails : logs de emails.
+- GET /platform/reports : reportes de plataforma.
+
+Planes y facturación (plataforma):
+- GET /platform/plans : listado de planes.
+- GET/POST /platform/plans/new : alta.
+- GET /platform/plans/{id} : detalle.
+- GET/POST /platform/plans/{id}/edit : edición.
+
+Planes de facturación (Marketplace):
+- GET /platform/billing-plans : listado.
+- GET/POST /platform/billing-plans/new : alta.
+- GET/POST /platform/billing-plans/{id}/edit : edición.
+- POST /platform/billing-plans/{id}/toggle : activar/desactivar.
+
+Suscripciones (plataforma):
+- GET /platform/subscriptions : listado.
+- POST /platform/subscriptions/{id}/resync : resincronizar.
+- POST /platform/subscriptions/{id}/override : override manual.
+- GET/POST /platform/businesses/{id}/subscription : detalle y acciones.
+
+Catálogo maestro:
+- Categorías:
+  - GET /platform/catalog/categories
+  - GET/POST /platform/catalog/categories/new
+  - GET/POST /platform/catalog/categories/{id}/edit
+  - POST /platform/catalog/categories/{id}/toggle
+- Marcas:
+  - GET /platform/catalog/brands
+  - GET/POST /platform/catalog/brands/new
+  - GET/POST /platform/catalog/brands/{id}/edit
+  - POST /platform/catalog/brands/{id}/toggle
+- Productos:
+  - GET /platform/catalog/products
+  - GET/POST /platform/catalog/products/new
+  - GET/POST /platform/catalog/products/{id}/edit
+
+Configuración global:
+- GET/POST /platform/settings/pos : parámetros del POS (p.ej. sonido lector).
+
+9. Servicios y procesos relevantes
+----------------------------------
+- Servicios de suscripción: integración con Mercado Pago, cambios de plan,
+  estados de suscripción y notificaciones.
+- Servicios de precios: cálculo de precios por listas y clientes.
+- Servicios de ventas: validación de stock y consistencia contable.
+- Envío de emails: plantillas con control por rol y políticas de contenido.
+- Reportes: exportación CSV/PDF para ventas, caja y cuentas corrientes.
+
+10. Consideraciones de seguridad y operación
+--------------------------------------------
+- Las rutas críticas están protegidas por roles y verificaciones de negocio.
+- Los formularios sensibles usan validación de tokens CSRF.
+- La recuperación de contraseña usa token temporal con vencimiento.
+- Las suscripciones restringen el acceso operativo si no están activas.
