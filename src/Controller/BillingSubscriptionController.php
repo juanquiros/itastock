@@ -163,18 +163,32 @@ class BillingSubscriptionController extends AbstractController
                 'back_url' => $this->generateUrl('app_billing_return', [], UrlGeneratorInterface::ABSOLUTE_URL),
             ];
 
-            if ($billingPlan->getMpPreapprovalPlanId()) {
-                $payload['preapproval_plan_id'] = $billingPlan->getMpPreapprovalPlanId();
-            } else {
-                $payload['auto_recurring'] = [
-                    'frequency' => $billingPlan->getFrequency(),
-                    'frequency_type' => $billingPlan->getFrequencyType(),
-                    'transaction_amount' => (float) $billingPlan->getPrice(),
-                    'currency_id' => $billingPlan->getCurrency(),
-                ];
-            }
+            $autoRecurring = [
+                'frequency' => $billingPlan->getFrequency(),
+                'frequency_type' => $billingPlan->getFrequencyType(),
+                'transaction_amount' => (float) $billingPlan->getPrice(),
+                'currency_id' => $billingPlan->getCurrency(),
+            ];
 
-            $response = $mercadoPagoClient->createPreapproval($payload);
+            $response = null;
+            $mpPlanId = $billingPlan->getMpPreapprovalPlanId();
+            try {
+                if ($mpPlanId) {
+                    $payload['preapproval_plan_id'] = $mpPlanId;
+                } else {
+                    $payload['auto_recurring'] = $autoRecurring;
+                }
+
+                $response = $mercadoPagoClient->createPreapproval($payload);
+            } catch (MercadoPagoApiException $exception) {
+                if ($mpPlanId && $this->shouldFallbackToAutoRecurring($exception)) {
+                    unset($payload['preapproval_plan_id']);
+                    $payload['auto_recurring'] = $autoRecurring;
+                    $response = $mercadoPagoClient->createPreapproval($payload);
+                } else {
+                    throw $exception;
+                }
+            }
         } catch (MercadoPagoApiException $exception) {
             $this->addFlash('danger', sprintf('Error al iniciar la suscripción en Mercado Pago: %s', $exception->getMessage()));
 
@@ -566,5 +580,19 @@ class BillingSubscriptionController extends AbstractController
         } catch (\Throwable) {
             return null;
         }
+    }
+
+    private function shouldFallbackToAutoRecurring(MercadoPagoApiException $exception): bool
+    {
+        if ($exception->getStatusCode() === 404) {
+            return true;
+        }
+
+        $body = $exception->getResponseBody();
+        if (stripos($body, 'template') !== false) {
+            return true;
+        }
+
+        return stripos($body, 'card_token_id') !== false;
     }
 }
