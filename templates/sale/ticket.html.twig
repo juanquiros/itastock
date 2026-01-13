@@ -9,7 +9,7 @@
         @media print {
             @page {
                 size: {{ paperWidth }}mm auto;
-                margin: 6mm;
+                margin: 4mm;
             }
             header,
             nav,
@@ -25,10 +25,28 @@
             }
             body {
                 background: #fff !important;
+                color: #000 !important;
+                font-family: "Courier New", Courier, monospace;
+                font-size: 11px;
             }
             .ticket-print {
                 width: {{ paperWidth }}mm;
                 max-width: 100%;
+            }
+            .table > :not(caption) > * > * {
+                padding: 2px 4px;
+                border-color: #000 !important;
+            }
+            .table-light {
+                --bs-table-bg: #fff;
+            }
+            .badge {
+                background: none !important;
+                color: #000 !important;
+                border: 1px solid #000;
+            }
+            .text-muted {
+                color: #000 !important;
             }
         }
     </style>
