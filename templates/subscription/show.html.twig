@@ -152,7 +152,7 @@
                                             {% endif %}
                                         </td>
                                         <td class="text-end">
-                                            <form method="post" action="{{ path('app_billing_subscription_choose', {id: plan.id}) }}">
+                                            <form method="post" action="{{ path('app_billing_subscription_choose', {id: plan.id}) }}" data-turbo="false">
                                                 <input type="hidden" name="_token" value="{{ csrf_token('choose_billing_plan_' ~ plan.id) }}">
                                                 <button class="btn btn-sm btn-primary" type="submit" {% if not plan.mpPreapprovalPlanId or pendingChange %}disabled{% endif %}>
                                                     Elegir plan
