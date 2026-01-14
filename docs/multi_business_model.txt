@@ -23,3 +23,7 @@ Mercado Pago
 - La suscripción se mantiene ligada al Business.
 - El email de pagador se obtiene desde el Business (mercadoPagoPayerEmail) y
   se usa como fuente de verdad cuando esté configurado.
+
+Backfill de membresías existentes
+- Ejecutar el comando `app:business-users:backfill` si hay usuarios previos
+  con `users.business_id` y faltan filas en `business_user`.
