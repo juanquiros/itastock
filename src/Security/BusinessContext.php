@@ -8,7 +8,7 @@ use App\Entity\User;
 use App\Repository\BusinessRepository;
 use App\Repository\BusinessUserRepository;
 use Symfony\Bundle\SecurityBundle\Security;
-use Symfony\Component\HttpFoundation\Session\SessionInterface;
+use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\Security\Core\Exception\AccessDeniedException;
 
 class BusinessContext
@@ -16,7 +16,7 @@ class BusinessContext
     private const SESSION_KEY = 'current_business_id';
 
     public function __construct(
-        private readonly SessionInterface $session,
+        private readonly RequestStack $requestStack,
         private readonly BusinessRepository $businessRepository,
         private readonly BusinessUserRepository $businessUserRepository,
         private readonly Security $security,
@@ -30,7 +30,8 @@ class BusinessContext
             return null;
         }
 
-        $businessId = $this->session->get(self::SESSION_KEY);
+        $session = $this->requestStack->getSession();
+        $businessId = $session?->get(self::SESSION_KEY);
         if (is_numeric($businessId) && (int) $businessId > 0) {
             $business = $this->businessRepository->find((int) $businessId);
             if ($business instanceof Business) {
@@ -81,7 +82,10 @@ class BusinessContext
             return;
         }
 
-        $this->session->set(self::SESSION_KEY, $businessId);
+        $session = $this->requestStack->getSession();
+        if ($session) {
+            $session->set(self::SESSION_KEY, $businessId);
+        }
     }
 
     public function getUserMembershipForCurrentBusiness(User $user): ?BusinessUser

@@ -23,7 +23,6 @@ services:
         autowire: true      # Automatically injects dependencies in your services.
         autoconfigure: true # Automatically registers your services as commands, event subscribers, etc.
         bind:
-            Symfony\Component\HttpFoundation\Session\SessionInterface: '@session'
             $environment: '%kernel.environment%'
             $trialDurationDays: '%app.trial_duration_days%'
             $mercadoPagoMode: '%app.mercadopago.mode%'
