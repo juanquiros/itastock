@@ -3,6 +3,9 @@
 namespace App\Entity;
 
 use App\Repository\UserRepository;
+use App\Entity\BusinessUser;
+use Doctrine\Common\Collections\ArrayCollection;
+use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Bridge\Doctrine\Validator\Constraints\UniqueEntity;
 use Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface;
@@ -49,6 +52,15 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
 
     #[ORM\Column(nullable: true)]
     private ?int $posNumber = null;
+
+    /** @var Collection<int, BusinessUser> */
+    #[ORM\OneToMany(mappedBy: 'user', targetEntity: BusinessUser::class, orphanRemoval: true)]
+    private Collection $businessUsers;
+
+    public function __construct()
+    {
+        $this->businessUsers = new ArrayCollection();
+    }
 
     public function getId(): ?int
     {
@@ -179,5 +191,50 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         $this->posNumber = $posNumber;
 
         return $this;
+    }
+
+    /**
+     * @return Collection<int, BusinessUser>
+     */
+    public function getBusinessMemberships(): Collection
+    {
+        return $this->businessUsers;
+    }
+
+    public function addBusinessMembership(BusinessUser $businessUser): self
+    {
+        if (!$this->businessUsers->contains($businessUser)) {
+            $this->businessUsers->add($businessUser);
+            $businessUser->setUser($this);
+        }
+
+        return $this;
+    }
+
+    public function removeBusinessMembership(BusinessUser $businessUser): self
+    {
+        if ($this->businessUsers->removeElement($businessUser)) {
+            if ($businessUser->getUser() === $this) {
+                $businessUser->setUser(null);
+            }
+        }
+
+        return $this;
+    }
+
+    /**
+     * @return Business[]
+     */
+    public function getBusinesses(): array
+    {
+        $businesses = [];
+        foreach ($this->businessUsers as $membership) {
+            $business = $membership->getBusiness();
+            if ($business instanceof Business) {
+                $businesses[] = $business;
+            }
+        }
+
+        return $businesses;
     }
 }

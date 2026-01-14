@@ -3,9 +3,12 @@
 namespace App\Controller;
 
 use App\Entity\Business;
+use App\Entity\BusinessUser;
 use App\Entity\User;
 use App\Form\UserType;
+use App\Repository\BusinessUserRepository;
 use App\Repository\UserRepository;
+use App\Security\BusinessContext;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
@@ -15,42 +18,72 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 use Symfony\Component\Security\Core\Exception\AccessDeniedException;
 
-#[IsGranted('ROLE_ADMIN')]
+#[IsGranted('BUSINESS_ADMIN')]
 #[Route('/app/admin/users', name: 'app_user_')]
 class UserController extends AbstractController
 {
     public function __construct(
         private readonly EntityManagerInterface $entityManager,
         private readonly UserPasswordHasherInterface $passwordHasher,
+        private readonly BusinessUserRepository $businessUserRepository,
+        private readonly BusinessContext $businessContext,
     ) {
     }
 
     #[Route('', name: 'index', methods: ['GET'])]
-    public function index(UserRepository $userRepository): Response
+    public function index(): Response
     {
         $business = $this->requireBusinessContext();
 
         return $this->render('user/index.html.twig', [
-            'users' => $userRepository->findBy(['business' => $business]),
+            'memberships' => $this->businessUserRepository->findBy(
+                ['business' => $business, 'isActive' => true],
+                ['createdAt' => 'ASC']
+            ),
         ]);
     }
 
     #[Route('/new', name: 'new', methods: ['GET', 'POST'])]
-    public function new(Request $request): Response
+    public function new(Request $request, UserRepository $userRepository): Response
     {
         $business = $this->requireBusinessContext();
-
         $user = new User();
-        $user->setBusiness($business);
+        $requirePassword = true;
+        $currentRole = BusinessUser::ROLE_SELLER;
+
+        if ($request->isMethod('POST')) {
+            $formData = $request->request->all('user');
+            $email = mb_strtolower((string) ($formData['email'] ?? ''));
+            if ($email !== '') {
+                $existing = $userRepository->findOneBy(['email' => $email]);
+                if ($existing instanceof User) {
+                    $user = $existing;
+                    $requirePassword = false;
+                    $existingMembership = $this->businessUserRepository->findActiveMembership($user, $business);
+                    if ($existingMembership) {
+                        $currentRole = $existingMembership->getRole();
+                    }
+                } else {
+                    $user->setBusiness($business);
+                }
+            }
+        } else {
+            $user->setBusiness($business);
+        }
 
         $form = $this->createForm(UserType::class, $user, [
-            'require_password' => true,
-            'current_business' => $business,
+            'require_password' => $requirePassword,
+            'current_role' => $currentRole,
         ]);
         $form->handleRequest($request);
 
         if ($form->isSubmitted() && $form->isValid()) {
-            $this->handleUserPersistence($user, $form->get('plainPassword')->getData(), $form->get('role')->getData());
+            $this->handleUserPersistence(
+                $user,
+                $business,
+                $form->get('plainPassword')->getData(),
+                (string) $form->get('role')->getData()
+            );
 
             $this->addFlash('success', 'Usuario creado correctamente.');
 
@@ -68,15 +101,22 @@ class UserController extends AbstractController
         $business = $this->requireBusinessContext();
 
         $this->denyIfDifferentBusiness($user, $business);
+        $membership = $this->businessUserRepository->findActiveMembership($user, $business);
+        $currentRole = $membership?->getRole() ?? BusinessUser::ROLE_SELLER;
 
         $form = $this->createForm(UserType::class, $user, [
             'require_password' => false,
-            'current_business' => $business,
+            'current_role' => $currentRole,
         ]);
         $form->handleRequest($request);
 
         if ($form->isSubmitted() && $form->isValid()) {
-            $this->handleUserPersistence($user, $form->get('plainPassword')->getData(), $form->get('role')->getData());
+            $this->handleUserPersistence(
+                $user,
+                $business,
+                $form->get('plainPassword')->getData(),
+                (string) $form->get('role')->getData()
+            );
 
             $this->addFlash('success', 'Usuario actualizado.');
 
@@ -90,7 +130,7 @@ class UserController extends AbstractController
     }
 
     #[Route('/{id}', name: 'delete', methods: ['POST'])]
-    public function delete(Request $request, User $user, UserRepository $userRepository): Response
+    public function delete(Request $request, User $user): Response
     {
         $business = $this->requireBusinessContext();
         $this->denyIfDifferentBusiness($user, $business);
@@ -102,8 +142,9 @@ class UserController extends AbstractController
         }
 
         if ($this->isCsrfTokenValid('delete'.$user->getId(), $request->request->get('_token'))) {
-            if (in_array('ROLE_ADMIN', $user->getRoles(), true)) {
-                $adminCount = $userRepository->countAdminsByBusiness($business);
+            $membership = $this->businessUserRepository->findActiveMembership($user, $business);
+            if ($membership && in_array($membership->getRole(), [BusinessUser::ROLE_OWNER, BusinessUser::ROLE_ADMIN], true)) {
+                $adminCount = $this->businessUserRepository->countActiveAdminsForBusiness($business);
 
                 if ($adminCount <= 1) {
                     $this->addFlash('error', 'Debe quedar al menos un administrador en el comercio.');
@@ -112,7 +153,9 @@ class UserController extends AbstractController
                 }
             }
 
-            $this->entityManager->remove($user);
+            if ($membership) {
+                $membership->setIsActive(false);
+            }
             $this->entityManager->flush();
 
             $this->addFlash('success', 'Usuario eliminado.');
@@ -121,10 +164,14 @@ class UserController extends AbstractController
         return $this->redirectToRoute('app_user_index');
     }
 
-    private function handleUserPersistence(User $user, ?string $plainPassword, string $selectedRole): void
+    private function handleUserPersistence(User $user, Business $business, ?string $plainPassword, string $selectedRole): void
     {
-        $user->setRoles([$selectedRole]);
-        if ($selectedRole === 'ROLE_ADMIN') {
+        $selectedRole = match ($selectedRole) {
+            BusinessUser::ROLE_OWNER, BusinessUser::ROLE_ADMIN, BusinessUser::ROLE_SELLER, BusinessUser::ROLE_READONLY => $selectedRole,
+            default => BusinessUser::ROLE_SELLER,
+        };
+
+        if ($selectedRole === BusinessUser::ROLE_ADMIN && $user->getPosNumber() === null) {
             $user->setPosNumber(1);
         }
 
@@ -133,24 +180,38 @@ class UserController extends AbstractController
             $user->setPassword($hashedPassword);
         }
 
+        if ($user->getBusiness() === null) {
+            $user->setBusiness($business);
+        }
+
+        $membership = $this->businessUserRepository->findOneBy([
+            'user' => $user,
+            'business' => $business,
+        ]);
+
+        if (!$membership) {
+            $membership = new BusinessUser();
+            $membership->setBusiness($business);
+            $membership->setUser($user);
+            $this->entityManager->persist($membership);
+        }
+
+        $membership->setRole($selectedRole);
+        $membership->setIsActive(true);
+
         $this->entityManager->persist($user);
         $this->entityManager->flush();
     }
 
     private function requireBusinessContext(): Business
     {
-        $business = $this->getUser()?->getBusiness();
-
-        if (!$business instanceof Business) {
-            throw new AccessDeniedException('No se puede gestionar usuarios sin un comercio asignado.');
-        }
-
-        return $business;
+        return $this->businessContext->requireCurrentBusiness();
     }
 
     private function denyIfDifferentBusiness(User $user, Business $adminBusiness): void
     {
-        if ($user->getBusiness() && $user->getBusiness() !== $adminBusiness) {
+        $membership = $this->businessUserRepository->findActiveMembership($user, $adminBusiness);
+        if (!$membership) {
             throw new AccessDeniedException('Solo podés gestionar usuarios de tu comercio.');
         }
     }

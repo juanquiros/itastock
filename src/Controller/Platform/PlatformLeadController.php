@@ -3,6 +3,7 @@
 namespace App\Controller\Platform;
 
 use App\Entity\Business;
+use App\Entity\BusinessUser;
 use App\Entity\Subscription;
 use App\Entity\User;
 use App\Repository\LeadRepository;
@@ -94,13 +95,6 @@ class PlatformLeadController extends AbstractController
 
         $email = mb_strtolower((string) $lead->getEmail());
         $existingUser = $userRepository->findOneBy(['email' => $email]);
-        if ($existingUser) {
-            $lead->setIsArchived(true);
-            $entityManager->flush();
-            $this->addFlash('danger', 'Ya existe un usuario con este correo.');
-
-            return $this->redirectToRoute('platform_leads_show', ['id' => $lead->getId()]);
-        }
 
         $plan = $this->resolveDemoPlan($planRepository);
         if (!$plan) {
@@ -112,17 +106,19 @@ class PlatformLeadController extends AbstractController
         $business = new Business();
         $business->setName($this->resolveBusinessName($lead, $email));
 
-        $user = new User();
-        $user->setEmail($email);
-        $user->setFullName($lead->getName() ?: $business->getName());
-        $user->setRoles(['ROLE_ADMIN']);
-        $user->setBusiness($business);
-        $temporaryPassword = bin2hex(random_bytes(16));
-        $user->setPassword($passwordHasher->hashPassword($user, $temporaryPassword));
-
-        $token = bin2hex(random_bytes(32));
-        $user->setResetToken($token);
-        $user->setResetRequestedAt(new \DateTimeImmutable());
+        $user = $existingUser ?? new User();
+        $token = null;
+        if (!$existingUser) {
+            $user->setEmail($email);
+            $user->setFullName($lead->getName() ?: $business->getName());
+            $user->setRoles([]);
+            $user->setBusiness($business);
+            $temporaryPassword = bin2hex(random_bytes(16));
+            $user->setPassword($passwordHasher->hashPassword($user, $temporaryPassword));
+            $token = bin2hex(random_bytes(32));
+            $user->setResetToken($token);
+            $user->setResetRequestedAt(new \DateTimeImmutable());
+        }
 
         $subscription = new Subscription();
         $subscription->setBusiness($business);
@@ -134,31 +130,40 @@ class PlatformLeadController extends AbstractController
         $business->setSubscription($subscription);
         $lead->setIsArchived(true);
 
+        $membership = new BusinessUser();
+        $membership->setBusiness($business);
+        $membership->setUser($user);
+        $membership->setRole(BusinessUser::ROLE_OWNER);
+        $membership->setIsActive(true);
+
         $entityManager->persist($business);
         $entityManager->persist($user);
+        $entityManager->persist($membership);
         $entityManager->persist($subscription);
         $entityManager->flush();
 
         $subscriptionNotificationService->onDemoEnabled($subscription);
 
-        $resetUrl = $urlGenerator->generate('app_password_reset', ['token' => $token], UrlGeneratorInterface::ABSOLUTE_URL);
+        if ($token) {
+            $resetUrl = $urlGenerator->generate('app_password_reset', ['token' => $token], UrlGeneratorInterface::ABSOLUTE_URL);
 
-        $emailSender->sendTemplatedEmail(
-            'DEMO_SET_PASSWORD',
-            $email,
-            'ADMIN',
-            'Tu demo de ItaStock: configurá tu contraseña',
-            'emails/demo_set_password.html.twig',
-            [
-                'resetUrl' => $resetUrl,
-                'user' => $user,
-                'business' => $business,
-            ],
-            $business,
-            $subscription,
-            null,
-            null,
-        );
+            $emailSender->sendTemplatedEmail(
+                'DEMO_SET_PASSWORD',
+                $email,
+                'ADMIN',
+                'Tu demo de ItaStock: configurá tu contraseña',
+                'emails/demo_set_password.html.twig',
+                [
+                    'resetUrl' => $resetUrl,
+                    'user' => $user,
+                    'business' => $business,
+                ],
+                $business,
+                $subscription,
+                null,
+                null,
+            );
+        }
 
         $this->addFlash('success', 'Demo creada y email enviado.');
 

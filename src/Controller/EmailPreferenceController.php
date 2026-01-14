@@ -4,6 +4,7 @@ namespace App\Controller;
 
 use App\Form\EmailPreferenceType;
 use App\Repository\EmailPreferenceRepository;
+use App\Security\BusinessContext;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
@@ -11,21 +12,20 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Annotation\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 
-#[IsGranted('ROLE_ADMIN')]
+#[IsGranted('BUSINESS_ADMIN')]
 class EmailPreferenceController extends AbstractController
 {
+    public function __construct(private readonly BusinessContext $businessContext)
+    {
+    }
+
     #[Route('/app/settings/emails', name: 'app_email_preferences', methods: ['GET', 'POST'])]
     public function index(
         Request $request,
         EmailPreferenceRepository $emailPreferenceRepository,
         EntityManagerInterface $entityManager,
     ): Response {
-        $user = $this->getUser();
-        $business = $user?->getBusiness();
-
-        if ($business === null) {
-            throw $this->createNotFoundException('No se encontró el comercio asociado.');
-        }
+        $business = $this->businessContext->requireCurrentBusiness();
 
         $preference = $emailPreferenceRepository->getBusinessPreference($business);
 

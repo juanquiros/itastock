@@ -5,6 +5,7 @@ namespace App\Controller;
 use App\Entity\Business;
 use App\Entity\User;
 use App\Form\StockImportType;
+use App\Security\BusinessContext;
 use App\Service\StockCsvImportService;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
@@ -13,12 +14,14 @@ use Symfony\Component\Routing\Annotation\Route;
 use Symfony\Component\Security\Core\Exception\AccessDeniedException;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 
-#[IsGranted('ROLE_ADMIN')]
+#[IsGranted('BUSINESS_ADMIN')]
 #[Route('/app/admin/stock', name: 'app_stock_')]
 class StockController extends AbstractController
 {
-    public function __construct(private readonly StockCsvImportService $importService)
-    {
+    public function __construct(
+        private readonly StockCsvImportService $importService,
+        private readonly BusinessContext $businessContext,
+    ) {
     }
 
     #[Route('/import', name: 'import', methods: ['GET', 'POST'])]
@@ -54,13 +57,7 @@ class StockController extends AbstractController
 
     private function requireBusinessContext(): Business
     {
-        $business = $this->getUser()?->getBusiness();
-
-        if (!$business instanceof Business) {
-            throw new AccessDeniedException('No se puede ajustar stock sin un comercio asignado.');
-        }
-
-        return $business;
+        return $this->businessContext->requireCurrentBusiness();
     }
 
     private function requireUser(): User

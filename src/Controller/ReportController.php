@@ -3,6 +3,7 @@
 namespace App\Controller;
 
 use App\Entity\Business;
+use App\Security\BusinessContext;
 use App\Service\ReportService;
 use App\Service\PdfService;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -12,13 +13,14 @@ use Symfony\Component\Routing\Annotation\Route;
 use Symfony\Component\Security\Core\Exception\AccessDeniedException;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 
-#[IsGranted('ROLE_ADMIN')]
+#[IsGranted('BUSINESS_ADMIN')]
 #[Route('/app/admin/reports', name: 'app_reports_')]
 class ReportController extends AbstractController
 {
     public function __construct(
         private readonly ReportService $reportService,
         private readonly PdfService $pdfService,
+        private readonly BusinessContext $businessContext,
     ) {
     }
 
@@ -74,12 +76,6 @@ class ReportController extends AbstractController
 
     private function requireBusinessContext(): Business
     {
-        $business = $this->getUser()?->getBusiness();
-
-        if (!$business instanceof Business) {
-            throw new AccessDeniedException('No se puede operar sin un comercio asignado.');
-        }
-
-        return $business;
+        return $this->businessContext->requireCurrentBusiness();
     }
 }

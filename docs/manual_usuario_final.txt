@@ -11,3 +11,12 @@ Administrador del comercio (ROLE_ADMIN)
 - Etiquetas de productos (/app/admin/products/labels): imprimí etiquetas en PDF
   A4 con filtros por producto, categoría, marca o fecha de modificación, y
   configurá si se muestran códigos de barras, precio o solo el nombre.
+
+Multi-comercio por usuario
+
+- Un mismo usuario puede ser dueño/admin de varios comercios y vendedor en otros.
+- Al iniciar sesión, si tenés más de un comercio, vas a ver una pantalla para
+  elegir cuál gestionar.
+- Desde la barra superior podés cambiar de comercio cuando estés trabajando.
+- Si tu email ya estaba asociado como vendedor en otro comercio, podés crear
+  una demo o un nuevo comercio sin bloquearte.

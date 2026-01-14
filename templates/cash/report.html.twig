@@ -8,7 +8,8 @@
             <p class="text-uppercase text-secondary fw-semibold mb-1 small">Operaciones</p>
             <h1 class="h3 mb-0">Reporte de caja</h1>
         </div>
-        <div class="badge bg-light text-dark border">{{ app.user.business.name }}</div>
+        {% set currentBusiness = current_business() %}
+        <div class="badge bg-light text-dark border">{{ currentBusiness ? currentBusiness.name : 'Sin comercio' }}</div>
     </div>
 
     <div class="card shadow-sm border-0 mb-4">
@@ -97,7 +98,7 @@
 
     <div class="mt-4">
         <a class="btn btn-outline-secondary" href="{{ path('app_cash_status') }}">Volver a caja</a>
-        {% if is_granted('ROLE_ADMIN') %}
+        {% if is_granted('BUSINESS_ADMIN') %}
             <a class="btn btn-outline-primary" href="{{ path('app_admin_cash_pdf', {id: cashSession.id}) }}">Descargar PDF</a>
         {% endif %}
         {% if cashSession.isOpen %}

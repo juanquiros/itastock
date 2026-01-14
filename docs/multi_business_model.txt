@@ -1,0 +1,25 @@
+Modelo multi-comercio por usuario
+
+Entidad BusinessUser (tabla business_user)
+- Relación N:M entre Business y User.
+- Campos principales:
+  - business (ManyToOne)
+  - user (ManyToOne)
+  - role: OWNER | ADMIN | SELLER | READONLY
+  - isActive
+  - createdAt / updatedAt
+- Restricción única por (business_id, user_id).
+
+Contexto de negocio (BusinessContext)
+- Guarda el comercio actual en sesión (current_business_id).
+- Permite resolver el comercio activo por usuario y validar membresía activa.
+- Si el usuario tiene solo un comercio, lo selecciona automáticamente.
+
+Selección de comercio
+- Al iniciar sesión se redirige a un selector cuando hay más de un comercio.
+- La barra superior muestra el comercio actual y un acceso para cambiar.
+
+Mercado Pago
+- La suscripción se mantiene ligada al Business.
+- El email de pagador se obtiene desde el Business (mercadoPagoPayerEmail) y
+  se usa como fuente de verdad cuando esté configurado.

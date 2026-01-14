@@ -10,6 +10,7 @@ use App\Form\PriceListType;
 use App\Repository\PriceListItemRepository;
 use App\Repository\PriceListRepository;
 use App\Repository\ProductRepository;
+use App\Security\BusinessContext;
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\Tools\Pagination\Paginator;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -19,7 +20,7 @@ use Symfony\Component\Routing\Annotation\Route;
 use Symfony\Component\Security\Core\Exception\AccessDeniedException;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 
-#[IsGranted('ROLE_ADMIN')]
+#[IsGranted('BUSINESS_ADMIN')]
 #[Route('/app/admin/price-lists', name: 'app_price_list_')]
 class PriceListController extends AbstractController
 {
@@ -28,6 +29,7 @@ class PriceListController extends AbstractController
         private readonly PriceListRepository $priceListRepository,
         private readonly PriceListItemRepository $priceListItemRepository,
         private readonly ProductRepository $productRepository,
+        private readonly BusinessContext $businessContext,
     ) {
     }
 
@@ -243,13 +245,7 @@ class PriceListController extends AbstractController
 
     private function requireBusiness(): Business
     {
-        $business = $this->getUser()?->getBusiness();
-
-        if (!$business instanceof Business) {
-            throw new AccessDeniedException('No se puede gestionar listas sin un comercio.');
-        }
-
-        return $business;
+        return $this->businessContext->requireCurrentBusiness();
     }
 
     private function denyIfDifferentBusiness(PriceList $priceList, Business $business): void

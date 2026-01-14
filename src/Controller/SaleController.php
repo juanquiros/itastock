@@ -11,11 +11,13 @@ use App\Entity\Sale;
 use App\Entity\SaleItem;
 use App\Entity\StockMovement;
 use App\Entity\User;
+use App\Entity\BusinessUser;
 use App\Repository\CashSessionRepository;
 use App\Repository\PlatformSettingsRepository;
 use App\Repository\PriceListItemRepository;
 use App\Repository\PriceListRepository;
 use App\Repository\SaleRepository;
+use App\Security\BusinessContext;
 use App\Service\CustomerAccountService;
 use App\Service\PdfService;
 use App\Service\PricingService;
@@ -27,7 +29,7 @@ use Symfony\Component\Routing\Annotation\Route;
 use Symfony\Component\Security\Core\Exception\AccessDeniedException;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 
-#[IsGranted('ROLE_USER')]
+#[IsGranted('BUSINESS_SELLER')]
 #[Route('/app/pos', name: 'app_sale_')]
 class SaleController extends AbstractController
 {
@@ -40,6 +42,7 @@ class SaleController extends AbstractController
         private readonly PricingService $pricingService,
         private readonly CustomerAccountService $customerAccountService,
         private readonly PdfService $pdfService,
+        private readonly BusinessContext $businessContext,
     ) {
     }
 
@@ -398,7 +401,8 @@ class SaleController extends AbstractController
             return $user->getPosNumber();
         }
 
-        if (in_array('ROLE_ADMIN', $user->getRoles(), true)) {
+        $membership = $this->businessContext->getUserMembershipForCurrentBusiness($user);
+        if ($membership && in_array($membership->getRole(), [BusinessUser::ROLE_OWNER, BusinessUser::ROLE_ADMIN], true)) {
             return 1;
         }
 
@@ -436,13 +440,7 @@ class SaleController extends AbstractController
 
     private function requireBusinessContext(): Business
     {
-        $business = $this->requireUser()->getBusiness();
-
-        if (!$business instanceof Business) {
-            throw new AccessDeniedException('No se puede operar sin un comercio asignado.');
-        }
-
-        return $business;
+        return $this->businessContext->requireCurrentBusiness();
     }
 
     private function requireUser(): User

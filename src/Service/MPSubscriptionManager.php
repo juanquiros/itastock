@@ -47,7 +47,7 @@ class MPSubscriptionManager
             throw new \RuntimeException('Ya existe un cambio de plan en curso.');
         }
 
-        $payerEmail = $admin->getUserIdentifier();
+        $payerEmail = $business->getMercadoPagoPayerEmail() ?? $admin->getUserIdentifier();
         if ($payerEmail === '') {
             throw new \RuntimeException('No se pudo determinar el email del pagador.');
         }

@@ -6,6 +6,7 @@ use App\Entity\Business;
 use App\Entity\CashSession;
 use App\Repository\CashSessionRepository;
 use App\Repository\PaymentRepository;
+use App\Security\BusinessContext;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
@@ -15,7 +16,7 @@ use Symfony\Component\Security\Core\Exception\AccessDeniedException;
 use Symfony\Component\Security\Core\User\UserInterface;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 
-#[IsGranted('ROLE_USER')]
+#[IsGranted('BUSINESS_SELLER')]
 #[Route('/app/cash', name: 'app_cash_')]
 class CashSessionController extends AbstractController
 {
@@ -23,6 +24,7 @@ class CashSessionController extends AbstractController
         private readonly EntityManagerInterface $entityManager,
         private readonly CashSessionRepository $cashSessionRepository,
         private readonly PaymentRepository $paymentRepository,
+        private readonly BusinessContext $businessContext,
     ) {
     }
 
@@ -38,7 +40,7 @@ class CashSessionController extends AbstractController
 
         $recentCriteria = ['business' => $business];
 
-        if (!$this->isGranted('ROLE_ADMIN')) {
+        if (!$this->isGranted('BUSINESS_ADMIN')) {
             $recentCriteria['openedBy'] = $user;
         }
 
@@ -130,7 +132,7 @@ class CashSessionController extends AbstractController
             throw new AccessDeniedException('Solo podés ver cajas de tu comercio.');
         }
 
-        if (!$this->isGranted('ROLE_ADMIN') && $cashSession->getOpenedBy()?->getId() !== $user->getId()) {
+        if (!$this->isGranted('BUSINESS_ADMIN') && $cashSession->getOpenedBy()?->getId() !== $user->getId()) {
             throw new AccessDeniedException('Solo podés ver tus propias cajas.');
         }
 
@@ -146,13 +148,7 @@ class CashSessionController extends AbstractController
 
     private function requireBusinessContext(): Business
     {
-        $business = $this->requireUser()->getBusiness();
-
-        if (!$business instanceof Business) {
-            throw new AccessDeniedException('No se puede operar sin un comercio asignado.');
-        }
-
-        return $business;
+        return $this->businessContext->requireCurrentBusiness();
     }
 
     private function requireUser(): UserInterface

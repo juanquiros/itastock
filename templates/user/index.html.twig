@@ -25,26 +25,28 @@
                     </tr>
                 </thead>
                 <tbody>
-                {% for user in users %}
+                {% for membership in memberships %}
                     <tr>
-                        <td>{{ user.fullName }}</td>
-                        <td>{{ user.email }}</td>
+                        <td>{{ membership.user.fullName }}</td>
+                        <td>{{ membership.user.email }}</td>
                         <td>
-                            {% if 'ROLE_ADMIN' in user.roles %}
+                            {% if membership.role == 'OWNER' %}
+                                <span class="badge bg-primary">Dueño</span>
+                            {% elseif membership.role == 'ADMIN' %}
                                 <span class="badge bg-primary">Admin</span>
-                            {% elseif 'ROLE_SELLER' in user.roles %}
+                            {% elseif membership.role == 'SELLER' %}
                                 <span class="badge bg-success">Vendedor</span>
                             {% else %}
-                                <span class="badge bg-secondary">Usuario</span>
+                                <span class="badge bg-secondary">Solo lectura</span>
                             {% endif %}
                         </td>
-                        <td>{{ user.posNumber ?: ('ROLE_ADMIN' in user.roles ? 1 : '-') }}</td>
-                        <td>{{ user.business.name }}</td>
+                        <td>{{ membership.user.posNumber ?: (membership.role in ['OWNER', 'ADMIN'] ? 1 : '-') }}</td>
+                        <td>{{ membership.business.name }}</td>
                         <td class="text-end">
                             <div class="d-flex justify-content-end gap-2">
-                                <a class="btn btn-sm btn-outline-primary" href="{{ path('app_user_edit', {id: user.id}) }}">Editar</a>
-                                <form method="post" action="{{ path('app_user_delete', {id: user.id}) }}" onsubmit="return confirm('¿Eliminar este usuario?');">
-                                    <input type="hidden" name="_token" value="{{ csrf_token('delete' ~ user.id) }}">
+                                <a class="btn btn-sm btn-outline-primary" href="{{ path('app_user_edit', {id: membership.user.id}) }}">Editar</a>
+                                <form method="post" action="{{ path('app_user_delete', {id: membership.user.id}) }}" onsubmit="return confirm('¿Eliminar este usuario?');">
+                                    <input type="hidden" name="_token" value="{{ csrf_token('delete' ~ membership.user.id) }}">
                                     <button class="btn btn-sm btn-outline-danger" type="submit">Eliminar</button>
                                 </form>
                             </div>

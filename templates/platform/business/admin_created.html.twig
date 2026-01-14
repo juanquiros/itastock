@@ -3,10 +3,14 @@
 {% block header_title %}Administrador creado{% endblock %}
 
 {% block body %}
-    <div class="alert alert-success">El usuario administrador fue creado. Guarda las credenciales para compartirlas.</div>
+    <div class="alert alert-success">El usuario administrador fue creado o asociado al comercio.</div>
     <ul class="list-group mb-3">
         <li class="list-group-item d-flex justify-content-between"><span>Email</span><strong>{{ user.email }}</strong></li>
-        <li class="list-group-item d-flex justify-content-between"><span>Contraseña temporal</span><strong>{{ temporaryPassword }}</strong></li>
+        {% if temporaryPassword %}
+            <li class="list-group-item d-flex justify-content-between"><span>Contraseña temporal</span><strong>{{ temporaryPassword }}</strong></li>
+        {% else %}
+            <li class="list-group-item d-flex justify-content-between"><span>Contraseña</span><strong>Usa su contraseña actual.</strong></li>
+        {% endif %}
     </ul>
-    <a class="btn btn-primary" href="{{ path('platform_business_show', {id: user.business.id}) }}">Volver al comercio</a>
+    <a class="btn btn-primary" href="{{ path('platform_business_show', {id: business.id}) }}">Volver al comercio</a>
 {% endblock %}

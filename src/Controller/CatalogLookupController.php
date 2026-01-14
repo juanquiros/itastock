@@ -5,17 +5,22 @@ namespace App\Controller;
 use App\Entity\Business;
 use App\Entity\CatalogProduct;
 use App\Repository\CatalogProductRepository;
+use App\Security\BusinessContext;
 use App\Service\ProductCatalogSyncService;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Routing\Annotation\Route;
-use Symfony\Component\Security\Http\Attribute\Security;
+use Symfony\Component\Security\Http\Attribute\IsGranted;
 
-#[Security("is_granted('ROLE_PLATFORM_ADMIN') or is_granted('ROLE_ADMIN') or is_granted('ROLE_BUSINESS_ADMIN')")]
+#[IsGranted('BUSINESS_ADMIN')]
 class CatalogLookupController extends AbstractController
 {
+    public function __construct(private readonly BusinessContext $businessContext)
+    {
+    }
+
     #[Route('/app/catalog/lookup/barcode', name: 'app_catalog_lookup_barcode', methods: ['GET'])]
     public function barcode(
         Request $request,
@@ -155,8 +160,6 @@ class CatalogLookupController extends AbstractController
 
     private function getBusinessContext(): ?Business
     {
-        $business = $this->getUser()?->getBusiness();
-
-        return $business instanceof Business ? $business : null;
+        return $this->businessContext->getCurrentBusiness();
     }
 }

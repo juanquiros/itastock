@@ -18,17 +18,17 @@
                 </tr>
             </thead>
             <tbody>
-                {% for user in users %}
+                {% for membership in memberships %}
                     <tr>
-                        <td>{{ user.email }}</td>
-                        <td>{{ user.fullName }}</td>
-                        <td>{{ user.roles|join(', ') }}</td>
-                        <td>{{ user.isActive ? 'Sí' : 'No' }}</td>
+                        <td>{{ membership.user.email }}</td>
+                        <td>{{ membership.user.fullName }}</td>
+                        <td>{{ membership.role }}</td>
+                        <td>{{ membership.isActive ? 'Sí' : 'No' }}</td>
                         <td class="text-end">
-                            <form method="post" action="{{ path('platform_business_user_toggle', {businessId: business.id, userId: user.id}) }}">
-                                <input type="hidden" name="_token" value="{{ csrf_token('toggle_user_' ~ user.id) }}">
-                                <button class="btn btn-sm {{ user.isActive ? 'btn-outline-danger' : 'btn-outline-success' }}" type="submit">
-                                    {{ user.isActive ? 'Desactivar' : 'Activar' }}
+                            <form method="post" action="{{ path('platform_business_user_toggle', {businessId: business.id, userId: membership.user.id}) }}">
+                                <input type="hidden" name="_token" value="{{ csrf_token('toggle_user_' ~ membership.user.id) }}">
+                                <button class="btn btn-sm {{ membership.isActive ? 'btn-outline-danger' : 'btn-outline-success' }}" type="submit">
+                                    {{ membership.isActive ? 'Desactivar' : 'Activar' }}
                                 </button>
                             </form>
                         </td>

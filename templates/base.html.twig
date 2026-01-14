@@ -95,7 +95,7 @@
                                 <li class="nav-item">
                                     <a class="nav-link" href="{{ path('app_cash_status') }}">Caja</a>
                                 </li>
-                                {% if is_granted('ROLE_ADMIN') %}
+                                {% if is_granted('BUSINESS_ADMIN') %}
                                     <li class="nav-item">
                                         <a class="nav-link" href="{{ path('app_product_index') }}">Productos</a>
                                     </li>
@@ -126,6 +126,23 @@
                                 {% endif %}
                             </ul>
                             <div class="d-flex align-items-center gap-3 text-white">
+                                {% set currentBusiness = current_business() %}
+                                {% if currentBusiness and app.user.businessMemberships|length > 1 %}
+                                    <div class="dropdown">
+                                        <button class="btn btn-outline-light btn-sm dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                            Comercio actual: {{ currentBusiness.name }}
+                                        </button>
+                                        <ul class="dropdown-menu dropdown-menu-end">
+                                            <li>
+                                                <a class="dropdown-item" href="{{ path('app_business_switch') }}">
+                                                    Cambiar comercio
+                                                </a>
+                                            </li>
+                                        </ul>
+                                    </div>
+                                {% elseif currentBusiness %}
+                                    <span class="small">Comercio: {{ currentBusiness.name }}</span>
+                                {% endif %}
                                 {% set sub = subscriptionContext.getCurrentSubscription(app.user) %}
                                 {% if sub %}
                                     <span class="badge rounded-pill bg-light text-dark">

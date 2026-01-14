@@ -8,6 +8,7 @@ use App\Entity\User;
 use App\Form\CustomerType;
 use App\Repository\CustomerRepository;
 use App\Repository\PriceListRepository;
+use App\Security\BusinessContext;
 use App\Service\CustomerAccountService;
 use App\Service\ReportService;
 use App\Service\PdfService;
@@ -20,7 +21,7 @@ use Symfony\Component\Routing\Annotation\Route;
 use Symfony\Component\Security\Core\Exception\AccessDeniedException;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 
-#[IsGranted('ROLE_ADMIN')]
+#[IsGranted('BUSINESS_ADMIN')]
 #[Route('/app/admin/customers', name: 'app_customer_')]
 class CustomerController extends AbstractController
 {
@@ -30,6 +31,7 @@ class CustomerController extends AbstractController
         private readonly CustomerAccountService $customerAccountService,
         private readonly ReportService $reportService,
         private readonly PdfService $pdfService,
+        private readonly BusinessContext $businessContext,
     ) {
     }
 
@@ -263,13 +265,7 @@ class CustomerController extends AbstractController
 
     private function requireBusinessContext(): Business
     {
-        $business = $this->getUser()?->getBusiness();
-
-        if (!$business instanceof Business) {
-            throw new AccessDeniedException('No se puede gestionar clientes sin un comercio asignado.');
-        }
-
-        return $business;
+        return $this->businessContext->requireCurrentBusiness();
     }
 
     private function denyIfDifferentBusiness(Customer $customer, Business $business): void

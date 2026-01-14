@@ -4,6 +4,7 @@ namespace App\Controller;
 
 use App\Entity\Business;
 use App\Form\BusinessTicketSettingsType;
+use App\Security\BusinessContext;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
@@ -12,10 +13,14 @@ use Symfony\Component\Routing\Annotation\Route;
 use Symfony\Component\Security\Core\Exception\AccessDeniedException;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 
-#[IsGranted('ROLE_ADMIN')]
+#[IsGranted('BUSINESS_ADMIN')]
 #[Route('/app/settings', name: 'app_settings_')]
 class TicketSettingsController extends AbstractController
 {
+    public function __construct(private readonly BusinessContext $businessContext)
+    {
+    }
+
     #[Route('/ticket', name: 'ticket', methods: ['GET', 'POST'])]
     public function ticket(Request $request, EntityManagerInterface $entityManager): Response
     {
@@ -38,12 +43,6 @@ class TicketSettingsController extends AbstractController
 
     private function requireBusinessContext(): Business
     {
-        $business = $this->getUser()?->getBusiness();
-
-        if (!$business instanceof Business) {
-            throw new AccessDeniedException('No se puede configurar el ticket sin un comercio asignado.');
-        }
-
-        return $business;
+        return $this->businessContext->requireCurrentBusiness();
     }
 }

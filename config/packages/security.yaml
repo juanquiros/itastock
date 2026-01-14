@@ -25,7 +25,7 @@ security:
             form_login:
                 login_path: app_login
                 check_path: app_login
-                default_target_path: app_dashboard
+                success_handler: App\Security\BusinessLoginSuccessHandler
                 enable_csrf: true
             logout:
                 path: app_logout
@@ -45,10 +45,11 @@ security:
         - { path: ^/$, roles: PUBLIC_ACCESS }
         - { path: ^/(features|pricing|contact|terms|privacy)$, roles: PUBLIC_ACCESS }
         - { path: ^/platform, roles: ROLE_PLATFORM_ADMIN }
-        - { path: ^/app/subscription/blocked$, roles: ROLE_USER }
-        - { path: ^/app/admin, roles: ROLE_ADMIN }
-        - { path: ^/app/(pos|cash), roles: ROLE_SELLER }
-        - { path: ^/app, roles: ROLE_USER }
+        - { path: ^/app/business/switch$, roles: ROLE_USER }
+        - { path: ^/app/subscription/blocked$, roles: BUSINESS_SELLER }
+        - { path: ^/app/admin, roles: BUSINESS_ADMIN }
+        - { path: ^/app/(pos|cash), roles: BUSINESS_SELLER }
+        - { path: ^/app, roles: BUSINESS_SELLER }
 
 when@test:
     security:

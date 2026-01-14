@@ -6,6 +6,7 @@ use App\Entity\Business;
 use App\Entity\Product;
 use App\Form\ProductLabelFilterType;
 use App\Repository\ProductRepository;
+use App\Security\BusinessContext;
 use App\Service\BarcodeGeneratorService;
 use App\Service\PdfService;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -15,9 +16,13 @@ use Symfony\Component\Routing\Annotation\Route;
 use Symfony\Component\Security\Core\Exception\AccessDeniedException;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 
-#[IsGranted('ROLE_ADMIN')]
+#[IsGranted('BUSINESS_ADMIN')]
 class ProductLabelController extends AbstractController
 {
+    public function __construct(private readonly BusinessContext $businessContext)
+    {
+    }
+
     #[Route('/app/admin/products/labels', name: 'app_product_labels', methods: ['GET', 'POST'])]
     public function index(Request $request): Response
     {
@@ -217,12 +222,6 @@ class ProductLabelController extends AbstractController
 
     private function requireBusinessContext(): Business
     {
-        $business = $this->getUser()?->getBusiness();
-
-        if (!$business instanceof Business) {
-            throw new AccessDeniedException('No se puede gestionar etiquetas sin un comercio asignado.');
-        }
-
-        return $business;
+        return $this->businessContext->requireCurrentBusiness();
     }
 }

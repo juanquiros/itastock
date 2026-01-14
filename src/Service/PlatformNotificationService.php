@@ -3,6 +3,7 @@
 namespace App\Service;
 
 use App\Entity\Business;
+use App\Entity\BusinessUser;
 use App\Entity\EmailNotificationLog;
 use App\Entity\Lead;
 use App\Entity\Subscription;
@@ -294,8 +295,13 @@ class PlatformNotificationService
 
     private function findBusinessAdminEmail(Business $business): ?string
     {
-        foreach ($business->getUsers() as $user) {
-            if (!$user instanceof User || !in_array('ROLE_ADMIN', $user->getRoles(), true)) {
+        foreach ($business->getBusinessUsers() as $membership) {
+            $user = $membership->getUser();
+            if (
+                !$user instanceof User
+                || !$membership->isActive()
+                || !in_array($membership->getRole(), [BusinessUser::ROLE_OWNER, BusinessUser::ROLE_ADMIN], true)
+            ) {
                 continue;
             }
 

@@ -13,6 +13,7 @@ use App\Repository\BrandRepository;
 use App\Repository\CatalogProductRepository;
 use App\Repository\CategoryRepository;
 use App\Repository\ProductRepository;
+use App\Security\BusinessContext;
 use App\Service\ProductCsvImportService;
 use App\Service\ProductCatalogSyncService;
 use App\Service\SkuGenerator;
@@ -27,12 +28,14 @@ use Symfony\Component\Routing\Annotation\Route;
 use Symfony\Component\Security\Core\Exception\AccessDeniedException;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 
-#[IsGranted('ROLE_ADMIN')]
+#[IsGranted('BUSINESS_ADMIN')]
 #[Route('/app/admin/products', name: 'app_product_')]
 class ProductController extends AbstractController
 {
-    public function __construct(private readonly EntityManagerInterface $entityManager)
-    {
+    public function __construct(
+        private readonly EntityManagerInterface $entityManager,
+        private readonly BusinessContext $businessContext,
+    ) {
     }
 
     #[Route('', name: 'index', methods: ['GET'])]
@@ -319,13 +322,7 @@ class ProductController extends AbstractController
 
     private function requireBusinessContext(): Business
     {
-        $business = $this->getUser()?->getBusiness();
-
-        if (!$business instanceof Business) {
-            throw new AccessDeniedException('No se puede gestionar productos sin un comercio asignado.');
-        }
-
-        return $business;
+        return $this->businessContext->requireCurrentBusiness();
     }
 
     private function requireUser(): User

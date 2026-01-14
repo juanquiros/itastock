@@ -4,6 +4,7 @@ namespace App\Service;
 
 use App\DTO\ReportDigest;
 use App\Entity\Business;
+use App\Entity\BusinessUser;
 use App\Entity\User;
 use App\Entity\EmailPreference;
 use App\Repository\EmailPreferenceRepository;
@@ -82,8 +83,13 @@ class ReportNotificationService
             default => 'Reporte',
         };
 
-        foreach ($business->getUsers() as $user) {
-            if (!$user instanceof User || !in_array('ROLE_ADMIN', $user->getRoles(), true)) {
+        foreach ($business->getBusinessUsers() as $membership) {
+            $user = $membership->getUser();
+            if (
+                !$user instanceof User
+                || !$membership->isActive()
+                || !in_array($membership->getRole(), [BusinessUser::ROLE_OWNER, BusinessUser::ROLE_ADMIN], true)
+            ) {
                 continue;
             }
 

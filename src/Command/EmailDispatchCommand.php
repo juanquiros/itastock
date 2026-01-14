@@ -542,10 +542,19 @@ class EmailDispatchCommand extends Command
      */
     private function getAdminUsers(Business $business): array
     {
-        return array_values(array_filter(
-            $business->getUsers()->toArray(),
-            static fn (User $user): bool => in_array('ROLE_ADMIN', $user->getRoles(), true)
-        ));
+        $users = [];
+        foreach ($business->getBusinessUsers() as $membership) {
+            $user = $membership->getUser();
+            if (
+                $user instanceof User
+                && $membership->isActive()
+                && in_array($membership->getRole(), [\App\Entity\BusinessUser::ROLE_OWNER, \App\Entity\BusinessUser::ROLE_ADMIN], true)
+            ) {
+                $users[] = $user;
+            }
+        }
+
+        return $users;
     }
 
     private function canSendSubscription(EmailPreference $preference): bool

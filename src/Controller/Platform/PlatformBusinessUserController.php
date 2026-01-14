@@ -3,6 +3,7 @@
 namespace App\Controller\Platform;
 
 use App\Entity\Business;
+use App\Repository\BusinessUserRepository;
 use App\Repository\UserRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -16,11 +17,11 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
 class PlatformBusinessUserController extends AbstractController
 {
     #[Route('/platform/businesses/{id}/users', name: 'platform_business_users', methods: ['GET'])]
-    public function index(Business $business, UserRepository $userRepository): Response
+    public function index(Business $business, BusinessUserRepository $businessUserRepository): Response
     {
         return $this->render('platform/business/users.html.twig', [
             'business' => $business,
-            'users' => $userRepository->findBy(['business' => $business]),
+            'memberships' => $businessUserRepository->findBy(['business' => $business], ['createdAt' => 'ASC']),
         ]);
     }
 
@@ -30,6 +31,7 @@ class PlatformBusinessUserController extends AbstractController
         int $userId,
         Request $request,
         UserRepository $userRepository,
+        BusinessUserRepository $businessUserRepository,
         EntityManagerInterface $entityManager,
     ): RedirectResponse {
         $business = $userRepository->getEntityManager()->getRepository(Business::class)->find($businessId);
@@ -38,12 +40,15 @@ class PlatformBusinessUserController extends AbstractController
         }
 
         $user = $userRepository->find($userId);
-        if (!$user || $user->getBusiness()?->getId() !== $businessId) {
+        $membership = $user instanceof \App\Entity\User
+            ? $businessUserRepository->findOneBy(['business' => $business, 'user' => $user])
+            : null;
+        if (!$membership) {
             throw $this->createNotFoundException();
         }
 
         if ($this->isCsrfTokenValid('toggle_user_'.$user->getId(), (string) $request->request->get('_token'))) {
-            $user->setIsActive(!$user->isActive());
+            $membership->setIsActive(!$membership->isActive());
             $entityManager->flush();
             $this->addFlash('success', 'Usuario actualizado.');
         }

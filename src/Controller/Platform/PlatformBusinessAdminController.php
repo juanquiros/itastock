@@ -3,8 +3,10 @@
 namespace App\Controller\Platform;
 
 use App\Entity\Business;
+use App\Entity\BusinessUser;
 use App\Entity\User;
 use App\Form\BusinessAdminUserType;
+use App\Repository\UserRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
@@ -21,6 +23,7 @@ class PlatformBusinessAdminController extends AbstractController
         Business $business,
         Request $request,
         EntityManagerInterface $entityManager,
+        UserRepository $userRepository,
         UserPasswordHasherInterface $passwordHasher,
     ): Response {
         $user = new User();
@@ -31,16 +34,36 @@ class PlatformBusinessAdminController extends AbstractController
         $temporaryPassword = null;
 
         if ($form->isSubmitted() && $form->isValid()) {
-            $temporaryPassword = (string) $form->get('plainPassword')->getData();
-            $user->setRoles(['ROLE_BUSINESS_ADMIN']);
-            $hashed = $passwordHasher->hashPassword($user, $temporaryPassword);
-            $user->setPassword($hashed);
-            $entityManager->persist($user);
+            $email = $user->getEmail();
+            $existingUser = $email ? $userRepository->findOneBy(['email' => $email]) : null;
+            if ($existingUser instanceof User) {
+                $user = $existingUser;
+                if (!$user->getFullName()) {
+                    $user->setFullName($form->get('fullName')->getData());
+                }
+            } else {
+                $temporaryPassword = (string) $form->get('plainPassword')->getData();
+                $user->setRoles([]);
+                $hashed = $passwordHasher->hashPassword($user, $temporaryPassword);
+                $user->setPassword($hashed);
+                $entityManager->persist($user);
+            }
+
+            $membership = $entityManager->getRepository(BusinessUser::class)->findOneBy([
+                'business' => $business,
+                'user' => $user,
+            ]) ?? new BusinessUser();
+            $membership->setBusiness($business);
+            $membership->setUser($user);
+            $membership->setRole(BusinessUser::ROLE_OWNER);
+            $membership->setIsActive(true);
+            $entityManager->persist($membership);
             $entityManager->flush();
 
             return $this->render('platform/business/admin_created.html.twig', [
                 'user' => $user,
                 'temporaryPassword' => $temporaryPassword,
+                'business' => $business,
             ]);
         }
 

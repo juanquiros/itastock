@@ -24,7 +24,7 @@ use Symfony\Component\Routing\Annotation\Route;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 
-#[IsGranted('ROLE_ADMIN')]
+#[IsGranted('BUSINESS_ADMIN')]
 class BillingSubscriptionController extends AbstractController
 {
     #[Route('/app/billing/subscription', name: 'app_billing_subscription_show', methods: ['GET'])]
@@ -145,7 +145,8 @@ class BillingSubscriptionController extends AbstractController
             }
         }
 
-        $payerEmail = $this->getUser()?->getUserIdentifier();
+        $business = $subscription->getBusiness();
+        $payerEmail = $business?->getMercadoPagoPayerEmail() ?? $this->getUser()?->getUserIdentifier();
         if (!$payerEmail) {
             $this->addFlash('danger', 'No se pudo determinar el email del pagador.');
 

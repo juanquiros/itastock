@@ -12,6 +12,7 @@ use App\Entity\Brand;
 use App\Entity\Product;
 use App\Entity\Subscription;
 use App\Entity\MercadoPagoSubscriptionLink;
+use App\Entity\BusinessUser;
 use Symfony\Component\Validator\Constraints as Assert;
 
 #[ORM\Entity(repositoryClass: BusinessRepository::class)]
@@ -67,6 +68,13 @@ class Business
     #[ORM\Column(type: 'text', nullable: true)]
     private ?string $ticketFooterImagePath = null;
 
+    #[ORM\Column(length: 180, nullable: true)]
+    private ?string $mercadoPagoPayerEmail = null;
+
+    /** @var Collection<int, BusinessUser> */
+    #[ORM\OneToMany(mappedBy: 'business', targetEntity: BusinessUser::class, orphanRemoval: true)]
+    private Collection $businessUsers;
+
 
     public function __construct()
     {
@@ -75,6 +83,7 @@ class Business
         $this->products = new ArrayCollection();
         $this->brands = new ArrayCollection();
         $this->mercadoPagoSubscriptionLinks = new ArrayCollection();
+        $this->businessUsers = new ArrayCollection();
         $this->createdAt = new DateTimeImmutable();
     }
 
@@ -330,6 +339,47 @@ class Business
     public function setTicketFooterImagePath(?string $ticketFooterImagePath): self
     {
         $this->ticketFooterImagePath = $ticketFooterImagePath;
+
+        return $this;
+    }
+
+    public function getMercadoPagoPayerEmail(): ?string
+    {
+        return $this->mercadoPagoPayerEmail;
+    }
+
+    public function setMercadoPagoPayerEmail(?string $mercadoPagoPayerEmail): self
+    {
+        $this->mercadoPagoPayerEmail = $mercadoPagoPayerEmail;
+
+        return $this;
+    }
+
+    /**
+     * @return Collection<int, BusinessUser>
+     */
+    public function getBusinessUsers(): Collection
+    {
+        return $this->businessUsers;
+    }
+
+    public function addBusinessUser(BusinessUser $businessUser): self
+    {
+        if (!$this->businessUsers->contains($businessUser)) {
+            $this->businessUsers->add($businessUser);
+            $businessUser->setBusiness($this);
+        }
+
+        return $this;
+    }
+
+    public function removeBusinessUser(BusinessUser $businessUser): self
+    {
+        if ($this->businessUsers->removeElement($businessUser)) {
+            if ($businessUser->getBusiness() === $this) {
+                $businessUser->setBusiness(null);
+            }
+        }
 
         return $this;
     }

@@ -8,7 +8,8 @@
             <p class="text-uppercase text-secondary fw-semibold mb-1 small">Operaciones</p>
             <h1 class="h3 mb-0">Caja</h1>
         </div>
-        <div class="badge bg-light text-dark border">{{ app.user.business.name }}</div>
+        {% set currentBusiness = current_business() %}
+        <div class="badge bg-light text-dark border">{{ currentBusiness ? currentBusiness.name : 'Sin comercio' }}</div>
     </div>
 
     {% if openSession %}

@@ -4,6 +4,7 @@ namespace App\Controller;
 
 use App\Entity\CashSession;
 use App\Repository\CashSessionRepository;
+use App\Security\BusinessContext;
 use App\Service\PdfService;
 use App\Service\ReportService;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -12,7 +13,7 @@ use Symfony\Component\Routing\Annotation\Route;
 use Symfony\Component\Security\Core\Exception\AccessDeniedException;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 
-#[IsGranted('ROLE_ADMIN')]
+#[IsGranted('BUSINESS_ADMIN')]
 #[Route('/app/admin/cash-sessions', name: 'app_admin_cash_')]
 class CashSessionAdminController extends AbstractController
 {
@@ -20,6 +21,7 @@ class CashSessionAdminController extends AbstractController
         private readonly CashSessionRepository $cashSessionRepository,
         private readonly ReportService $reportService,
         private readonly PdfService $pdfService,
+        private readonly BusinessContext $businessContext,
     ) {
     }
 
@@ -27,7 +29,7 @@ class CashSessionAdminController extends AbstractController
     public function pdf(int $id): Response
     {
         $cashSession = $this->cashSessionRepository->find($id);
-        $business = $this->getUser()?->getBusiness();
+        $business = $this->businessContext->requireCurrentBusiness();
 
         if (!$cashSession instanceof CashSession || $cashSession->getBusiness() !== $business) {
             throw new AccessDeniedException('Caja no encontrada para tu comercio.');

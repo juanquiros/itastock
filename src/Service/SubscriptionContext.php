@@ -5,12 +5,15 @@ namespace App\Service;
 use App\Entity\Business;
 use App\Entity\Subscription;
 use App\Entity\User;
+use App\Security\BusinessContext;
 use Symfony\Bundle\SecurityBundle\Security;
 
 class SubscriptionContext
 {
-    public function __construct(private readonly Security $security)
-    {
+    public function __construct(
+        private readonly Security $security,
+        private readonly BusinessContext $businessContext,
+    ) {
     }
 
     public function getCurrentSubscription(?User $user = null): ?Subscription
@@ -20,7 +23,7 @@ class SubscriptionContext
             return null;
         }
 
-        $business = $user->getBusiness();
+        $business = $this->businessContext->getCurrentBusiness($user);
         if (!$business) {
             return null;
         }
@@ -35,7 +38,7 @@ class SubscriptionContext
             return null;
         }
 
-        $business = $user->getBusiness();
+        $business = $this->businessContext->getCurrentBusiness($user);
         if (!$business) {
             return null;
         }

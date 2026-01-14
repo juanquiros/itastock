@@ -3,22 +3,24 @@
 namespace App\Controller;
 
 use App\Entity\Business;
+use App\Security\BusinessContext;
 use App\Service\DashboardService;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Annotation\Route;
 use Symfony\Component\Security\Core\Exception\AccessDeniedException;
-use Symfony\Component\Security\Http\Attribute\Security;
+use Symfony\Component\Security\Http\Attribute\IsGranted;
 use Symfony\Contracts\Cache\CacheInterface;
 use Symfony\Contracts\Cache\ItemInterface;
 
-#[Security("is_granted('ROLE_PLATFORM_ADMIN') or is_granted('ROLE_ADMIN') or is_granted('ROLE_BUSINESS_ADMIN')")]
+#[IsGranted('BUSINESS_SELLER')]
 class DashboardController extends AbstractController
 {
     public function __construct(
         private readonly DashboardService $dashboardService,
         private readonly CacheInterface $cache,
+        private readonly BusinessContext $businessContext,
     ) {
     }
 
@@ -53,12 +55,6 @@ class DashboardController extends AbstractController
 
     private function requireBusinessContext(): Business
     {
-        $business = $this->getUser()?->getBusiness();
-
-        if (!$business instanceof Business) {
-            throw new AccessDeniedException('No se puede ver el dashboard sin un comercio asignado.');
-        }
-
-        return $business;
+        return $this->businessContext->requireCurrentBusiness();
     }
 }

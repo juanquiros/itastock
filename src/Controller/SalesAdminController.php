@@ -5,6 +5,7 @@ namespace App\Controller;
 use App\Entity\Business;
 use App\Entity\Sale;
 use App\Repository\SaleRepository;
+use App\Security\BusinessContext;
 use App\Service\PdfService;
 use App\Service\ReportService;
 use App\Service\SaleVoidService;
@@ -16,7 +17,7 @@ use Symfony\Component\Routing\Annotation\Route;
 use Symfony\Component\Security\Core\Exception\AccessDeniedException;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 
-#[IsGranted('ROLE_ADMIN')]
+#[IsGranted('BUSINESS_ADMIN')]
 #[Route('/app/admin/sales', name: 'app_admin_sales_')]
 class SalesAdminController extends AbstractController
 {
@@ -25,6 +26,7 @@ class SalesAdminController extends AbstractController
         private readonly ReportService $reportService,
         private readonly PdfService $pdfService,
         private readonly SaleVoidService $saleVoidService,
+        private readonly BusinessContext $businessContext,
     )
     {
     }
@@ -196,12 +198,6 @@ class SalesAdminController extends AbstractController
 
     private function requireBusinessContext(): Business
     {
-        $business = $this->getUser()?->getBusiness();
-
-        if (!$business instanceof Business) {
-            throw new AccessDeniedException('No se puede exportar ventas sin un comercio asignado.');
-        }
-
-        return $business;
+        return $this->businessContext->requireCurrentBusiness();
     }
 }
