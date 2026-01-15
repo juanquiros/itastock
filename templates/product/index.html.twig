@@ -18,7 +18,7 @@
         </div>
     </div>
 
-    <div class="card shadow-sm mb-3">
+    <div class="card shadow-sm mb-3" data-controller="barcode-scanner" data-barcode-scanner-script-url-value="{{ asset('vendor/html5-qrcode.min.js') }}">
         <div class="card-body">
             <form method="get" class="row g-3 align-items-end">
                 <div class="col-lg-3 col-md-4">
@@ -31,7 +31,12 @@
                 </div>
                 <div class="col-lg-2 col-md-4">
                     <label class="form-label">Código de barra</label>
-                    <input type="text" name="barcode" class="form-control" value="{{ filters.barcode }}">
+                    <div class="input-group" data-barcode-scanner-input-group>
+                        <input type="text" name="barcode" id="product-barcode-filter" class="form-control" value="{{ filters.barcode }}" data-barcode-scanner-target="input" data-barcode-scanner-input="true">
+                        <button class="btn btn-outline-secondary d-inline-flex d-lg-none" type="button" data-action="barcode-scanner#open" data-barcode-scanner-input-id-param="product-barcode-filter">
+                            Escanear
+                        </button>
+                    </div>
                 </div>
                 <div class="col-lg-2 col-md-6">
                     <label class="form-label">Categorías</label>
@@ -60,6 +65,7 @@
                     <a class="btn btn-link text-decoration-none" href="{{ path('app_product_index') }}">Limpiar filtros</a>
                 </div>
             </form>
+            {% include 'shared/_barcode_scanner_modal.html.twig' %}
         </div>
     </div>
 
