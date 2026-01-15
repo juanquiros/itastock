@@ -9,6 +9,11 @@
         table { width: 100%; border-collapse: collapse; margin-top: 8px; }
         th, td { border: 1px solid #ddd; padding: 6px; }
         th { background: #f5f5f5; }
+        .movement-detail { margin: 6px 0 12px; padding: 8px 10px; background: #fafafa; border: 1px solid #e2e2e2; border-radius: 6px; }
+        .movement-detail h3 { font-size: 12px; margin: 0 0 6px; }
+        .detail-list { margin: 0; padding-left: 18px; }
+        .detail-list li { margin-bottom: 4px; }
+        .detail-meta { color: #555; font-size: 11px; }
     </style>
 </head>
 <body>
@@ -48,29 +53,19 @@
                 {% if detailed and movement.referenceId and data.saleDetails[movement.referenceId] is defined %}
                     <tr>
                         <td colspan="5">
-                            <strong>Detalle del ticket #{{ movement.referenceId }}</strong>
-                            <table>
-                                <thead>
-                                    <tr>
-                                        <th>Producto</th>
-                                        <th>Cantidad</th>
-                                        <th>Precio</th>
-                                        <th>Total</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
+                            <div class="movement-detail">
+                                <h3>Detalle del ticket #{{ movement.referenceId }}</h3>
+                                <ul class="detail-list">
                                     {% for item in data.saleDetails[movement.referenceId] %}
-                                        <tr>
-                                            <td>{{ item.description }}</td>
-                                            <td>{{ item.qty }}</td>
-                                            <td>${{ item.unitPrice }}</td>
-                                            <td>${{ item.lineTotal }}</td>
-                                        </tr>
+                                        <li>
+                                            {{ item.description }}
+                                            <span class="detail-meta">· Cantidad: {{ item.qty }} · Precio: ${{ item.unitPrice }} · Total: ${{ item.lineTotal }}</span>
+                                        </li>
                                     {% else %}
-                                        <tr><td colspan="4">Sin detalle disponible.</td></tr>
+                                        <li>Sin detalle disponible.</li>
                                     {% endfor %}
-                                </tbody>
-                            </table>
+                                </ul>
+                            </div>
                         </td>
                     </tr>
                 {% endif %}
