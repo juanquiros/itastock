@@ -175,16 +175,19 @@ class CustomerController extends AbstractController
 
         $fromInput = trim((string) $request->query->get('from', ''));
         $toInput = trim((string) $request->query->get('to', ''));
+        $detailInput = (string) $request->query->get('detail', '');
 
         $fromDate = $fromInput !== '' ? new \DateTimeImmutable($fromInput) : null;
         $toDate = $toInput !== '' ? new \DateTimeImmutable($toInput.' 23:59:59') : null;
 
-        $data = $this->reportService->getCustomerAccountData($customer, $fromDate, $toDate);
+        $detailed = filter_var($detailInput, FILTER_VALIDATE_BOOLEAN);
+        $data = $this->reportService->getCustomerAccountData($customer, $fromDate, $toDate, $detailed);
 
         return $this->pdfService->render('customer/account_pdf.html.twig', [
             'business' => $business,
             'customer' => $customer,
             'data' => $data,
+            'detailed' => $detailed,
             'from' => $fromDate,
             'to' => $toDate,
             'generatedAt' => new \DateTimeImmutable(),

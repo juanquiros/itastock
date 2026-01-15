@@ -153,13 +153,16 @@
             }
 
             saleForm.dataset.saleInitialized = 'true';
-            const products = {{ productPayload|json_encode|raw }};
-            const customers = {{ customersPayload|json_encode|raw }};
-            const priceLists = {{ priceLists|json_encode|raw }};
-            const priceListPrices = {{ priceListPrices|json_encode|raw }};
-            const defaultPriceListId = {{ defaultPriceListId|json_encode|raw }};
+            let products = {{ productPayload|json_encode|raw }};
+            let customers = {{ customersPayload|json_encode|raw }};
+            let priceLists = {{ priceLists|json_encode|raw }};
+            let priceListPrices = {{ priceListPrices|json_encode|raw }};
+            let defaultPriceListId = {{ defaultPriceListId|json_encode|raw }};
             const items = [];
             let selectedCustomer = null;
+            const snapshotUrl = '{{ path('app_sale_snapshot') }}';
+            let snapshotInFlight = false;
+            let snapshotTimer = null;
 
             const searchInput = document.getElementById('product-search');
             const resultsContainer = document.getElementById('search-results');
@@ -261,24 +264,28 @@
                         <span class="text-muted small">Sin cliente asignado</span>
                     `;
                     customerField.value = '';
-                    if (paymentMethodModal.value === 'ACCOUNT') {
-                        paymentMethodModal.value = 'CASH';
-                    }
-                    paymentMethodModal.querySelector('option[value="ACCOUNT"]').disabled = true;
-                    paymentHelp.textContent = 'Seleccioná un cliente para habilitar la cuenta corriente.';
+                    updateAccountOption();
+                    syncPaymentMethod();
                     return;
                 }
+
+                const statusBadge = selectedCustomer.isActive
+                    ? ''
+                    : '<span class="badge text-bg-warning text-uppercase">Inactivo</span>';
 
                 customerSelection.innerHTML = `
                     <div>
                         <div class="fw-semibold">${selectedCustomer.name}</div>
                         <div class="text-muted small">${selectedCustomer.document ? selectedCustomer.document : 'Sin documento'}</div>
                     </div>
-                    <span class="badge text-bg-primary text-uppercase">${selectedCustomer.type.replace('_', ' ')}</span>
+                    <div class="d-flex gap-2">
+                        <span class="badge text-bg-primary text-uppercase">${selectedCustomer.type.replace('_', ' ')}</span>
+                        ${statusBadge}
+                    </div>
                 `;
                 customerField.value = selectedCustomer.id;
-                paymentMethodModal.querySelector('option[value="ACCOUNT"]').disabled = false;
-                paymentHelp.textContent = 'Usá cuenta corriente solo con clientes activos.';
+                updateAccountOption();
+                syncPaymentMethod();
             }
 
             function renderCustomerResults(term = '') {
@@ -301,7 +308,10 @@
                             <div class="fw-semibold">${customer.name}</div>
                             <div class="text-muted small">${customer.document ? customer.document : 'Sin documento'}</div>
                         </div>
-                        <span class="badge text-bg-light text-uppercase">${customer.type.replace('_', ' ')}</span>
+                        <div class="d-flex gap-2">
+                            <span class="badge text-bg-light text-uppercase">${customer.type.replace('_', ' ')}</span>
+                            ${customer.isActive ? '' : '<span class="badge text-bg-warning text-uppercase">Inactivo</span>'}
+                        </div>
                     </button>
                 `).join('');
 
@@ -465,7 +475,32 @@
                 cashChange.textContent = formatMoney(Math.max(change, 0));
             }
 
+            function canUseAccount() {
+                return selectedCustomer && selectedCustomer.isActive;
+            }
+
+            function updateAccountOption() {
+                const accountOption = paymentMethodModal.querySelector('option[value="ACCOUNT"]');
+                const allowAccount = canUseAccount();
+                accountOption.disabled = !allowAccount;
+
+                if (!selectedCustomer) {
+                    paymentHelp.textContent = 'Seleccioná un cliente para habilitar la cuenta corriente.';
+                } else if (!selectedCustomer.isActive) {
+                    paymentHelp.textContent = 'Cuenta corriente no disponible. Comuníquese con el administrador.';
+                } else {
+                    paymentHelp.textContent = 'Usá cuenta corriente solo con clientes activos.';
+                }
+
+                if (!allowAccount && paymentMethodModal.value === 'ACCOUNT') {
+                    paymentMethodModal.value = 'CASH';
+                }
+            }
+
             function syncPaymentMethod() {
+                if (paymentMethodModal.value === 'ACCOUNT' && !canUseAccount()) {
+                    paymentMethodModal.value = 'CASH';
+                }
                 paymentMethod.value = paymentMethodModal.value;
                 if (paymentMethodModal.value === 'CASH') {
                     cashSection.classList.remove('d-none');
@@ -481,6 +516,72 @@
                 saleWorkspace.classList.remove('d-none');
                 confirmSale.disabled = items.length === 0;
                 saleWorkspace.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+
+            function applySnapshot(snapshot) {
+                if (!snapshot || !snapshot.products || !snapshot.customers) {
+                    return;
+                }
+
+                products = snapshot.products;
+                customers = snapshot.customers;
+                priceLists = snapshot.priceLists || [];
+                priceListPrices = snapshot.priceListPrices || {};
+                defaultPriceListId = snapshot.defaultPriceListId;
+
+                if (selectedCustomer) {
+                    selectedCustomer = customers.find((customer) => customer.id === selectedCustomer.id) || null;
+                }
+
+                const productIndex = new Map(products.map((product) => [product.id, product]));
+                const removedItems = [];
+
+                for (let i = items.length - 1; i >= 0; i--) {
+                    const item = items[i];
+                    const product = productIndex.get(item.product_id);
+                    if (!product) {
+                        removedItems.push(item);
+                        items.splice(i, 1);
+                        continue;
+                    }
+
+                    item.name = product.name;
+                    item.stock = product.stock;
+                    item.uomBase = product.uomBase;
+                    item.qtyStep = resolveQtyStep(product);
+                    item.allowsFractional = product.allowsFractionalQty === true;
+                    item.price = resolveUnitPrice(product.id);
+                    item.qty = normalizeQty(item.qty, item);
+                }
+
+                if (removedItems.length > 0) {
+                    showScanAlert('Se removieron productos que ya no están disponibles.');
+                }
+
+                renderCustomerSelection();
+                renderItems();
+                renderResults(searchInput.value);
+                renderCustomerResults(customerSearch.value);
+            }
+
+            async function fetchSnapshot() {
+                if (snapshotInFlight) {
+                    return;
+                }
+
+                snapshotInFlight = true;
+                try {
+                    const response = await fetch(snapshotUrl, { headers: { Accept: 'application/json' } });
+                    if (!response.ok) {
+                        return;
+                    }
+                    const snapshot = await response.json();
+                    applySnapshot(snapshot);
+                } catch (error) {
+                    console.warn('No se pudo sincronizar la venta', error);
+                } finally {
+                    snapshotInFlight = false;
+                }
             }
 
             customerSearch.addEventListener('input', (event) => {
@@ -596,6 +697,14 @@
             renderResults('');
             syncPaymentMethod();
             showWorkspace();
+
+            fetchSnapshot();
+            snapshotTimer = setInterval(fetchSnapshot, 20000);
+            document.addEventListener('visibilitychange', () => {
+                if (document.visibilityState === 'visible') {
+                    fetchSnapshot();
+                }
+            });
         };
 
         document.addEventListener('DOMContentLoaded', initializeSalePage);

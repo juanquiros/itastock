@@ -23,6 +23,7 @@ use App\Service\PdfService;
 use App\Service\PricingService;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Annotation\Route;
@@ -62,7 +63,7 @@ class SaleController extends AbstractController
         $productRepository = $this->entityManager->getRepository(Product::class);
         $customerRepository = $this->entityManager->getRepository(Customer::class);
         $products = $productRepository->findBy(['business' => $business, 'isActive' => true], ['name' => 'ASC']);
-        $customers = $customerRepository->findActiveForBusiness($business);
+        $customers = $customerRepository->searchByBusiness($business, null);
         $priceLists = $this->priceListRepository->findActiveForBusiness($business);
         $priceListPrices = $this->priceListItemRepository->findPricesByBusiness($business);
         $defaultPriceList = $this->priceListRepository->findDefaultActiveForBusiness($business);
@@ -91,6 +92,7 @@ class SaleController extends AbstractController
                 'name' => $customer->getName(),
                 'document' => $customer->getDocumentNumber(),
                 'type' => $customer->getCustomerType(),
+                'isActive' => $customer->isActive(),
                 'priceList' => $customer->getPriceList()?->getId(),
             ], $customers),
             'priceLists' => array_map(static fn (PriceList $list) => [
@@ -101,6 +103,49 @@ class SaleController extends AbstractController
             'priceListPrices' => $priceListPrices,
             'defaultPriceListId' => $defaultPriceList?->getId(),
             'barcodeScanSoundPath' => $settings?->getBarcodeScanSoundPath(),
+        ]);
+    }
+
+    #[Route('/snapshot', name: 'snapshot', methods: ['GET'])]
+    public function snapshot(): JsonResponse
+    {
+        $business = $this->requireBusinessContext();
+
+        $productRepository = $this->entityManager->getRepository(Product::class);
+        $customerRepository = $this->entityManager->getRepository(Customer::class);
+        $products = $productRepository->findBy(['business' => $business, 'isActive' => true], ['name' => 'ASC']);
+        $customers = $customerRepository->searchByBusiness($business, null);
+        $priceLists = $this->priceListRepository->findActiveForBusiness($business);
+        $priceListPrices = $this->priceListItemRepository->findPricesByBusiness($business);
+        $defaultPriceList = $this->priceListRepository->findDefaultActiveForBusiness($business);
+
+        return $this->json([
+            'products' => array_map(static fn (Product $product) => [
+                'id' => $product->getId(),
+                'name' => $product->getName(),
+                'barcode' => $product->getBarcode(),
+                'sku' => $product->getSku(),
+                'price' => (float) $product->getBasePrice(),
+                'stock' => (float) $product->getStock(),
+                'uomBase' => $product->getUomBase(),
+                'allowsFractionalQty' => $product->allowsFractionalQty(),
+                'qtyStep' => $product->getQtyStep(),
+            ], $products),
+            'customers' => array_map(static fn (Customer $customer) => [
+                'id' => $customer->getId(),
+                'name' => $customer->getName(),
+                'document' => $customer->getDocumentNumber(),
+                'type' => $customer->getCustomerType(),
+                'isActive' => $customer->isActive(),
+                'priceList' => $customer->getPriceList()?->getId(),
+            ], $customers),
+            'priceLists' => array_map(static fn (PriceList $list) => [
+                'id' => $list->getId(),
+                'name' => $list->getName(),
+                'isDefault' => $list->isDefault(),
+            ], $priceLists),
+            'priceListPrices' => $priceListPrices,
+            'defaultPriceListId' => $defaultPriceList?->getId(),
         ]);
     }
 
@@ -170,8 +215,8 @@ class SaleController extends AbstractController
                 return $this->redirectToRoute('app_sale_new');
             }
 
-            if (!$customer->isActive()) {
-                $this->addFlash('danger', 'No podés usar un cliente inactivo.');
+            if (!$customer->isActive() && $paymentMethod === 'ACCOUNT') {
+                $this->addFlash('danger', 'El cliente está inactivo y no puede usar cuenta corriente.');
 
                 return $this->redirectToRoute('app_sale_new');
             }

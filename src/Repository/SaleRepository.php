@@ -193,6 +193,28 @@ class SaleRepository extends ServiceEntityRepository
             ->getArrayResult();
     }
 
+    /**
+     * @param array<int, int> $ids
+     * @return Sale[]
+     */
+    public function findWithItemsByIds(Business $business, array $ids): array
+    {
+        if ($ids === []) {
+            return [];
+        }
+
+        return $this->createQueryBuilder('s')
+            ->leftJoin('s.items', 'items')
+            ->addSelect('items')
+            ->andWhere('s.business = :business')
+            ->andWhere('s.id IN (:ids)')
+            ->setParameter('business', $business)
+            ->setParameter('ids', $ids)
+            ->orderBy('s.createdAt', 'ASC')
+            ->getQuery()
+            ->getResult();
+    }
+
     public function nextPosSequence(Business $business, int $posNumber): int
     {
         $maxSequence = $this->createQueryBuilder('s')

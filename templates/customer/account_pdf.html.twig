@@ -25,7 +25,7 @@
         <tr><th>Créditos período</th><td>${{ data.totalCredit }}</td></tr>
     </table>
 
-    <h2>Movimientos</h2>
+    <h2>Movimientos {% if detailed %}(detallado){% endif %}</h2>
     <table>
         <thead>
             <tr>
@@ -45,6 +45,35 @@
                     <td>{{ movement.referenceType }} {{ movement.referenceId ?? '' }}</td>
                     <td>{{ movement.note ?? '' }}</td>
                 </tr>
+                {% if detailed and movement.referenceId and data.saleDetails[movement.referenceId] is defined %}
+                    <tr>
+                        <td colspan="5">
+                            <strong>Detalle del ticket #{{ movement.referenceId }}</strong>
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Producto</th>
+                                        <th>Cantidad</th>
+                                        <th>Precio</th>
+                                        <th>Total</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for item in data.saleDetails[movement.referenceId] %}
+                                        <tr>
+                                            <td>{{ item.description }}</td>
+                                            <td>{{ item.qty }}</td>
+                                            <td>${{ item.unitPrice }}</td>
+                                            <td>${{ item.lineTotal }}</td>
+                                        </tr>
+                                    {% else %}
+                                        <tr><td colspan="4">Sin detalle disponible.</td></tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </td>
+                    </tr>
+                {% endif %}
             {% else %}
                 <tr><td colspan="5">Sin movimientos en el período.</td></tr>
             {% endfor %}

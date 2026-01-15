@@ -150,14 +150,15 @@ class ReportService
     }
 
     /**
-     * @return array{balance:string, totalDebit:string, totalCredit:string, movements: array<int, \App\Entity\CustomerAccountMovement>}
+     * @return array{balance:string, totalDebit:string, totalCredit:string, movements: array<int, \App\Entity\CustomerAccountMovement>, saleDetails: array<int, array<int, array<string, string>>>}
      */
-    public function getCustomerAccountData(Customer $customer, ?\DateTimeImmutable $from = null, ?\DateTimeImmutable $to = null): array
+    public function getCustomerAccountData(Customer $customer, ?\DateTimeImmutable $from = null, ?\DateTimeImmutable $to = null, bool $includeSaleItems = false): array
     {
         $movements = $this->customerAccountMovementRepository->findForCustomer($customer, $from, $to, null);
         $balance = (float) $this->customerAccountMovementRepository->getBalance($customer);
         $debit = 0.0;
         $credit = 0.0;
+        $saleDetails = [];
 
         foreach ($movements as $movement) {
             if ($movement->getType() === 'DEBIT') {
@@ -167,11 +168,33 @@ class ReportService
             }
         }
 
+        if ($includeSaleItems) {
+            $saleIds = [];
+            foreach ($movements as $movement) {
+                if (in_array($movement->getReferenceType(), ['SALE', 'SALE_VOID'], true) && $movement->getReferenceId()) {
+                    $saleIds[] = $movement->getReferenceId();
+                }
+            }
+
+            $saleIds = array_values(array_unique($saleIds));
+            $sales = $saleIds !== [] ? $this->saleRepository->findWithItemsByIds($customer->getBusiness(), $saleIds) : [];
+
+            foreach ($sales as $sale) {
+                $saleDetails[$sale->getId()] = array_map(static fn ($item) => [
+                    'description' => $item->getDescription(),
+                    'qty' => $item->getQty(),
+                    'unitPrice' => number_format((float) $item->getUnitPrice(), 2, '.', ''),
+                    'lineTotal' => number_format((float) $item->getLineTotal(), 2, '.', ''),
+                ], $sale->getItems()->toArray());
+            }
+        }
+
         return [
             'balance' => number_format($balance, 2, '.', ''),
             'totalDebit' => number_format($debit, 2, '.', ''),
             'totalCredit' => number_format($credit, 2, '.', ''),
             'movements' => $movements,
+            'saleDetails' => $saleDetails,
         ];
     }
 }

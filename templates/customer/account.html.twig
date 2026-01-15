@@ -59,7 +59,23 @@
                         </form>
                         <div class="d-flex gap-2">
                             <a class="btn btn-outline-primary" href="{{ path('app_customer_account_export', {id: customer.id, from: filters.from, to: filters.to}) }}">Exportar CSV</a>
-                            <a class="btn btn-primary" href="{{ path('app_customer_account_pdf', {id: customer.id, from: filters.from, to: filters.to}) }}">PDF</a>
+                            <div class="dropdown">
+                                <button class="btn btn-primary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                    PDF
+                                </button>
+                                <ul class="dropdown-menu dropdown-menu-end">
+                                    <li>
+                                        <a class="dropdown-item" href="{{ path('app_customer_account_pdf', {id: customer.id, from: filters.from, to: filters.to, detail: 0}) }}">
+                                            Resumido
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a class="dropdown-item" href="{{ path('app_customer_account_pdf', {id: customer.id, from: filters.from, to: filters.to, detail: 1}) }}">
+                                            Detallado (con ticket)
+                                        </a>
+                                    </li>
+                                </ul>
+                            </div>
                         </div>
                     </div>
 
