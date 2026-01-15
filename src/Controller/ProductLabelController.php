@@ -9,6 +9,7 @@ use App\Repository\ProductRepository;
 use App\Security\BusinessContext;
 use App\Service\BarcodeGeneratorService;
 use App\Service\PdfService;
+use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -19,7 +20,10 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
 #[IsGranted('BUSINESS_ADMIN')]
 class ProductLabelController extends AbstractController
 {
-    public function __construct(private readonly BusinessContext $businessContext)
+    public function __construct(
+        private readonly BusinessContext $businessContext,
+        private readonly EntityManagerInterface $entityManager,
+    )
     {
     }
 
@@ -33,7 +37,9 @@ class ProductLabelController extends AbstractController
             'barcodeSource' => 'ean',
             'showPrice' => true,
             'showOnlyName' => false,
+            'includeLabelImage' => false,
             'labelsPerProduct' => 1,
+            'labelImagePath' => $business->getLabelImagePath(),
         ], [
             'current_business' => $business,
         ]);
@@ -41,6 +47,10 @@ class ProductLabelController extends AbstractController
 
         if ($form->isSubmitted() && $form->isValid()) {
             $data = $form->getData();
+            if (array_key_exists('labelImagePath', $data)) {
+                $business->setLabelImagePath($data['labelImagePath'] ?: null);
+                $this->entityManager->flush();
+            }
             $productIds = $this->extractIds($data['products'] ?? []);
             $categoryIds = $this->extractIds($data['categories'] ?? []);
             $brandIds = $this->extractIds($data['brands'] ?? []);
@@ -52,6 +62,7 @@ class ProductLabelController extends AbstractController
                 'brands' => $this->serializeIds($brandIds),
                 'updatedSince' => $data['updatedSince']?->format('Y-m-d'),
                 'includeBarcode' => !empty($data['includeBarcode']) ? '1' : '0',
+                'includeLabelImage' => !empty($data['includeLabelImage']) ? '1' : '0',
                 'barcodeSource' => $data['barcodeSource'] ?: 'ean',
                 'showPrice' => !empty($data['showPrice']) ? '1' : '0',
                 'showOnlyName' => !empty($data['showOnlyName']) ? '1' : '0',
@@ -63,6 +74,7 @@ class ProductLabelController extends AbstractController
 
         return $this->render('product/labels.html.twig', [
             'form' => $form,
+            'business' => $business,
         ]);
     }
 
@@ -90,6 +102,7 @@ class ProductLabelController extends AbstractController
         }
 
         $includeBarcode = $this->toBool($request->query->get('includeBarcode', '0'));
+        $includeLabelImage = $this->toBool($request->query->get('includeLabelImage', '0'));
         $barcodeSource = $request->query->get('barcodeSource') === 'sku' ? 'sku' : 'ean';
         $showPrice = $this->toBool($request->query->get('showPrice', '0'));
         $showOnlyName = $this->toBool($request->query->get('showOnlyName', '0'));
@@ -117,8 +130,10 @@ class ProductLabelController extends AbstractController
         return $pdfService->render('product/labels_pdf.html.twig', [
             'business' => $business,
             'labels' => $labels,
+            'labelImagePath' => $business->getLabelImagePath(),
             'options' => [
                 'includeBarcode' => $includeBarcode,
+                'includeLabelImage' => $includeLabelImage,
                 'barcodeSource' => $barcodeSource,
                 'showPrice' => $showPrice,
                 'showOnlyName' => $showOnlyName,

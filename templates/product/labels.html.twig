@@ -50,6 +50,23 @@
                 <div class="col-md-4">
                     {{ form_row(form.labelsPerProduct) }}
                 </div>
+                <div class="col-12 mt-3">
+                    <h2 class="h6 text-uppercase text-muted">Imagen de etiqueta</h2>
+                    <p class="text-muted small mb-0">Usá imágenes verticales. Recomendado 350x600 px (3,5 x 6 cm). Si no coincide la proporción se recorta automáticamente.</p>
+                </div>
+                <div class="col-md-4">
+                    {{ form_row(form.includeLabelImage) }}
+                </div>
+                <div class="col-md-8">
+                    <div data-controller="label-image-upload">
+                        {{ form_widget(form.labelImagePath) }}
+                        {{ form_row(form.labelImageFile) }}
+                        <div class="mt-2 d-flex align-items-center gap-2">
+                            <img src="{{ business.labelImagePath ?: '' }}" alt="" class="border rounded {{ business.labelImagePath ? '' : 'd-none' }}" style="max-width: 140px; max-height: 240px;" data-label-image-upload-target="preview">
+                            <button type="button" class="btn btn-outline-secondary btn-sm" data-label-image-upload-target="clearButton">Quitar</button>
+                        </div>
+                    </div>
+                </div>
             </div>
             <div class="mt-4 d-flex justify-content-end gap-2">
                 <button class="btn btn-primary" type="submit">Generar PDF</button>

@@ -68,6 +68,9 @@ class Business
     #[ORM\Column(type: 'text', nullable: true)]
     private ?string $ticketFooterImagePath = null;
 
+    #[ORM\Column(type: 'text', nullable: true)]
+    private ?string $labelImagePath = null;
+
     #[ORM\Column(length: 180, nullable: true)]
     private ?string $mercadoPagoPayerEmail = null;
 
@@ -339,6 +342,18 @@ class Business
     public function setTicketFooterImagePath(?string $ticketFooterImagePath): self
     {
         $this->ticketFooterImagePath = $ticketFooterImagePath;
+
+        return $this;
+    }
+
+    public function getLabelImagePath(): ?string
+    {
+        return $this->labelImagePath;
+    }
+
+    public function setLabelImagePath(?string $labelImagePath): self
+    {
+        $this->labelImagePath = $labelImagePath;
 
         return $this;
     }

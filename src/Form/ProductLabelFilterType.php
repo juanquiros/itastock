@@ -11,6 +11,8 @@ use Symfony\Component\Form\AbstractType;
 use Symfony\Component\Form\Extension\Core\Type\CheckboxType;
 use Symfony\Component\Form\Extension\Core\Type\ChoiceType;
 use Symfony\Component\Form\Extension\Core\Type\DateType;
+use Symfony\Component\Form\Extension\Core\Type\FileType;
+use Symfony\Component\Form\Extension\Core\Type\HiddenType;
 use Symfony\Component\Form\Extension\Core\Type\IntegerType;
 use Symfony\Component\Form\FormBuilderInterface;
 use Symfony\Component\OptionsResolver\OptionsResolver;
@@ -84,11 +86,31 @@ class ProductLabelFilterType extends AbstractType
                 'label' => 'Solo imprimir nombre',
                 'required' => false,
             ])
+            ->add('includeLabelImage', CheckboxType::class, [
+                'label' => 'Incluir imagen en la etiqueta',
+                'required' => false,
+            ])
             ->add('labelsPerProduct', IntegerType::class, [
                 'label' => 'Cantidad de etiquetas por producto',
                 'required' => false,
                 'attr' => [
                     'min' => 1,
+                ],
+            ])
+            ->add('labelImagePath', HiddenType::class, [
+                'required' => false,
+                'attr' => [
+                    'data-label-image-upload-target' => 'path',
+                ],
+            ])
+            ->add('labelImageFile', FileType::class, [
+                'label' => 'Imagen para etiquetas',
+                'mapped' => false,
+                'required' => false,
+                'help' => 'Recomendado: 350x600 px (3,5 x 6 cm). La imagen se recorta automáticamente.',
+                'attr' => [
+                    'accept' => 'image/*',
+                    'data-label-image-upload-target' => 'file',
                 ],
             ]);
     }
