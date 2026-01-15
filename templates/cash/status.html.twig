@@ -108,6 +108,10 @@
                     <thead class="table-light">
                         <tr>
                             <th>Estado</th>
+                            {% if is_granted('BUSINESS_ADMIN') %}
+                                <th>Vendedor</th>
+                                <th>Caja</th>
+                            {% endif %}
                             <th>Apertura</th>
                             <th>Cierre</th>
                             <th>Inicial</th>
@@ -125,6 +129,10 @@
                                         <span class="badge bg-success">Abierta</span>
                                     {% endif %}
                                 </td>
+                                {% if is_granted('BUSINESS_ADMIN') %}
+                                    <td>{{ session.openedBy ? session.openedBy.fullName : 'N/D' }}</td>
+                                    <td>{{ session.openedBy and session.openedBy.posNumber ? session.openedBy.posNumber : 'N/D' }}</td>
+                                {% endif %}
                                 <td>{{ session.openedAt|date('d/m/Y H:i') }}</td>
                                 <td>{{ session.closedAt ? session.closedAt|date('d/m/Y H:i') : '—' }}</td>
                                 <td>${{ session.initialCash }}</td>
@@ -135,7 +143,7 @@
                             </tr>
                         {% else %}
                             <tr>
-                                <td colspan="6" class="text-center text-muted py-4">Sin sesiones registradas.</td>
+                                <td colspan="{{ is_granted('BUSINESS_ADMIN') ? 8 : 6 }}" class="text-center text-muted py-4">Sin sesiones registradas.</td>
                             </tr>
                         {% endfor %}
                     </tbody>
