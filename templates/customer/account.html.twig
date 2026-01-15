@@ -53,6 +53,9 @@
                             <div class="col-auto">
                                 <button class="btn btn-outline-secondary" type="submit">Filtrar</button>
                             </div>
+                            <div class="col-auto">
+                                <a class="btn btn-outline-light" href="{{ path('app_customer_account', {id: customer.id}) }}">Borrar filtro</a>
+                            </div>
                         </form>
                         <div class="d-flex gap-2">
                             <a class="btn btn-outline-primary" href="{{ path('app_customer_account_export', {id: customer.id, from: filters.from, to: filters.to}) }}">Exportar CSV</a>
