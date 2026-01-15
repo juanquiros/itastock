@@ -7,6 +7,7 @@ use App\Form\BusinessLabelSettingsType;
 use App\Security\BusinessContext;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Annotation\Route;
@@ -34,6 +35,15 @@ class LabelSettingsController extends AbstractController
             $formName = $form->getName();
             $rawData = $request->request->all($formName);
             $labelImagePath = $rawData['labelImagePath'] ?? $data['labelImagePath'] ?? null;
+            $uploadedFile = $request->files->get($formName)['labelImageFile'] ?? null;
+
+            if (($labelImagePath === null || $labelImagePath === '') && $uploadedFile instanceof UploadedFile) {
+                $contents = file_get_contents($uploadedFile->getPathname());
+                if ($contents !== false) {
+                    $mimeType = $uploadedFile->getMimeType() ?: 'image/png';
+                    $labelImagePath = sprintf('data:%s;base64,%s', $mimeType, base64_encode($contents));
+                }
+            }
 
             $business->setLabelImagePath($labelImagePath ?: null);
             $entityManager->flush();
