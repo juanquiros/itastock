@@ -1,0 +1,32 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Configuración de etiquetas | ItaStock{% endblock %}
+
+{% block body %}
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <div>
+            <h1 class="h4 mb-1">Configuración de etiquetas</h1>
+            <p class="text-muted mb-0">Cargá una imagen vertical para usar en las etiquetas.</p>
+        </div>
+        <a class="btn btn-outline-secondary" href="{{ path('app_product_labels') }}">Volver a etiquetas</a>
+    </div>
+
+    <div class="card shadow-sm">
+        <div class="card-body">
+            {{ form_start(form) }}
+                <div class="border rounded-3 p-3 bg-light" data-controller="label-image-upload">
+                    {{ form_widget(form.labelImagePath) }}
+                    {{ form_row(form.labelImageFile) }}
+                    <div class="mt-2 d-flex align-items-center gap-3 flex-wrap">
+                        <img src="{{ business.labelImagePath ?: '' }}" alt="Imagen de etiqueta" class="border rounded {{ business.labelImagePath ? '' : 'd-none' }}" style="max-width: 160px; max-height: 260px;" data-label-image-upload-target="preview">
+                        <button type="button" class="btn btn-outline-secondary btn-sm" data-label-image-upload-target="clearButton">Quitar</button>
+                    </div>
+                </div>
+                <div class="form-text mt-2">Recomendado: 350x600 px (3,5 x 6 cm). La imagen se recorta automáticamente.</div>
+                <div class="d-flex justify-content-end gap-2 mt-4">
+                    <button class="btn btn-primary">Subir imagen</button>
+                </div>
+            {{ form_end(form) }}
+        </div>
+    </div>
+{% endblock %}

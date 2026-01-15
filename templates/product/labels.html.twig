@@ -9,7 +9,10 @@
             <h1 class="h4 mb-0">Etiquetas de productos</h1>
             <p class="text-secondary mb-0">Generá un PDF A4 con etiquetas listas para imprimir.</p>
         </div>
-        <a class="btn btn-outline-secondary" href="{{ path('app_product_index') }}">Volver a productos</a>
+        <div class="d-flex gap-2">
+            <a class="btn btn-outline-secondary" href="{{ path('app_settings_labels') }}">Configurar imagen</a>
+            <a class="btn btn-outline-secondary" href="{{ path('app_product_index') }}">Volver a productos</a>
+        </div>
     </div>
 
     <div class="card shadow-sm">
@@ -57,29 +60,6 @@
                 {% endif %}
                 <div class="col-md-4">
                     {{ form_row(form.labelsPerProduct) }}
-                </div>
-                <div class="col-12 mt-3">
-                    <div class="border rounded-3 p-3 bg-light">
-                        <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
-                            <div>
-                                <h2 class="h6 text-uppercase text-muted mb-1">Imagen de etiqueta</h2>
-                                <p class="text-muted small mb-0">Usá imágenes verticales. Recomendado 350x600 px (3,5 x 6 cm). Si no coincide la proporción se recorta automáticamente.</p>
-                            </div>
-                            <button class="btn btn-outline-primary btn-sm" type="submit" name="save_label_image" value="1">Subir imagen</button>
-                        </div>
-                        <div class="row g-3 mt-1 align-items-center">
-                            <div class="col-12">
-                                <div data-controller="label-image-upload">
-                                    {{ form_widget(form.labelImagePath) }}
-                                    {{ form_row(form.labelImageFile) }}
-                                    <div class="mt-2 d-flex align-items-center gap-2">
-                                        <img src="{{ business.labelImagePath ?: '' }}" alt="" class="border rounded {{ business.labelImagePath ? '' : 'd-none' }}" style="max-width: 140px; max-height: 240px;" data-label-image-upload-target="preview">
-                                        <button type="button" class="btn btn-outline-secondary btn-sm" data-label-image-upload-target="clearButton">Quitar</button>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
                 </div>
             </div>
             <div class="mt-4 d-flex justify-content-end gap-2">

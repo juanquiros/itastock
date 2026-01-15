@@ -9,7 +9,6 @@ use App\Repository\ProductRepository;
 use App\Security\BusinessContext;
 use App\Service\BarcodeGeneratorService;
 use App\Service\PdfService;
-use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -20,10 +19,7 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
 #[IsGranted('BUSINESS_ADMIN')]
 class ProductLabelController extends AbstractController
 {
-    public function __construct(
-        private readonly BusinessContext $businessContext,
-        private readonly EntityManagerInterface $entityManager,
-    )
+    public function __construct(private readonly BusinessContext $businessContext)
     {
     }
 
@@ -39,7 +35,6 @@ class ProductLabelController extends AbstractController
             'showOnlyName' => false,
             'includeLabelImage' => false,
             'labelsPerProduct' => 1,
-            'labelImagePath' => $business->getLabelImagePath(),
         ], [
             'current_business' => $business,
         ]);
@@ -47,20 +42,6 @@ class ProductLabelController extends AbstractController
 
         if ($form->isSubmitted() && $form->isValid()) {
             $data = $form->getData();
-            $formName = $form->getName();
-            $rawData = $request->request->all($formName);
-            $labelImagePath = $rawData['labelImagePath'] ?? $form->get('labelImagePath')->getData();
-            if ($labelImagePath !== null) {
-                $business->setLabelImagePath($labelImagePath ?: null);
-                $this->entityManager->persist($business);
-                $this->entityManager->flush();
-            }
-
-            if ($request->request->has('save_label_image')) {
-                $this->addFlash('success', 'Imagen de etiqueta actualizada.');
-
-                return $this->redirectToRoute('app_product_labels');
-            }
             $productIds = $this->extractIds($data['products'] ?? []);
             $categoryIds = $this->extractIds($data['categories'] ?? []);
             $brandIds = $this->extractIds($data['brands'] ?? []);
