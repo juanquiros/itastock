@@ -4,6 +4,7 @@ namespace App\EventSubscriber;
 
 use App\Service\SubscriptionContext;
 use App\Service\SubscriptionAccessResolver;
+use App\Security\BusinessContext;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -37,6 +38,7 @@ class SubscriptionAccessSubscriber implements EventSubscriberInterface
         'app_billing_pause',
         'app_billing_reactivate',
         'app_billing_cancel',
+        'app_business_switch',
         'public_mercadopago_webhook',
         '_wdt',
         '_profiler',
@@ -61,6 +63,7 @@ class SubscriptionAccessSubscriber implements EventSubscriberInterface
     public function __construct(
         private readonly SubscriptionContext $subscriptionContext,
         private readonly SubscriptionAccessResolver $accessResolver,
+        private readonly BusinessContext $businessContext,
         private readonly RouterInterface $router,
         private readonly Security $security,
         private readonly string $environment,
@@ -86,6 +89,10 @@ class SubscriptionAccessSubscriber implements EventSubscriberInterface
 
         $user = $this->security->getUser();
         if (!$user) {
+            return;
+        }
+
+        if ($this->businessContext->getCurrentBusiness($user) === null) {
             return;
         }
 
