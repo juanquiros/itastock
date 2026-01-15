@@ -61,7 +61,7 @@
     <div class="d-flex justify-content-between align-items-start flex-wrap gap-3 mb-3">
         <div>
             <h1 class="h4 mb-1">Dashboard del comercio</h1>
-            <p class="text-muted mb-0">KPIs en tiempo casi real para tu negocio.</p>
+            <p class="text-muted mb-0">KPIs actualizados de tu negocio.</p>
         </div>
         <div class="text-end">
             <div class="small text-muted">Estado de actualización</div>
@@ -251,7 +251,43 @@
 {% block javascripts %}
     <script src="https://cdn.jsdelivr.net/npm/chart.js" defer></script>
     <script>
-        document.addEventListener('DOMContentLoaded', () => {
+        let dashboardPollerId;
+        let dashboardCharts;
+        let dashboardAbortController;
+
+        function resetDashboard() {
+            if (dashboardPollerId) {
+                clearInterval(dashboardPollerId);
+                dashboardPollerId = null;
+            }
+
+            if (dashboardAbortController) {
+                dashboardAbortController.abort();
+                dashboardAbortController = null;
+            }
+
+            if (dashboardCharts) {
+                dashboardCharts.salesHourChart.destroy();
+                dashboardCharts.paymentChart.destroy();
+                dashboardCharts.weekChart.destroy();
+                dashboardCharts = null;
+            }
+
+            if (document.body) {
+                delete document.body.dataset.dashboardInitialized;
+            }
+        }
+
+        function bootDashboard() {
+            if (!document.getElementById('chart-sales-hour')) {
+                return;
+            }
+
+            if (document.body?.dataset.dashboardInitialized) {
+                return;
+            }
+
+            document.body.dataset.dashboardInitialized = 'true';
             const formatter = {
                 currency: new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', minimumFractionDigits: 2, maximumFractionDigits: 2 }),
                 number: new Intl.NumberFormat('es-AR', { maximumFractionDigits: 0 }),
@@ -262,9 +298,7 @@
             const POLL_MS = {{ pollMs }};
             const kpiElements = document.querySelectorAll('[data-kpi]');
             const syncStatus = document.getElementById('sync-status');
-            let controller;
-
-            const charts = initCharts(initialData.data.charts);
+            dashboardCharts = initCharts(initialData.data.charts);
             renderAll(initialData);
             startPolling();
 
@@ -454,19 +488,19 @@
 
             function updateCharts(chartsData) {
                 const hourly = chartsData.salesByHourToday ?? [];
-                charts.salesHourChart.data.labels = hourly.map(item => `${item.hour}h`);
-                charts.salesHourChart.data.datasets[0].data = hourly.map(item => item.amount);
-                charts.salesHourChart.update('none');
+                dashboardCharts.salesHourChart.data.labels = hourly.map(item => `${item.hour}h`);
+                dashboardCharts.salesHourChart.data.datasets[0].data = hourly.map(item => item.amount);
+                dashboardCharts.salesHourChart.update('none');
 
                 const payments = chartsData.paymentDistributionToday ?? [];
-                charts.paymentChart.data.labels = payments.map(item => item.method);
-                charts.paymentChart.data.datasets[0].data = payments.map(item => item.amount);
-                charts.paymentChart.update('none');
+                dashboardCharts.paymentChart.data.labels = payments.map(item => item.method);
+                dashboardCharts.paymentChart.data.datasets[0].data = payments.map(item => item.amount);
+                dashboardCharts.paymentChart.update('none');
 
                 const week = chartsData.salesLast7Days ?? [];
-                charts.weekChart.data.labels = week.map(item => item.date.slice(5));
-                charts.weekChart.data.datasets[0].data = week.map(item => item.amount);
-                charts.weekChart.update('none');
+                dashboardCharts.weekChart.data.labels = week.map(item => item.date.slice(5));
+                dashboardCharts.weekChart.data.datasets[0].data = week.map(item => item.amount);
+                dashboardCharts.weekChart.update('none');
             }
 
             function renderAlerts(alerts) {
@@ -495,19 +529,19 @@
             }
 
             function startPolling() {
-                setInterval(fetchSummary, POLL_MS);
+                dashboardPollerId = setInterval(fetchSummary, POLL_MS);
             }
 
             async function fetchSummary() {
-                if (controller) {
-                    controller.abort();
+                if (dashboardAbortController) {
+                    dashboardAbortController.abort();
                 }
 
-                controller = new AbortController();
+                dashboardAbortController = new AbortController();
                 try {
                     const response = await fetch('{{ path('app_dashboard_data_summary') }}', {
                         headers: { 'Accept': 'application/json' },
-                        signal: controller.signal
+                        signal: dashboardAbortController.signal
                     });
 
                     if (!response.ok) {
@@ -520,6 +554,10 @@
                     updateStatus(null, false);
                 }
             }
-        });
+        }
+
+        document.addEventListener('DOMContentLoaded', bootDashboard);
+        document.addEventListener('turbo:load', bootDashboard);
+        document.addEventListener('turbo:before-cache', resetDashboard);
     </script>
 {% endblock %}
