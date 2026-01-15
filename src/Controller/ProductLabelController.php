@@ -47,8 +47,12 @@ class ProductLabelController extends AbstractController
 
         if ($form->isSubmitted() && $form->isValid()) {
             $data = $form->getData();
-            if (array_key_exists('labelImagePath', $data)) {
-                $business->setLabelImagePath($data['labelImagePath'] ?: null);
+            $formName = $form->getName();
+            $rawData = $request->request->all($formName);
+            $labelImagePath = $rawData['labelImagePath'] ?? $form->get('labelImagePath')->getData();
+            if ($labelImagePath !== null) {
+                $business->setLabelImagePath($labelImagePath ?: null);
+                $this->entityManager->persist($business);
                 $this->entityManager->flush();
             }
 
