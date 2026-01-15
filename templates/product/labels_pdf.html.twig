@@ -4,6 +4,27 @@
         <meta charset="UTF-8">
         <title>Etiquetas de productos</title>
         {% set useLabelImage = options.includeLabelImage and labelImagePath %}
+        {% set pageWidth = 210 %}
+        {% set pageHeight = 297 %}
+        {% set pageMargin = 10 %}
+        {% if useLabelImage %}
+            {% set labelWidth = 40 %}
+            {% set labelHeight = 60 %}
+            {% set columns = 4 %}
+            {% set gap = 4 %}
+        {% else %}
+            {% set labelWidth = 50 %}
+            {% set labelHeight = 20 %}
+            {% set columns = 3 %}
+            {% set gap = 4 %}
+        {% endif %}
+        {% set contentWidth = pageWidth - (pageMargin * 2) %}
+        {% set contentHeight = pageHeight - (pageMargin * 2) %}
+        {% set gridWidth = (columns * labelWidth) + ((columns - 1) * gap) %}
+        {% set rows = ((contentHeight + gap) // (labelHeight + gap)) %}
+        {% set gridHeight = (rows * labelHeight) + ((rows - 1) * gap) %}
+        {% set offsetLeft = ((contentWidth - gridWidth) / 2) %}
+        {% set offsetTop = ((contentHeight - gridHeight) / 2) %}
         <style>
             @page {
                 size: A4;
@@ -20,19 +41,11 @@
 
             .label-grid {
                 display: grid;
-                justify-content: center;
-            }
-
-            .label-grid--with-image {
-                grid-template-columns: repeat(5, 35mm);
-                grid-auto-rows: 60mm;
-                gap: 3mm;
-            }
-
-            .label-grid--compact {
-                grid-template-columns: repeat(3, 50mm);
-                grid-auto-rows: 22mm;
-                gap: 4mm;
+                grid-template-columns: repeat({{ columns }}, {{ labelWidth }}mm);
+                grid-auto-rows: {{ labelHeight }}mm;
+                gap: {{ gap }}mm;
+                margin-left: {{ offsetLeft }}mm;
+                margin-top: {{ offsetTop }}mm;
             }
 
             .label {
@@ -46,15 +59,15 @@
 
             .label--with-image {
                 padding: 3mm 2.5mm;
-                width: 35mm;
-                height: 60mm;
+                width: {{ labelWidth }}mm;
+                height: {{ labelHeight }}mm;
                 justify-content: flex-start;
             }
 
             .label--compact {
                 padding: 2mm 2.5mm;
-                width: 50mm;
-                height: 22mm;
+                width: {{ labelWidth }}mm;
+                height: {{ labelHeight }}mm;
                 flex-direction: row;
                 align-items: center;
                 justify-content: space-between;
@@ -64,10 +77,10 @@
 
             .label-name {
                 font-weight: 600;
-                font-size: 9pt;
+                font-size: 8pt;
                 line-height: 1.1;
-                min-height: 8mm;
-                margin-bottom: 1.5mm;
+                min-height: 7mm;
+                margin-bottom: 1mm;
                 text-align: center;
             }
 
@@ -80,13 +93,13 @@
             }
 
             .label-meta {
-                font-size: 8pt;
+                font-size: 7pt;
                 color: #374151;
             }
 
             .label-price {
                 font-weight: 700;
-                font-size: 10pt;
+                font-size: 9pt;
                 margin-top: 0.5mm;
             }
 
@@ -101,6 +114,7 @@
                 grid-template-columns: 1fr 1fr;
                 gap: 2mm;
                 align-items: center;
+                margin-top: 1mm;
             }
 
             .label-body--full {
@@ -109,7 +123,7 @@
 
             .label-image {
                 width: 100%;
-                height: 30mm;
+                height: 26mm;
                 border-radius: 2px;
                 border: 1px solid #e5e7eb;
                 overflow: hidden;
@@ -132,7 +146,7 @@
 
             .barcode img {
                 max-width: 100%;
-                height: 10mm;
+                height: 9mm;
                 object-fit: contain;
             }
 
@@ -140,19 +154,19 @@
                 display: flex;
                 align-items: center;
                 justify-content: center;
-                height: 30mm;
+                height: 26mm;
                 overflow: hidden;
             }
 
             .barcode-vertical img {
-                height: 22mm;
+                height: 20mm;
                 width: auto;
                 transform: rotate(90deg);
             }
 
             .barcode-value {
-                font-size: 7.5pt;
-                margin-top: 1mm;
+                font-size: 7pt;
+                margin-top: 0.5mm;
                 color: #374151;
                 word-break: break-all;
             }
@@ -165,7 +179,7 @@
         </style>
     </head>
     <body>
-        <div class="label-grid {{ useLabelImage ? 'label-grid--with-image' : 'label-grid--compact' }}">
+        <div class="label-grid">
             {% for label in labels %}
                 <div class="label {{ useLabelImage ? 'label--with-image' : 'label--compact' }}">
                     {% if useLabelImage %}
