@@ -75,10 +75,14 @@ class ReportService
         $business = $session->getBusiness();
         $from = $session->getOpenedAt();
         $to = $session->getClosedAt() ?? new \DateTimeImmutable();
+        if ($to < $from) {
+            $to = new \DateTimeImmutable();
+        }
 
-        $totals = $session->isOpen()
+        $storedTotals = $session->getTotalsByPaymentMethod();
+        $totals = $session->isOpen() || $storedTotals === []
             ? $this->paymentRepository->aggregateTotalsByMethod($business, $from, $to)
-            : $session->getTotalsByPaymentMethod();
+            : $storedTotals;
 
         $cash = (float) ($totals['CASH'] ?? 0);
         $initial = (float) $session->getInitialCash();
