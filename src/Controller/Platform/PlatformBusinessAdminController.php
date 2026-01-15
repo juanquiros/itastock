@@ -28,14 +28,30 @@ class PlatformBusinessAdminController extends AbstractController
     ): Response {
         $user = new User();
         $user->setBusiness($business);
+        $existingUser = null;
+        $requirePassword = true;
 
-        $form = $this->createForm(BusinessAdminUserType::class, $user);
+        if ($request->isMethod('POST')) {
+            $formData = $request->request->all('business_admin_user');
+            $email = mb_strtolower((string) ($formData['email'] ?? ''));
+            if ($email !== '') {
+                $existingUser = $userRepository->findOneBy(['email' => $email]);
+                if ($existingUser instanceof User) {
+                    $user = $existingUser;
+                    $requirePassword = false;
+                }
+            }
+        }
+
+        $form = $this->createForm(BusinessAdminUserType::class, $user, [
+            'require_password' => $requirePassword,
+        ]);
         $form->handleRequest($request);
         $temporaryPassword = null;
 
         if ($form->isSubmitted() && $form->isValid()) {
             $email = $user->getEmail();
-            $existingUser = $email ? $userRepository->findOneBy(['email' => $email]) : null;
+            $existingUser ??= $email ? $userRepository->findOneBy(['email' => $email]) : null;
             if ($existingUser instanceof User) {
                 $user = $existingUser;
                 if (!$user->getFullName()) {

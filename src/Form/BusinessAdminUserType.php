@@ -16,6 +16,8 @@ class BusinessAdminUserType extends AbstractType
 {
     public function buildForm(FormBuilderInterface $builder, array $options): void
     {
+        $requirePassword = (bool) $options['require_password'];
+
         $builder
             ->add('fullName', TextType::class, [
                 'label' => 'Nombre completo',
@@ -31,16 +33,23 @@ class BusinessAdminUserType extends AbstractType
             ->add('plainPassword', PasswordType::class, [
                 'label' => 'Contraseña temporal',
                 'mapped' => false,
-                'constraints' => [
-                    new NotBlank(),
-                    new Length(min: 8),
-                ],
+                'required' => $requirePassword,
+                'constraints' => $requirePassword
+                    ? [
+                        new NotBlank(),
+                        new Length(min: 8),
+                    ]
+                    : [
+                        new Length(min: 8),
+                    ],
             ])
         ;
     }
 
     public function configureOptions(OptionsResolver $resolver): void
     {
-        $resolver->setDefaults([]);
+        $resolver->setDefaults([
+            'require_password' => true,
+        ]);
     }
 }
