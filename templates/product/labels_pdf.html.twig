@@ -31,7 +31,7 @@
 
             .label-grid--compact {
                 grid-template-columns: repeat(3, 50mm);
-                grid-auto-rows: 20mm;
+                grid-auto-rows: 22mm;
                 gap: 4mm;
             }
 
@@ -54,11 +54,12 @@
             .label--compact {
                 padding: 2mm 2.5mm;
                 width: 50mm;
-                height: 20mm;
+                height: 22mm;
                 flex-direction: row;
                 align-items: center;
                 justify-content: space-between;
                 gap: 2mm;
+                overflow: hidden;
             }
 
             .label-name {
@@ -126,11 +127,12 @@
 
             .barcode {
                 text-align: center;
+                overflow: hidden;
             }
 
             .barcode img {
                 max-width: 100%;
-                height: 14mm;
+                height: 10mm;
                 object-fit: contain;
             }
 
@@ -139,10 +141,11 @@
                 align-items: center;
                 justify-content: center;
                 height: 30mm;
+                overflow: hidden;
             }
 
             .barcode-vertical img {
-                height: 24mm;
+                height: 22mm;
                 width: auto;
                 transform: rotate(90deg);
             }
@@ -156,7 +159,7 @@
 
             .barcode-value--compact {
                 font-size: 6.5pt;
-                margin-top: 0.5mm;
+                margin-top: 0.2mm;
                 text-align: right;
             }
         </style>

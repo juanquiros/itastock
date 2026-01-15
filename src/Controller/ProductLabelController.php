@@ -51,6 +51,12 @@ class ProductLabelController extends AbstractController
                 $business->setLabelImagePath($data['labelImagePath'] ?: null);
                 $this->entityManager->flush();
             }
+
+            if ($request->request->has('save_label_image')) {
+                $this->addFlash('success', 'Imagen de etiqueta actualizada.');
+
+                return $this->redirectToRoute('app_product_labels');
+            }
             $productIds = $this->extractIds($data['products'] ?? []);
             $categoryIds = $this->extractIds($data['categories'] ?? []);
             $brandIds = $this->extractIds($data['brands'] ?? []);
