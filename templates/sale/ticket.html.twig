@@ -35,6 +35,7 @@
                             <p class="text-uppercase text-muted mb-1 small">Remito</p>
                             <h1 class="h4 mb-0">N° {{ remitoNumber }}</h1>
                             <p class="mb-0 text-muted">{{ sale.createdAt|date('d/m/Y H:i') }}</p>
+                            <p class="mb-0 text-muted">Vendedor: {{ sale.createdBy ? sale.createdBy.fullName : 'N/D' }}</p>
                             <div class="mt-2">
                                 {% if sale.status == 'VOIDED' %}
                                     <span class="badge bg-danger">ANULADA</span>

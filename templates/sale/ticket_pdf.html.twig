@@ -36,6 +36,7 @@
             </div>
         {% endif %}
         <div><strong>Fecha:</strong> {{ sale.createdAt|date('d/m/Y H:i') }}</div>
+        <div><strong>Vendedor:</strong> {{ sale.createdBy ? sale.createdBy.fullName : 'N/D' }}</div>
         <div><strong>N° de remito:</strong> {{ remitoNumber }}</div>
         <div><strong>Generado:</strong> {{ generatedAt|date('d/m/Y H:i') }}</div>
         <div><strong>Cliente:</strong> {{ sale.customer ? sale.customer.name : 'Consumidor Final' }}</div>
