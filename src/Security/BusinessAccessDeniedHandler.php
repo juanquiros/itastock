@@ -24,7 +24,8 @@ class BusinessAccessDeniedHandler implements AccessDeniedHandlerInterface
 
     public function handle(Request $request, AccessDeniedException $accessDeniedException): ?Response
     {
-        if ($request->attributes->get('_route') === 'app_business_switch') {
+        $path = $request->getPathInfo();
+        if ($request->attributes->get('_route') === 'app_business_switch' || str_starts_with($path, '/app/business/switch')) {
             return null;
         }
 

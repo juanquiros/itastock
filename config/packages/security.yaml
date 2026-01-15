@@ -46,7 +46,7 @@ security:
         - { path: ^/$, roles: PUBLIC_ACCESS }
         - { path: ^/(features|pricing|contact|terms|privacy)$, roles: PUBLIC_ACCESS }
         - { path: ^/platform, roles: ROLE_PLATFORM_ADMIN }
-        - { path: ^/app/business/switch$, roles: ROLE_USER }
+        - { path: ^/app/business/switch, roles: ROLE_USER }
         - { path: ^/app/subscription/blocked$, roles: BUSINESS_SELLER }
         - { path: ^/app/admin, roles: BUSINESS_ADMIN }
         - { path: ^/app/(pos|cash), roles: BUSINESS_SELLER }
