@@ -646,7 +646,11 @@
                     return;
                 }
 
-                const match = products.find((product) => product.barcode && product.barcode.toLowerCase() === code.toLowerCase());
+                const normalized = code.toLowerCase();
+                const match = products.find((product) => (
+                    (product.barcode && product.barcode.toLowerCase() === normalized)
+                    || (product.sku && product.sku.toLowerCase() === normalized)
+                ));
                 if (match) {
                     addItem(match.id);
                     showScanAlert('');

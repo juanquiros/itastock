@@ -27,7 +27,12 @@
                 </div>
                 <div class="col-lg-2 col-md-4">
                     <label class="form-label">SKU</label>
-                    <input type="text" name="sku" class="form-control" value="{{ filters.sku }}">
+                    <div class="input-group" data-barcode-scanner-input-group>
+                        <input type="text" name="sku" id="product-sku-filter" class="form-control" value="{{ filters.sku }}" data-barcode-scanner-target="input" data-barcode-scanner-input="true">
+                        <button class="btn btn-outline-secondary d-inline-flex d-lg-none" type="button" data-action="barcode-scanner#open" data-barcode-scanner-input-id-param="product-sku-filter">
+                            Escanear
+                        </button>
+                    </div>
                 </div>
                 <div class="col-lg-2 col-md-4">
                     <label class="form-label">Código de barra</label>
