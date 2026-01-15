@@ -173,16 +173,11 @@ class CustomerController extends AbstractController
         $business = $this->requireBusinessContext();
         $this->denyIfDifferentBusiness($customer, $business);
 
-        $fromInput = $request->query->get('from');
-        $toInput = $request->query->get('to');
+        $fromInput = trim((string) $request->query->get('from', ''));
+        $toInput = trim((string) $request->query->get('to', ''));
 
-        if ($fromInput === null && $toInput === null) {
-            $fromDate = (new \DateTimeImmutable('first day of last month'))->setTime(0, 0, 0);
-            $toDate = (new \DateTimeImmutable('last day of last month'))->setTime(23, 59, 59);
-        } else {
-            $fromDate = $fromInput ? new \DateTimeImmutable($fromInput) : null;
-            $toDate = $toInput ? new \DateTimeImmutable($toInput.' 23:59:59') : null;
-        }
+        $fromDate = $fromInput !== '' ? new \DateTimeImmutable($fromInput) : null;
+        $toDate = $toInput !== '' ? new \DateTimeImmutable($toInput.' 23:59:59') : null;
 
         $data = $this->reportService->getCustomerAccountData($customer, $fromDate, $toDate);
 
