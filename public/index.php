@@ -4,7 +4,7 @@ use App\Kernel;
 
 require_once dirname(__DIR__).'/vendor/autoload_runtime.php';
 
-$timezone = $_SERVER['APP_TIMEZONE'] ?? $_ENV['APP_TIMEZONE'] ?? null;
+$timezone = $_SERVER['APP_TIMEZONE'] ?? $_ENV['APP_TIMEZONE'] ?? 'America/Argentina/Buenos_Aires';
 if (is_string($timezone) && $timezone !== '') {
     date_default_timezone_set($timezone);
 }
