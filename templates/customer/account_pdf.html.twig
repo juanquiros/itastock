@@ -38,6 +38,7 @@
                 <th>Tipo</th>
                 <th>Importe</th>
                 <th>Referencia</th>
+                <th>Usuario</th>
                 <th>Nota</th>
             </tr>
         </thead>
@@ -48,11 +49,12 @@
                     <td>{{ movement.type }}</td>
                     <td>${{ movement.amount }}</td>
                     <td>{{ movement.referenceType }} {{ movement.referenceId ?? '' }}</td>
+                    <td>{{ movement.createdBy ? movement.createdBy.fullName : 'N/D' }}</td>
                     <td>{{ movement.note ?? '' }}</td>
                 </tr>
                 {% if detailed and movement.referenceId and data.saleDetails[movement.referenceId] is defined %}
                     <tr>
-                        <td colspan="5">
+                        <td colspan="6">
                             <div class="movement-detail">
                                 <h3>Detalle del ticket #{{ movement.referenceId }}</h3>
                                 <ul class="detail-list">
