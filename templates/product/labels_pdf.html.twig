@@ -4,9 +4,6 @@
         <meta charset="UTF-8">
         <title>Etiquetas de productos</title>
         {% set useLabelImage = options.includeLabelImage and labelImagePath %}
-        {% set pageWidth = 210 %}
-        {% set pageHeight = 297 %}
-        {% set pageMargin = 10 %}
         {% if useLabelImage %}
             {% set labelWidth = 40 %}
             {% set labelHeight = 60 %}
@@ -18,13 +15,6 @@
             {% set columns = 3 %}
             {% set gap = 4 %}
         {% endif %}
-        {% set contentWidth = pageWidth - (pageMargin * 2) %}
-        {% set contentHeight = pageHeight - (pageMargin * 2) %}
-        {% set gridWidth = (columns * labelWidth) + ((columns - 1) * gap) %}
-        {% set rows = ((contentHeight + gap) // (labelHeight + gap)) %}
-        {% set gridHeight = (rows * labelHeight) + ((rows - 1) * gap) %}
-        {% set offsetLeft = ((contentWidth - gridWidth) / 2) %}
-        {% set offsetTop = ((contentHeight - gridHeight) / 2) %}
         <style>
             @page {
                 size: A4;
@@ -39,13 +29,18 @@
                 padding: 0;
             }
 
-            .label-grid {
-                display: grid;
-                grid-template-columns: repeat({{ columns }}, {{ labelWidth }}mm);
-                grid-auto-rows: {{ labelHeight }}mm;
-                gap: {{ gap }}mm;
-                margin-left: {{ offsetLeft }}mm;
-                margin-top: {{ offsetTop }}mm;
+            .label-table {
+                width: 100%;
+                table-layout: fixed;
+                border-collapse: separate;
+                border-spacing: {{ gap }}mm {{ gap }}mm;
+            }
+
+            .label-table td {
+                width: {{ labelWidth }}mm;
+                height: {{ labelHeight }}mm;
+                padding: 0;
+                vertical-align: top;
             }
 
             .label {
@@ -55,6 +50,7 @@
                 display: flex;
                 flex-direction: column;
                 page-break-inside: avoid;
+                overflow: hidden;
             }
 
             .label--with-image {
@@ -110,19 +106,14 @@
             }
 
             .label-body {
-                display: grid;
-                grid-template-columns: 1fr 1fr;
+                display: flex;
                 gap: 2mm;
                 align-items: center;
                 margin-top: 1mm;
             }
 
-            .label-body--full {
-                grid-template-columns: 1fr;
-            }
-
             .label-image {
-                width: 100%;
+                width: 50%;
                 height: 26mm;
                 border-radius: 2px;
                 border: 1px solid #e5e7eb;
@@ -142,6 +133,7 @@
             .barcode {
                 text-align: center;
                 overflow: hidden;
+                flex: 1;
             }
 
             .barcode img {
@@ -179,57 +171,67 @@
         </style>
     </head>
     <body>
-        <div class="label-grid">
-            {% for label in labels %}
-                <div class="label {{ useLabelImage ? 'label--with-image' : 'label--compact' }}">
-                    {% if useLabelImage %}
-                        <div class="label-name">{{ label.product.name }}</div>
-                        {% if not options.showOnlyName %}
-                            <div class="label-meta">SKU: {{ label.product.sku }}</div>
-                            {% if options.showPrice %}
-                                <div class="label-price">${{ label.product.basePrice|number_format(2, '.', ',') }}</div>
-                            {% endif %}
-                        {% endif %}
-                        <div class="label-body">
-                            <div class="label-image">
-                                <img src="{{ labelImagePath }}" alt="Imagen de etiqueta">
-                            </div>
-                            {% if options.includeBarcode %}
-                                <div class="barcode">
-                                    {% if label.barcodeDataUri %}
-                                        <div class="barcode-vertical">
-                                            <img src="{{ label.barcodeDataUri }}" alt="Código de barras">
-                                        </div>
-                                        <div class="barcode-value">{{ label.barcodeValue }}</div>
-                                    {% else %}
-                                        <div class="label-meta">Sin código de barras</div>
-                                    {% endif %}
-                                </div>
-                            {% endif %}
-                        </div>
-                    {% else %}
-                        <div class="label-info">
-                            <div class="label-name label-name--compact">{{ label.product.name }}</div>
-                            {% if not options.showOnlyName %}
-                                <div class="label-meta">SKU: {{ label.product.sku }}</div>
-                                {% if options.showPrice %}
-                                    <div class="label-price">${{ label.product.basePrice|number_format(2, '.', ',') }}</div>
+        <table class="label-table">
+            <tbody>
+                {% for row in labels|batch(columns, null) %}
+                    <tr>
+                        {% for label in row %}
+                            <td>
+                                {% if label %}
+                                    <div class="label {{ useLabelImage ? 'label--with-image' : 'label--compact' }}">
+                                        {% if useLabelImage %}
+                                            <div class="label-name">{{ label.product.name }}</div>
+                                            {% if not options.showOnlyName %}
+                                                <div class="label-meta">SKU: {{ label.product.sku }}</div>
+                                                {% if options.showPrice %}
+                                                    <div class="label-price">${{ label.product.basePrice|number_format(2, '.', ',') }}</div>
+                                                {% endif %}
+                                            {% endif %}
+                                            <div class="label-body">
+                                                <div class="label-image">
+                                                    <img src="{{ labelImagePath }}" alt="Imagen de etiqueta">
+                                                </div>
+                                                {% if options.includeBarcode %}
+                                                    <div class="barcode">
+                                                        {% if label.barcodeDataUri %}
+                                                            <div class="barcode-vertical">
+                                                                <img src="{{ label.barcodeDataUri }}" alt="Código de barras">
+                                                            </div>
+                                                            <div class="barcode-value">{{ label.barcodeValue }}</div>
+                                                        {% else %}
+                                                            <div class="label-meta">Sin código de barras</div>
+                                                        {% endif %}
+                                                    </div>
+                                                {% endif %}
+                                            </div>
+                                        {% else %}
+                                            <div class="label-info">
+                                                <div class="label-name label-name--compact">{{ label.product.name }}</div>
+                                                {% if not options.showOnlyName %}
+                                                    <div class="label-meta">SKU: {{ label.product.sku }}</div>
+                                                    {% if options.showPrice %}
+                                                        <div class="label-price">${{ label.product.basePrice|number_format(2, '.', ',') }}</div>
+                                                    {% endif %}
+                                                {% endif %}
+                                            </div>
+                                            {% if options.includeBarcode %}
+                                                <div class="barcode">
+                                                    {% if label.barcodeDataUri %}
+                                                        <img src="{{ label.barcodeDataUri }}" alt="Código de barras">
+                                                        <div class="barcode-value barcode-value--compact">{{ label.barcodeValue }}</div>
+                                                    {% else %}
+                                                        <div class="label-meta">Sin código de barras</div>
+                                                    {% endif %}
+                                                </div>
+                                            {% endif %}
+                                        {% endif %}
+                                    </div>
                                 {% endif %}
-                            {% endif %}
-                        </div>
-                        {% if options.includeBarcode %}
-                            <div class="barcode">
-                                {% if label.barcodeDataUri %}
-                                    <img src="{{ label.barcodeDataUri }}" alt="Código de barras">
-                                    <div class="barcode-value barcode-value--compact">{{ label.barcodeValue }}</div>
-                                {% else %}
-                                    <div class="label-meta">Sin código de barras</div>
-                                {% endif %}
-                            </div>
-                        {% endif %}
-                    {% endif %}
-                </div>
-            {% endfor %}
-        </div>
+                            </td>
+                        {% endfor %}
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
     </body>
 </html>
