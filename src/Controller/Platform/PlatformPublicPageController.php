@@ -88,9 +88,7 @@ class PlatformPublicPageController extends AbstractController
             $metaImagePath = $this->storeMetaImageFile($uploadedFile);
         } elseif (is_string($metaImagePath) && str_starts_with($metaImagePath, 'data:')) {
             $storedPath = $this->storeMetaImageDataUrl($metaImagePath);
-            if ($storedPath !== null) {
-                $metaImagePath = $storedPath;
-            }
+            $metaImagePath = $storedPath;
         }
 
         $page->setMetaImagePath($metaImagePath ?: null);
