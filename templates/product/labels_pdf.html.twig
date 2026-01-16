@@ -58,6 +58,7 @@
                 width: {{ labelWidth }}mm;
                 height: {{ labelHeight }}mm;
                 justify-content: flex-start;
+                align-items: center;
             }
 
             .label--compact {
@@ -75,9 +76,14 @@
                 font-weight: 600;
                 font-size: 8pt;
                 line-height: 1.1;
-                min-height: 7mm;
-                margin-bottom: 1mm;
-                text-align: center;
+                min-height: 6mm;
+                margin: 0 0 1mm 0;
+                text-align: left;
+                width: 100%;
+                overflow: hidden;
+                display: -webkit-box;
+                -webkit-line-clamp: 2;
+                -webkit-box-orient: vertical;
             }
 
             .label-name--compact {
@@ -107,13 +113,15 @@
 
             .label-body {
                 display: flex;
-                gap: 2mm;
+                flex-direction: column;
                 align-items: center;
+                gap: 2mm;
                 margin-top: 1mm;
+                width: 100%;
             }
 
             .label-image {
-                width: 50%;
+                width: 100%;
                 height: 26mm;
                 border-radius: 2px;
                 border: 1px solid #e5e7eb;
@@ -133,7 +141,7 @@
             .barcode {
                 text-align: center;
                 overflow: hidden;
-                flex: 1;
+                width: 100%;
             }
 
             .barcode img {
@@ -146,14 +154,14 @@
                 display: flex;
                 align-items: center;
                 justify-content: center;
-                height: 26mm;
+                height: 18mm;
                 overflow: hidden;
             }
 
             .barcode-vertical img {
-                height: 20mm;
+                height: 16mm;
                 width: auto;
-                transform: rotate(90deg);
+                transform: none;
             }
 
             .barcode-value {
@@ -161,6 +169,7 @@
                 margin-top: 0.5mm;
                 color: #374151;
                 word-break: break-all;
+                text-align: center;
             }
 
             .barcode-value--compact {
@@ -180,6 +189,9 @@
                                 {% if label %}
                                     <div class="label {{ useLabelImage ? 'label--with-image' : 'label--compact' }}">
                                         {% if useLabelImage %}
+                                            <div class="label-image">
+                                                <img src="{{ labelImagePath }}" alt="Imagen de etiqueta">
+                                            </div>
                                             <div class="label-name">{{ label.product.name }}</div>
                                             {% if not options.showOnlyName %}
                                                 <div class="label-meta">SKU: {{ label.product.sku }}</div>
@@ -187,23 +199,18 @@
                                                     <div class="label-price">${{ label.product.basePrice|number_format(2, '.', ',') }}</div>
                                                 {% endif %}
                                             {% endif %}
-                                            <div class="label-body">
-                                                <div class="label-image">
-                                                    <img src="{{ labelImagePath }}" alt="Imagen de etiqueta">
+                                            {% if options.includeBarcode %}
+                                                <div class="barcode">
+                                                    {% if label.barcodeDataUri %}
+                                                        <div class="barcode-vertical">
+                                                            <img src="{{ label.barcodeDataUri }}" alt="Código de barras">
+                                                        </div>
+                                                        <div class="barcode-value">{{ label.barcodeValue }}</div>
+                                                    {% else %}
+                                                        <div class="label-meta">Sin código de barras</div>
+                                                    {% endif %}
                                                 </div>
-                                                {% if options.includeBarcode %}
-                                                    <div class="barcode">
-                                                        {% if label.barcodeDataUri %}
-                                                            <div class="barcode-vertical">
-                                                                <img src="{{ label.barcodeDataUri }}" alt="Código de barras">
-                                                            </div>
-                                                            <div class="barcode-value">{{ label.barcodeValue }}</div>
-                                                        {% else %}
-                                                            <div class="label-meta">Sin código de barras</div>
-                                                        {% endif %}
-                                                    </div>
-                                                {% endif %}
-                                            </div>
+                                            {% endif %}
                                         {% else %}
                                             <div class="label-info">
                                                 <div class="label-name label-name--compact">{{ label.product.name }}</div>
