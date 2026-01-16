@@ -5,11 +5,13 @@ namespace App\Form;
 use App\Entity\Lead;
 use Symfony\Component\Form\AbstractType;
 use Symfony\Component\Form\Extension\Core\Type\EmailType;
+use Symfony\Component\Form\Extension\Core\Type\HiddenType;
 use Symfony\Component\Form\Extension\Core\Type\TelType;
 use Symfony\Component\Form\Extension\Core\Type\TextType;
 use Symfony\Component\Form\FormBuilderInterface;
 use Symfony\Component\OptionsResolver\OptionsResolver;
 use Symfony\Component\Validator\Constraints\Email;
+use Symfony\Component\Validator\Constraints\Blank;
 use Symfony\Component\Validator\Constraints\NotBlank;
 
 class LeadDemoType extends AbstractType
@@ -48,6 +50,13 @@ class LeadDemoType extends AbstractType
                 'required' => false,
                 'attr' => [
                     'placeholder' => 'Opcional',
+                ],
+            ])
+            ->add('captcha', HiddenType::class, [
+                'mapped' => false,
+                'required' => false,
+                'constraints' => [
+                    new Blank(message: 'Validación fallida, intentá nuevamente.'),
                 ],
             ])
         ;
