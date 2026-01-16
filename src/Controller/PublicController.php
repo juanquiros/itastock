@@ -14,6 +14,7 @@ use App\Service\EmailSender;
 use App\Service\PlatformNotificationService;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Component\Form\FormError;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Annotation\Route;
@@ -46,8 +47,14 @@ class PublicController extends AbstractController
         $form = $this->createForm(LeadDemoType::class, $lead);
         $form->handleRequest($request);
         $demoSubmitted = false;
+        $captcha = $this->getCaptchaChallenge($request, 'demo_captcha');
 
-        if ($form->isSubmitted() && $form->isValid()) {
+        $captchaValid = true;
+        if ($form->isSubmitted()) {
+            $captchaValid = $this->validateCaptchaAnswer($form, $captcha['answer']);
+        }
+
+        if ($form->isSubmitted() && $form->isValid() && $captchaValid) {
             $email = mb_strtolower((string) $lead->getEmail());
             $existing = $this->leadRepository->findOneBy([
                 'email' => $email,
@@ -85,12 +92,15 @@ class PublicController extends AbstractController
                 $this->addFlash('success', '¡Gracias! Recibimos tu solicitud de demo.');
                 $demoSubmitted = true;
             }
+
+            $this->resetCaptchaChallenge($request, 'demo_captcha');
         }
 
         return $this->render('public/home.html.twig', [
             'page' => $page,
             'demoForm' => $form->createView(),
             'demoSubmitted' => $demoSubmitted,
+            'demoCaptcha' => $captcha,
         ]);
     }
 
@@ -129,19 +139,27 @@ class PublicController extends AbstractController
         $lead = new Lead();
         $form = $this->createForm(LeadType::class, $lead);
         $form->handleRequest($request);
+        $captcha = $this->getCaptchaChallenge($request, 'contact_captcha');
 
-        if ($form->isSubmitted() && $form->isValid()) {
+        $captchaValid = true;
+        if ($form->isSubmitted()) {
+            $captchaValid = $this->validateCaptchaAnswer($form, $captcha['answer']);
+        }
+
+        if ($form->isSubmitted() && $form->isValid() && $captchaValid) {
             $lead->setSource($request->query->get('source', 'web'));
             $this->entityManager->persist($lead);
             $this->entityManager->flush();
 
             $this->addFlash('success', '¡Gracias! Registramos tu consulta y te contactaremos pronto.');
+            $this->resetCaptchaChallenge($request, 'contact_captcha');
 
             return $this->redirectToRoute('public_contact');
         }
 
         return $this->render('public/contact.html.twig', [
             'contactForm' => $form->createView(),
+            'contactCaptcha' => $captcha,
         ]);
     }
 
@@ -196,5 +214,55 @@ class PublicController extends AbstractController
         $prefix = strstr($email, '@', true);
 
         return $prefix ? ucfirst($prefix) : 'Demo';
+    }
+
+    /**
+     * @return array{a:int, b:int, answer:int, label:string}
+     */
+    private function getCaptchaChallenge(Request $request, string $key): array
+    {
+        $session = $request->getSession();
+        $stored = $session?->get($key);
+
+        if (!is_array($stored) || !isset($stored['a'], $stored['b'], $stored['answer'])) {
+            $a = random_int(2, 9);
+            $b = random_int(2, 9);
+            $stored = [
+                'a' => $a,
+                'b' => $b,
+                'answer' => $a + $b,
+                'label' => sprintf('%d + %d', $a, $b),
+            ];
+            $session?->set($key, $stored);
+        } else {
+            $stored['label'] = sprintf('%d + %d', $stored['a'], $stored['b']);
+        }
+
+        return $stored;
+    }
+
+    private function resetCaptchaChallenge(Request $request, string $key): void
+    {
+        $request->getSession()?->remove($key);
+    }
+
+    private function validateCaptchaAnswer($form, int $expectedAnswer): bool
+    {
+        if (!$form->has('captchaAnswer')) {
+            return true;
+        }
+
+        $value = $form->get('captchaAnswer')->getData();
+        if ($value === null || (string) $value === '') {
+            return false;
+        }
+
+        if ((int) $value !== $expectedAnswer) {
+            $form->get('captchaAnswer')->addError(new FormError('Respuesta incorrecta. Intentá nuevamente.'));
+
+            return false;
+        }
+
+        return true;
     }
 }

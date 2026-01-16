@@ -59,6 +59,13 @@
                                     {{ form_errors(contactForm.message) }}
                                 </div>
                             </div>
+                            <div class="mb-3">
+                                {{ form_label(contactForm.captchaAnswer, '¿Cuánto es ' ~ contactCaptcha.label ~ '?') }}
+                                {{ form_widget(contactForm.captchaAnswer, {attr: {class: 'form-control'}}) }}
+                                <div class="form-text text-danger">
+                                    {{ form_errors(contactForm.captchaAnswer) }}
+                                </div>
+                            </div>
                             <div class="d-grid">
                                 <button type="submit" class="btn btn-primary btn-lg">Enviar consulta</button>
                             </div>
