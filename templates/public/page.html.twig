@@ -10,8 +10,13 @@
 
 {% block meta_image %}
     {% if page.metaImagePath %}
-        <meta property="og:image" content="{{ page.metaImagePath }}">
-        <meta name="twitter:image" content="{{ page.metaImagePath }}">
+        {% set meta_image_url = page.metaImagePath starts with 'http' or page.metaImagePath starts with 'data:' ? page.metaImagePath : absolute_url(page.metaImagePath) %}
+        <meta property="og:image" content="{{ meta_image_url }}">
+        <meta property="og:image:width" content="1200">
+        <meta property="og:image:height" content="630">
+        <meta property="og:image:alt" content="{{ page.title }}">
+        <meta name="twitter:card" content="summary_large_image">
+        <meta name="twitter:image" content="{{ meta_image_url }}">
     {% endif %}
 {% endblock %}
 
