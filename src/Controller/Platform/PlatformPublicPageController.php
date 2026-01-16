@@ -8,6 +8,7 @@ use App\Repository\PublicPageRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\Form\FormInterface;
+use Symfony\Component\Filesystem\Filesystem;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -83,14 +84,60 @@ class PlatformPublicPageController extends AbstractController
         $metaImagePath = $rawData['metaImagePath'] ?? $page->getMetaImagePath();
         $uploadedFile = $request->files->get($formName)['metaImageFile'] ?? null;
 
-        if (($metaImagePath === null || $metaImagePath === '') && $uploadedFile instanceof UploadedFile) {
-            $contents = file_get_contents($uploadedFile->getPathname());
-            if ($contents !== false) {
-                $mimeType = $uploadedFile->getMimeType() ?: 'image/png';
-                $metaImagePath = sprintf('data:%s;base64,%s', $mimeType, base64_encode($contents));
+        if ($uploadedFile instanceof UploadedFile) {
+            $metaImagePath = $this->storeMetaImageFile($uploadedFile);
+        } elseif (is_string($metaImagePath) && str_starts_with($metaImagePath, 'data:')) {
+            $storedPath = $this->storeMetaImageDataUrl($metaImagePath);
+            if ($storedPath !== null) {
+                $metaImagePath = $storedPath;
             }
         }
 
         $page->setMetaImagePath($metaImagePath ?: null);
+    }
+
+    private function storeMetaImageFile(UploadedFile $uploadedFile): string
+    {
+        $uploadsDir = $this->getParameter('kernel.project_dir') . '/public/uploads/meta';
+        $filesystem = new Filesystem();
+        $filesystem->mkdir($uploadsDir);
+
+        $extension = $uploadedFile->guessExtension() ?: $uploadedFile->getClientOriginalExtension() ?: 'jpg';
+        $filename = sprintf('meta_%s.%s', uniqid('', true), $extension);
+        $uploadedFile->move($uploadsDir, $filename);
+
+        return '/uploads/meta/' . $filename;
+    }
+
+    private function storeMetaImageDataUrl(string $dataUrl): ?string
+    {
+        if (!preg_match('/^data:(?<mime>[^;]+);base64,(?<data>.+)$/', $dataUrl, $matches)) {
+            return null;
+        }
+
+        $data = base64_decode($matches['data'], true);
+        if ($data === false) {
+            return null;
+        }
+
+        $extension = match ($matches['mime']) {
+            'image/png' => 'png',
+            'image/webp' => 'webp',
+            'image/gif' => 'gif',
+            'image/jpeg', 'image/jpg' => 'jpg',
+            default => 'jpg',
+        };
+
+        $uploadsDir = $this->getParameter('kernel.project_dir') . '/public/uploads/meta';
+        $filesystem = new Filesystem();
+        $filesystem->mkdir($uploadsDir);
+
+        $filename = sprintf('meta_%s.%s', uniqid('', true), $extension);
+        $filePath = $uploadsDir . '/' . $filename;
+        if (file_put_contents($filePath, $data) === false) {
+            return null;
+        }
+
+        return '/uploads/meta/' . $filename;
     }
 }
