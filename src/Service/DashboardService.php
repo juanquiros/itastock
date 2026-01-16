@@ -3,7 +3,9 @@
 namespace App\Service;
 
 use App\Entity\Business;
+use App\Entity\BusinessUser;
 use App\Entity\User;
+use App\Repository\BusinessUserRepository;
 use App\Repository\CashSessionRepository;
 use App\Repository\CustomerAccountMovementRepository;
 use App\Repository\CustomerRepository;
@@ -23,6 +25,7 @@ class DashboardService
         private readonly CustomerAccountMovementRepository $customerAccountMovementRepository,
         private readonly CustomerRepository $customerRepository,
         private readonly CashSessionRepository $cashSessionRepository,
+        private readonly BusinessUserRepository $businessUserRepository,
     ) {
     }
 
@@ -31,7 +34,7 @@ class DashboardService
      */
     public function getSummary(Business $business, User $user): array
     {
-        $isAdmin = $this->isAdmin($user);
+        $isAdmin = $this->isAdmin($user, $business);
 
         return [
             'generatedAt' => (new \DateTimeImmutable('now', $this->getTimezone()))->format(\DateTimeInterface::ATOM),
@@ -209,11 +212,20 @@ class DashboardService
         ];
     }
 
-    private function isAdmin(User $user): bool
+    private function isAdmin(User $user, Business $business): bool
     {
         $roles = $user->getRoles();
 
-        return in_array('ROLE_ADMIN', $roles, true) || in_array('ROLE_BUSINESS_ADMIN', $roles, true);
+        if (in_array('ROLE_PLATFORM_ADMIN', $roles, true)) {
+            return true;
+        }
+
+        $membership = $this->businessUserRepository->findActiveMembership($user, $business);
+        if (!$membership instanceof BusinessUser) {
+            return false;
+        }
+
+        return in_array($membership->getRole(), [BusinessUser::ROLE_OWNER, BusinessUser::ROLE_ADMIN], true);
     }
 
     private function computeCashExpected(Business $business, User $user): ?float
