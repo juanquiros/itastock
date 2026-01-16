@@ -16,6 +16,8 @@ parameters:
     app.name: '%env(APP_NAME)%'
     app.platform_notify_emails: '%env(APP_PLATFORM_NOTIFY_EMAILS)%'
     app.emails.enabled: '%env(bool:APP_EMAILS_ENABLED)%'
+    app.recaptcha.site_key: '%env(RECAPTCHA_SITE_KEY)%'
+    app.recaptcha.secret_key: '%env(RECAPTCHA_SECRET_KEY)%'
 
 services:
     # default configuration for services in *this* file
@@ -30,6 +32,8 @@ services:
             $appName: '%app.name%'
             $platformNotifyEmails: '%app.platform_notify_emails%'
             $emailsEnabled: '%app.emails.enabled%'
+            $recaptchaSiteKey: '%app.recaptcha.site_key%'
+            $recaptchaSecretKey: '%app.recaptcha.secret_key%'
 
     # makes classes in src/ available to be used as services
     # this creates a service per class whose id is the fully-qualified class name

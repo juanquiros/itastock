@@ -15,9 +15,11 @@ use App\Service\PlatformNotificationService;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\Form\FormError;
+use Symfony\Component\Form\FormInterface;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Annotation\Route;
+use Symfony\Contracts\HttpClient\HttpClientInterface;
 
 class PublicController extends AbstractController
 {
@@ -26,6 +28,9 @@ class PublicController extends AbstractController
         private readonly PlanRepository $planRepository,
         private readonly EntityManagerInterface $entityManager,
         private readonly LeadRepository $leadRepository,
+        private readonly HttpClientInterface $httpClient,
+        private readonly string $recaptchaSiteKey,
+        private readonly string $recaptchaSecretKey,
     ) {
     }
 
@@ -47,12 +52,8 @@ class PublicController extends AbstractController
         $form = $this->createForm(LeadDemoType::class, $lead);
         $form->handleRequest($request);
         $demoSubmitted = false;
-        $captcha = $this->getCaptchaChallenge($request, 'demo_captcha');
 
-        $captchaValid = true;
-        if ($form->isSubmitted()) {
-            $captchaValid = $this->validateCaptchaAnswer($form, $captcha['answer']);
-        }
+        $captchaValid = $this->validateRecaptcha($request, $form);
 
         if ($form->isSubmitted() && $form->isValid() && $captchaValid) {
             $email = mb_strtolower((string) $lead->getEmail());
@@ -92,15 +93,13 @@ class PublicController extends AbstractController
                 $this->addFlash('success', '¡Gracias! Recibimos tu solicitud de demo.');
                 $demoSubmitted = true;
             }
-
-            $this->resetCaptchaChallenge($request, 'demo_captcha');
         }
 
         return $this->render('public/home.html.twig', [
             'page' => $page,
             'demoForm' => $form->createView(),
             'demoSubmitted' => $demoSubmitted,
-            'demoCaptcha' => $captcha,
+            'recaptchaSiteKey' => $this->recaptchaSiteKey,
         ]);
     }
 
@@ -139,12 +138,7 @@ class PublicController extends AbstractController
         $lead = new Lead();
         $form = $this->createForm(LeadType::class, $lead);
         $form->handleRequest($request);
-        $captcha = $this->getCaptchaChallenge($request, 'contact_captcha');
-
-        $captchaValid = true;
-        if ($form->isSubmitted()) {
-            $captchaValid = $this->validateCaptchaAnswer($form, $captcha['answer']);
-        }
+        $captchaValid = $this->validateRecaptcha($request, $form);
 
         if ($form->isSubmitted() && $form->isValid() && $captchaValid) {
             $lead->setSource($request->query->get('source', 'web'));
@@ -152,14 +146,13 @@ class PublicController extends AbstractController
             $this->entityManager->flush();
 
             $this->addFlash('success', '¡Gracias! Registramos tu consulta y te contactaremos pronto.');
-            $this->resetCaptchaChallenge($request, 'contact_captcha');
 
             return $this->redirectToRoute('public_contact');
         }
 
         return $this->render('public/contact.html.twig', [
             'contactForm' => $form->createView(),
-            'contactCaptcha' => $captcha,
+            'recaptchaSiteKey' => $this->recaptchaSiteKey,
         ]);
     }
 
@@ -216,49 +209,40 @@ class PublicController extends AbstractController
         return $prefix ? ucfirst($prefix) : 'Demo';
     }
 
-    /**
-     * @return array{a:int, b:int, answer:int, label:string}
-     */
-    private function getCaptchaChallenge(Request $request, string $key): array
+    private function validateRecaptcha(Request $request, FormInterface $form): bool
     {
-        $session = $request->getSession();
-        $stored = $session?->get($key);
-
-        if (!is_array($stored) || !isset($stored['a'], $stored['b'], $stored['answer'])) {
-            $a = random_int(2, 9);
-            $b = random_int(2, 9);
-            $stored = [
-                'a' => $a,
-                'b' => $b,
-                'answer' => $a + $b,
-                'label' => sprintf('%d + %d', $a, $b),
-            ];
-            $session?->set($key, $stored);
-        } else {
-            $stored['label'] = sprintf('%d + %d', $stored['a'], $stored['b']);
-        }
-
-        return $stored;
-    }
-
-    private function resetCaptchaChallenge(Request $request, string $key): void
-    {
-        $request->getSession()?->remove($key);
-    }
-
-    private function validateCaptchaAnswer($form, int $expectedAnswer): bool
-    {
-        if (!$form->has('captchaAnswer')) {
+        if (!$form->isSubmitted()) {
             return true;
         }
 
-        $value = $form->get('captchaAnswer')->getData();
-        if ($value === null || (string) $value === '') {
+        if ($this->recaptchaSecretKey === '') {
+            return true;
+        }
+
+        $token = (string) $request->request->get('g-recaptcha-response', '');
+        if ($token === '') {
+            $form->addError(new FormError('Por favor completá el reCAPTCHA.'));
+
             return false;
         }
 
-        if ((int) $value !== $expectedAnswer) {
-            $form->get('captchaAnswer')->addError(new FormError('Respuesta incorrecta. Intentá nuevamente.'));
+        try {
+            $response = $this->httpClient->request('POST', 'https://www.google.com/recaptcha/api/siteverify', [
+                'body' => [
+                    'secret' => $this->recaptchaSecretKey,
+                    'response' => $token,
+                    'remoteip' => $request->getClientIp(),
+                ],
+            ]);
+            $payload = $response->toArray(false);
+        } catch (\Throwable $exception) {
+            $form->addError(new FormError('No se pudo validar el reCAPTCHA. Intentá nuevamente.'));
+
+            return false;
+        }
+
+        if (!($payload['success'] ?? false)) {
+            $form->addError(new FormError('Validación de reCAPTCHA fallida. Intentá nuevamente.'));
 
             return false;
         }

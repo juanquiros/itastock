@@ -45,6 +45,7 @@
                         {% endif %}
 
                         {{ form_start(demoForm) }}
+                            {{ form_errors(demoForm) }}
                             <div class="row g-3">
                                 <div class="col-md-6">
                                     {{ form_row(demoForm.name) }}
@@ -58,11 +59,13 @@
                                 <div class="col-md-6">
                                     {{ form_row(demoForm.phone) }}
                                 </div>
-                                <div class="col-md-6">
-                                    {{ form_label(demoForm.captchaAnswer, '¿Cuánto es ' ~ demoCaptcha.label ~ '?') }}
-                                    {{ form_widget(demoForm.captchaAnswer) }}
-                                    {{ form_errors(demoForm.captchaAnswer) }}
-                                </div>
+                            </div>
+                            <div class="mt-3">
+                                {% if recaptchaSiteKey %}
+                                    <div class="g-recaptcha" data-sitekey="{{ recaptchaSiteKey }}"></div>
+                                {% else %}
+                                    <div class="alert alert-warning mb-0">reCAPTCHA no configurado.</div>
+                                {% endif %}
                             </div>
                             <div class="mt-3">
                                 <button class="btn btn-primary" type="submit">Enviar solicitud</button>
@@ -73,4 +76,11 @@
             </div>
         </div>
     </section>
+{% endblock %}
+
+{% block javascripts %}
+    {{ parent() }}
+    {% if recaptchaSiteKey %}
+        <script src="https://www.google.com/recaptcha/api.js" async defer></script>
+    {% endif %}
 {% endblock %}

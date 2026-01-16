@@ -5,7 +5,6 @@ namespace App\Form;
 use App\Entity\Lead;
 use Symfony\Component\Form\AbstractType;
 use Symfony\Component\Form\Extension\Core\Type\EmailType;
-use Symfony\Component\Form\Extension\Core\Type\IntegerType;
 use Symfony\Component\Form\Extension\Core\Type\TelType;
 use Symfony\Component\Form\Extension\Core\Type\TextareaType;
 use Symfony\Component\Form\Extension\Core\Type\TextType;
@@ -53,17 +52,6 @@ class LeadType extends AbstractType
                 'attr' => [
                     'rows' => 5,
                     'placeholder' => 'Cuéntanos sobre tu negocio y necesidades',
-                ],
-            ])
-            ->add('captchaAnswer', IntegerType::class, [
-                'label' => 'Validación',
-                'mapped' => false,
-                'required' => true,
-                'attr' => [
-                    'placeholder' => 'Ingresá el resultado',
-                ],
-                'constraints' => [
-                    new NotBlank(message: 'Respondé la validación.'),
                 ],
             ])
         ;
