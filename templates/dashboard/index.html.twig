@@ -521,7 +521,10 @@
             }
 
             function renderAll(payload) {
-                updateKpis(payload.data.kpisToday);
+                updateKpis({
+                    ...payload.data.kpisToday,
+                    ...payload.data.kpisMonth,
+                });
                 renderAlerts(payload.data.alerts);
                 renderRecent(payload.data.recent);
                 updateCharts(payload.data.charts);
