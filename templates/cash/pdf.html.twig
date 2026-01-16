@@ -61,6 +61,32 @@
                     <td>{{ sale.paymentMethod }}</td>
                     <td>${{ sale.total }}</td>
                 </tr>
+                {% if includeDetail and (summary.saleDetails[sale.saleId] ?? []) is not empty %}
+                    <tr>
+                        <td colspan="4">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Producto</th>
+                                        <th style="text-align: right;">Cantidad</th>
+                                        <th style="text-align: right;">Precio</th>
+                                        <th style="text-align: right;">Total</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for item in summary.saleDetails[sale.saleId] %}
+                                        <tr>
+                                            <td>{{ item.description }}</td>
+                                            <td style="text-align: right;">{{ item.qty }}</td>
+                                            <td style="text-align: right;">${{ item.unitPrice }}</td>
+                                            <td style="text-align: right;">${{ item.lineTotal }}</td>
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </td>
+                    </tr>
+                {% endif %}
             {% else %}
                 <tr><td colspan="4">Sin ventas en el rango.</td></tr>
             {% endfor %}

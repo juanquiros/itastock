@@ -70,7 +70,7 @@ class ReportService
     /**
      * @return array<string, mixed>
      */
-    public function getCashSessionSummary(CashSession $session): array
+    public function getCashSessionSummary(CashSession $session, bool $includeSaleItems = false): array
     {
         $business = $session->getBusiness();
         $from = $session->getOpenedAt();
@@ -91,6 +91,20 @@ class ReportService
         $difference = $finalCash !== null ? $finalCash - $cashExpected : null;
 
         $sales = $this->getSalesForRange($business, $from, $to);
+        $saleDetails = [];
+
+        if ($includeSaleItems) {
+            $saleIds = array_map(static fn (array $row) => (int) $row['saleId'], $sales);
+            $salesWithItems = $saleIds !== [] ? $this->saleRepository->findWithItemsByIds($business, $saleIds) : [];
+            foreach ($salesWithItems as $sale) {
+                $saleDetails[$sale->getId()] = array_map(static fn ($item) => [
+                    'description' => $item->getDescription(),
+                    'qty' => $item->getQty(),
+                    'unitPrice' => number_format((float) $item->getUnitPrice(), 2, '.', ''),
+                    'lineTotal' => number_format((float) $item->getLineTotal(), 2, '.', ''),
+                ], $sale->getItems()->toArray());
+            }
+        }
 
         return [
             'totals' => $totals,
@@ -98,6 +112,7 @@ class ReportService
             'difference' => $difference !== null ? number_format($difference, 2, '.', '') : null,
             'finalCash' => $finalCash !== null ? number_format($finalCash, 2, '.', '') : null,
             'sales' => $sales,
+            'saleDetails' => $saleDetails,
         ];
     }
 

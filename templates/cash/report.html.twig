@@ -99,10 +99,85 @@
     <div class="mt-4">
         <a class="btn btn-outline-secondary" href="{{ path('app_cash_status') }}">Volver a caja</a>
         {% if is_granted('BUSINESS_ADMIN') %}
-            <a class="btn btn-outline-primary" href="{{ path('app_admin_cash_pdf', {id: cashSession.id}) }}">Descargar PDF</a>
+            <a class="btn btn-outline-primary" href="{{ path('app_admin_cash_pdf', {id: cashSession.id}) }}">PDF resumido</a>
+            <a class="btn btn-outline-primary" href="{{ path('app_admin_cash_pdf', {id: cashSession.id, detail: 1}) }}">PDF detallado</a>
         {% endif %}
         {% if cashSession.isOpen %}
             <a class="btn btn-primary" href="{{ path('app_sale_new') }}">Seguir vendiendo</a>
         {% endif %}
+    </div>
+
+    <div class="card shadow-sm border-0 mt-4">
+        <div class="card-body">
+            <h5 class="mb-3">Ventas de la sesión</h5>
+            {% set sales = summary.sales ?? [] %}
+            {% if sales %}
+                <div class="table-responsive">
+                    <table class="table table-sm align-middle">
+                        <thead class="table-light">
+                            <tr>
+                                <th>ID</th>
+                                <th>Hora</th>
+                                <th>Cliente</th>
+                                <th>Método</th>
+                                <th class="text-end">Total</th>
+                                <th class="text-end">Detalle</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for sale in sales %}
+                                {% set detailId = 'sale-detail-' ~ sale.saleId %}
+                                <tr>
+                                    <td>{{ sale.saleId }}</td>
+                                    <td>{{ sale.createdAt ? sale.createdAt|date('d/m/Y H:i') : '' }}</td>
+                                    <td>{{ sale.customerName }}</td>
+                                    <td>{{ sale.paymentMethod }}</td>
+                                    <td class="text-end fw-semibold">${{ sale.total }}</td>
+                                    <td class="text-end">
+                                        {% if (summary.saleDetails[sale.saleId] ?? []) is not empty %}
+                                            <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#{{ detailId }}" aria-expanded="false" aria-controls="{{ detailId }}">
+                                                Ver items
+                                            </button>
+                                        {% else %}
+                                            <span class="text-muted">Sin detalle</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% if (summary.saleDetails[sale.saleId] ?? []) is not empty %}
+                                    <tr class="collapse" id="{{ detailId }}">
+                                        <td colspan="6" class="bg-light">
+                                            <div class="table-responsive mb-0">
+                                                <table class="table table-sm mb-0">
+                                                    <thead>
+                                                        <tr>
+                                                            <th>Producto</th>
+                                                            <th class="text-end">Cantidad</th>
+                                                            <th class="text-end">Precio</th>
+                                                            <th class="text-end">Total</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        {% for item in summary.saleDetails[sale.saleId] %}
+                                                            <tr>
+                                                                <td>{{ item.description }}</td>
+                                                                <td class="text-end">{{ item.qty }}</td>
+                                                                <td class="text-end">${{ item.unitPrice }}</td>
+                                                                <td class="text-end">${{ item.lineTotal }}</td>
+                                                            </tr>
+                                                        {% endfor %}
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                {% endif %}
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <div class="text-muted">No hay ventas registradas para esta sesión.</div>
+            {% endif %}
+        </div>
     </div>
 {% endblock %}

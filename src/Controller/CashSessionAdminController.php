@@ -9,6 +9,7 @@ use App\Service\PdfService;
 use App\Service\ReportService;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Routing\Annotation\Route;
 use Symfony\Component\Security\Core\Exception\AccessDeniedException;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
@@ -26,7 +27,7 @@ class CashSessionAdminController extends AbstractController
     }
 
     #[Route('/{id}/pdf', name: 'pdf', methods: ['GET'])]
-    public function pdf(int $id): Response
+    public function pdf(Request $request, int $id): Response
     {
         $cashSession = $this->cashSessionRepository->find($id);
         $business = $this->businessContext->requireCurrentBusiness();
@@ -35,13 +36,15 @@ class CashSessionAdminController extends AbstractController
             throw new AccessDeniedException('Caja no encontrada para tu comercio.');
         }
 
-        $summary = $this->reportService->getCashSessionSummary($cashSession);
+        $includeDetail = $request->query->getBoolean('detail');
+        $summary = $this->reportService->getCashSessionSummary($cashSession, $includeDetail);
 
         return $this->pdfService->render('cash/pdf.html.twig', [
             'business' => $business,
             'cashSession' => $cashSession,
             'summary' => $summary,
             'generatedAt' => new \DateTimeImmutable(),
+            'includeDetail' => $includeDetail,
         ], sprintf('cierre-caja-%d.pdf', $cashSession->getId()));
     }
 }

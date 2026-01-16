@@ -7,6 +7,7 @@ use App\Entity\CashSession;
 use App\Repository\CashSessionRepository;
 use App\Repository\PaymentRepository;
 use App\Security\BusinessContext;
+use App\Service\ReportService;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
@@ -24,6 +25,7 @@ class CashSessionController extends AbstractController
         private readonly EntityManagerInterface $entityManager,
         private readonly CashSessionRepository $cashSessionRepository,
         private readonly PaymentRepository $paymentRepository,
+        private readonly ReportService $reportService,
         private readonly BusinessContext $businessContext,
     ) {
     }
@@ -136,13 +138,13 @@ class CashSessionController extends AbstractController
             throw new AccessDeniedException('Solo podés ver tus propias cajas.');
         }
 
-        $totals = $cashSession->isOpen()
-            ? $this->paymentRepository->aggregateTotalsByMethod($business, $cashSession->getOpenedAt(), new \DateTimeImmutable())
-            : $cashSession->getTotalsByPaymentMethod();
+        $summary = $this->reportService->getCashSessionSummary($cashSession, true);
+        $totals = $summary['totals'] ?? [];
 
         return $this->render('cash/report.html.twig', [
             'cashSession' => $cashSession,
             'totals' => $totals,
+            'summary' => $summary,
         ]);
     }
 
