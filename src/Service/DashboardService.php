@@ -66,7 +66,7 @@ class DashboardService
             }
         }
 
-        $cashExpected = $this->computeCashExpected($business, $user);
+        $cashExpected = $this->computeCashExpected($business, $user, $isAdmin);
         $count = max(1, $totals['count']);
 
         return [
@@ -268,9 +268,11 @@ class DashboardService
         return in_array($membership->getRole(), [BusinessUser::ROLE_OWNER, BusinessUser::ROLE_ADMIN], true);
     }
 
-    private function computeCashExpected(Business $business, User $user): ?float
+    private function computeCashExpected(Business $business, User $user, bool $isAdmin): ?float
     {
-        $session = $this->cashSessionRepository->findOpenForUser($business, $user);
+        $session = $isAdmin
+            ? $this->cashSessionRepository->findOpenForBusiness($business)
+            : $this->cashSessionRepository->findOpenForUser($business, $user);
 
         if ($session === null) {
             return null;
@@ -278,7 +280,7 @@ class DashboardService
 
         $from = $session->getOpenedAt() ?? new \DateTimeImmutable('today', $this->getTimezone());
         $to = new \DateTimeImmutable('now', $this->getTimezone());
-        $totals = $this->paymentRepository->aggregateTotalsByMethodForRange($business, $from, $to, $user);
+        $totals = $this->paymentRepository->aggregateTotalsByMethodForRange($business, $from, $to, $isAdmin ? null : $user);
         $cash = (float) ($totals['CASH'] ?? 0.0);
 
         return (float) $session->getInitialCash() + $cash;
