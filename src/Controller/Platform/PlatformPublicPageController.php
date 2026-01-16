@@ -7,6 +7,8 @@ use App\Form\PublicPageType;
 use App\Repository\PublicPageRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Component\Form\FormInterface;
+use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Annotation\Route;
@@ -32,6 +34,7 @@ class PlatformPublicPageController extends AbstractController
         $form->handleRequest($request);
 
         if ($form->isSubmitted() && $form->isValid()) {
+            $this->syncMetaImage($request, $form, $page);
             $entityManager->persist($page);
             $entityManager->flush();
             $this->addFlash('success', 'Página creada correctamente.');
@@ -60,6 +63,7 @@ class PlatformPublicPageController extends AbstractController
         $form->handleRequest($request);
 
         if ($form->isSubmitted() && $form->isValid()) {
+            $this->syncMetaImage($request, $form, $page);
             $entityManager->flush();
             $this->addFlash('success', 'Página actualizada.');
 
@@ -70,5 +74,23 @@ class PlatformPublicPageController extends AbstractController
             'form' => $form->createView(),
             'page' => $page,
         ]);
+    }
+
+    private function syncMetaImage(Request $request, FormInterface $form, PublicPage $page): void
+    {
+        $formName = $form->getName();
+        $rawData = $request->request->all($formName);
+        $metaImagePath = $rawData['metaImagePath'] ?? $page->getMetaImagePath();
+        $uploadedFile = $request->files->get($formName)['metaImageFile'] ?? null;
+
+        if (($metaImagePath === null || $metaImagePath === '') && $uploadedFile instanceof UploadedFile) {
+            $contents = file_get_contents($uploadedFile->getPathname());
+            if ($contents !== false) {
+                $mimeType = $uploadedFile->getMimeType() ?: 'image/png';
+                $metaImagePath = sprintf('data:%s;base64,%s', $mimeType, base64_encode($contents));
+            }
+        }
+
+        $page->setMetaImagePath($metaImagePath ?: null);
     }
 }

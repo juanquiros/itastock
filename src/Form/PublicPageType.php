@@ -5,6 +5,8 @@ namespace App\Form;
 use App\Entity\PublicPage;
 use Symfony\Component\Form\AbstractType;
 use Symfony\Component\Form\Extension\Core\Type\CheckboxType;
+use Symfony\Component\Form\Extension\Core\Type\FileType;
+use Symfony\Component\Form\Extension\Core\Type\HiddenType;
 use Symfony\Component\Form\Extension\Core\Type\TextareaType;
 use Symfony\Component\Form\Extension\Core\Type\TextType;
 use Symfony\Component\Form\FormBuilderInterface;
@@ -25,6 +27,22 @@ class PublicPageType extends AbstractType
             ->add('metaDescription', TextType::class, [
                 'label' => 'Meta descripción',
                 'required' => false,
+            ])
+            ->add('metaImagePath', HiddenType::class, [
+                'required' => false,
+                'attr' => [
+                    'data-meta-image-upload-target' => 'path',
+                ],
+            ])
+            ->add('metaImageFile', FileType::class, [
+                'label' => 'Imagen meta',
+                'mapped' => false,
+                'required' => false,
+                'help' => 'Recomendado: 1200x630 px. La imagen se recorta automáticamente.',
+                'attr' => [
+                    'accept' => 'image/*',
+                    'data-meta-image-upload-target' => 'file',
+                ],
             ])
             ->add('bodyHtml', TextareaType::class, [
                 'label' => 'Contenido (HTML seguro)',

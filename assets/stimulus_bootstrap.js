@@ -4,6 +4,7 @@ import BrandLogoUploadController from './controllers/brand_logo_upload_controlle
 import BarcodeScannerController from './controllers/barcode_scanner_controller.js';
 import BarcodeSoundUploadController from './controllers/barcode_sound_upload_controller.js';
 import LabelImageUploadController from './controllers/label_image_upload_controller.js';
+import MetaImageUploadController from './controllers/meta_image_upload_controller.js';
 import TicketImageUploadController from './controllers/ticket_image_upload_controller.js';
 
 const app = startStimulusApp();
@@ -12,4 +13,5 @@ app.register('brand-logo-upload', BrandLogoUploadController);
 app.register('barcode-scanner', BarcodeScannerController);
 app.register('barcode-sound-upload', BarcodeSoundUploadController);
 app.register('label-image-upload', LabelImageUploadController);
+app.register('meta-image-upload', MetaImageUploadController);
 app.register('ticket-image-upload', TicketImageUploadController);

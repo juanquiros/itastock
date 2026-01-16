@@ -111,8 +111,7 @@ export default class extends Controller {
         }
 
         if (this.hasNameTarget && fillName) {
-            const presentation = product.presentation ? ` ${product.presentation}` : '';
-            this.nameTarget.value = `${product.name}${presentation}`.trim();
+            this.nameTarget.value = `${product.name ?? ''}`.trim();
         }
 
         if (this.hasBarcodeTarget && product.barcode && fillBarcode) {

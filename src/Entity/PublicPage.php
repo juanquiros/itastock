@@ -32,6 +32,9 @@ class PublicPage
     #[ORM\Column(length: 255, nullable: true)]
     private ?string $metaDescription = null;
 
+    #[ORM\Column(type: Types::TEXT, nullable: true)]
+    private ?string $metaImagePath = null;
+
     #[ORM\Column(type: Types::TEXT)]
     private ?string $bodyHtml = null;
 
@@ -85,6 +88,18 @@ class PublicPage
     public function setMetaDescription(?string $metaDescription): self
     {
         $this->metaDescription = $metaDescription;
+
+        return $this;
+    }
+
+    public function getMetaImagePath(): ?string
+    {
+        return $this->metaImagePath;
+    }
+
+    public function setMetaImagePath(?string $metaImagePath): self
+    {
+        $this->metaImagePath = $metaImagePath;
 
         return $this;
     }

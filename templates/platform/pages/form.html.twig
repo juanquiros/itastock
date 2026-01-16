@@ -11,6 +11,18 @@
         {{ form_row(form.slug) }}
         {{ form_row(form.title) }}
         {{ form_row(form.metaDescription) }}
+        <div class="border rounded-3 p-3 mb-3 bg-light" data-controller="meta-image-upload">
+            {{ form_widget(form.metaImagePath) }}
+            <label class="form-label">Imagen meta</label>
+            <div class="d-flex flex-column flex-md-row gap-3 align-items-md-center">
+                <img src="{{ page.metaImagePath ?: '' }}" alt="Imagen meta" class="border rounded {{ page.metaImagePath ? '' : 'd-none' }}" style="max-width: 220px; max-height: 140px;" data-meta-image-upload-target="preview">
+                <div class="d-flex flex-column gap-2">
+                    {{ form_widget(form.metaImageFile) }}
+                    <button type="button" class="btn btn-outline-secondary btn-sm align-self-start" data-meta-image-upload-target="clearButton">Quitar imagen</button>
+                </div>
+            </div>
+            <div class="form-text mt-2">Recomendado: 1200x630 px. La imagen se recorta automáticamente.</div>
+        </div>
         {{ form_row(form.bodyHtml) }}
         {{ form_row(form.isPublished) }}
         <button class="btn btn-primary mt-3">{{ page.id ? 'Actualizar' : 'Crear' }}</button>

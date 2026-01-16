@@ -8,6 +8,13 @@
     {% endif %}
 {% endblock %}
 
+{% block meta_image %}
+    {% if page.metaImagePath %}
+        <meta property="og:image" content="{{ page.metaImagePath }}">
+        <meta name="twitter:image" content="{{ page.metaImagePath }}">
+    {% endif %}
+{% endblock %}
+
 {% block body %}
     <section class="hero text-center">
         <div class="row justify-content-center">
