@@ -9,6 +9,7 @@
 
     {{ form_start(form, { attr: { 'data-controller': 'barcode-sound-upload' } }) }}
         {{ form_widget(form.barcodeScanSoundPath, { attr: { 'data-barcode-sound-upload-target': 'soundPath' } }) }}
+        {{ form_row(form.whatsappLink) }}
         <div class="mb-3">
             <label class="form-label">Sonido de escaneo global</label>
             <input type="file" class="form-control" accept="audio/*" data-barcode-sound-upload-target="soundFile">

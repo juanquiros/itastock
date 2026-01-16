@@ -16,6 +16,9 @@ class PlatformSettings
     #[ORM\Column(type: 'text', nullable: true)]
     private ?string $barcodeScanSoundPath = null;
 
+    #[ORM\Column(type: 'text', nullable: true)]
+    private ?string $whatsappLink = null;
+
     public function getId(): ?int
     {
         return $this->id;
@@ -29,6 +32,18 @@ class PlatformSettings
     public function setBarcodeScanSoundPath(?string $barcodeScanSoundPath): self
     {
         $this->barcodeScanSoundPath = $barcodeScanSoundPath;
+
+        return $this;
+    }
+
+    public function getWhatsappLink(): ?string
+    {
+        return $this->whatsappLink;
+    }
+
+    public function setWhatsappLink(?string $whatsappLink): self
+    {
+        $this->whatsappLink = $whatsappLink;
 
         return $this;
     }

@@ -9,6 +9,7 @@ use App\Form\LeadDemoType;
 use App\Form\LeadType;
 use App\Repository\LeadRepository;
 use App\Repository\PlanRepository;
+use App\Repository\PlatformSettingsRepository;
 use App\Repository\PublicPageRepository;
 use App\Service\EmailSender;
 use App\Service\PlatformNotificationService;
@@ -28,6 +29,7 @@ class PublicController extends AbstractController
         private readonly PlanRepository $planRepository,
         private readonly EntityManagerInterface $entityManager,
         private readonly LeadRepository $leadRepository,
+        private readonly PlatformSettingsRepository $platformSettingsRepository,
         private readonly HttpClientInterface $httpClient,
         private readonly string $recaptchaSiteKey,
         private readonly string $recaptchaSecretKey,
@@ -42,6 +44,7 @@ class PublicController extends AbstractController
             $response = $this->render('public/page_placeholder.html.twig', [
                 'title' => 'Home',
                 'message' => 'En construcción',
+                'whatsappLink' => $this->resolveWhatsappLink(),
             ]);
             $response->setStatusCode(Response::HTTP_NOT_FOUND);
 
@@ -100,6 +103,7 @@ class PublicController extends AbstractController
             'demoForm' => $form->createView(),
             'demoSubmitted' => $demoSubmitted,
             'recaptchaSiteKey' => $this->recaptchaSiteKey,
+            'whatsappLink' => $this->resolveWhatsappLink(),
         ]);
     }
 
@@ -129,6 +133,7 @@ class PublicController extends AbstractController
 
         return $this->render('public/pricing.html.twig', [
             'plansData' => $plansData,
+            'whatsappLink' => $this->resolveWhatsappLink(),
         ]);
     }
 
@@ -153,6 +158,7 @@ class PublicController extends AbstractController
         return $this->render('public/contact.html.twig', [
             'contactForm' => $form->createView(),
             'recaptchaSiteKey' => $this->recaptchaSiteKey,
+            'whatsappLink' => $this->resolveWhatsappLink(),
         ]);
     }
 
@@ -186,6 +192,7 @@ class PublicController extends AbstractController
             $response = $this->render('public/page_placeholder.html.twig', [
                 'title' => $fallbackTitle,
                 'message' => $placeholderMessage,
+                'whatsappLink' => $this->resolveWhatsappLink(),
             ]);
             $response->setStatusCode(Response::HTTP_NOT_FOUND);
 
@@ -194,6 +201,7 @@ class PublicController extends AbstractController
 
         return $this->render('public/page.html.twig', [
             'page' => $page,
+            'whatsappLink' => $this->resolveWhatsappLink(),
         ]);
     }
 
@@ -207,6 +215,30 @@ class PublicController extends AbstractController
         $prefix = strstr($email, '@', true);
 
         return $prefix ? ucfirst($prefix) : 'Demo';
+    }
+
+    private function resolveWhatsappLink(): ?string
+    {
+        $settings = $this->platformSettingsRepository->findOneBy([]);
+        $raw = trim((string) ($settings?->getWhatsappLink() ?? ''));
+        if ($raw === '') {
+            return null;
+        }
+
+        if (str_starts_with($raw, 'http://') || str_starts_with($raw, 'https://')) {
+            return $raw;
+        }
+
+        if (str_starts_with($raw, 'wa.me/')) {
+            return 'https://'.$raw;
+        }
+
+        $digits = preg_replace('/\\D+/', '', $raw);
+        if ($digits === '') {
+            return null;
+        }
+
+        return 'https://wa.me/'.$digits;
     }
 
     private function validateRecaptcha(Request $request, FormInterface $form): bool
