@@ -108,38 +108,40 @@
         </div>
     </div>
 
-    <div class="row g-3 mb-4">
-        <div class="col-12">
-            <div class="section-title">KPIs del mes</div>
-        </div>
-        <div class="col-12 col-md-6 col-xl-3">
-            <div class="kpi-card" data-kpi-card>
-                <div class="kpi-label d-flex align-items-center justify-content-between mb-1">
-                    <span>Ventas del mes</span>
-                    <span class="text-muted small">ARS</span>
+    {% if is_granted('BUSINESS_ADMIN') %}
+        <div class="row g-3 mb-4">
+            <div class="col-12">
+                <div class="section-title">KPIs del mes</div>
+            </div>
+            <div class="col-12 col-md-6 col-xl-3">
+                <div class="kpi-card" data-kpi-card>
+                    <div class="kpi-label d-flex align-items-center justify-content-between mb-1">
+                        <span>Ventas del mes</span>
+                        <span class="text-muted small">ARS</span>
+                    </div>
+                    <div class="kpi-value" data-kpi="salesMonthAmount" data-format="currency">$ 0</div>
                 </div>
-                <div class="kpi-value" data-kpi="salesMonthAmount" data-format="currency">$ 0</div>
+            </div>
+            <div class="col-12 col-md-6 col-xl-3">
+                <div class="kpi-card" data-kpi-card>
+                    <div class="kpi-label mb-1">Ventas del mes</div>
+                    <div class="kpi-value" data-kpi="salesMonthCount" data-format="number">0</div>
+                </div>
+            </div>
+            <div class="col-12 col-md-6 col-xl-3">
+                <div class="kpi-card" data-kpi-card>
+                    <div class="kpi-label mb-1">% en cuenta corriente</div>
+                    <div class="kpi-value" data-kpi="accountSalesMonthPercent" data-format="percent">0%</div>
+                </div>
+            </div>
+            <div class="col-12 col-md-6 col-xl-3">
+                <div class="kpi-card" data-kpi-card>
+                    <div class="kpi-label mb-1">Clientes activos</div>
+                    <div class="kpi-value" data-kpi="activeCustomersMonthCount" data-format="number">0</div>
+                </div>
             </div>
         </div>
-        <div class="col-12 col-md-6 col-xl-3">
-            <div class="kpi-card" data-kpi-card>
-                <div class="kpi-label mb-1">Ventas del mes</div>
-                <div class="kpi-value" data-kpi="salesMonthCount" data-format="number">0</div>
-            </div>
-        </div>
-        <div class="col-12 col-md-6 col-xl-3">
-            <div class="kpi-card" data-kpi-card>
-                <div class="kpi-label mb-1">% en cuenta corriente</div>
-                <div class="kpi-value" data-kpi="accountSalesMonthPercent" data-format="percent">0%</div>
-            </div>
-        </div>
-        <div class="col-12 col-md-6 col-xl-3">
-            <div class="kpi-card" data-kpi-card>
-                <div class="kpi-label mb-1">Clientes activos</div>
-                <div class="kpi-value" data-kpi="activeCustomersMonthCount" data-format="number">0</div>
-            </div>
-        </div>
-    </div>
+    {% endif %}
 
     <div class="row g-3 mb-4">
         <div class="col-12 col-lg-6">
@@ -164,17 +166,19 @@
                 </div>
             </div>
         </div>
-        <div class="col-12 col-lg-3">
-            <div class="card shadow-sm card-min-h">
-                <div class="card-body">
-                    <div class="d-flex justify-content-between align-items-center mb-2">
-                        <span class="section-title">Ventas últimos 7 días</span>
-                        <a class="small" href="{{ path('app_admin_sales_export') }}">Ver reporte</a>
+        {% if is_granted('BUSINESS_ADMIN') %}
+            <div class="col-12 col-lg-3">
+                <div class="card shadow-sm card-min-h">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <span class="section-title">Ventas últimos 7 días</span>
+                            <a class="small" href="{{ path('app_admin_sales_export') }}">Ver reporte</a>
+                        </div>
+                        <canvas id="chart-sales-week"></canvas>
                     </div>
-                    <canvas id="chart-sales-week"></canvas>
                 </div>
             </div>
-        </div>
+        {% endif %}
     </div>
 
     <div class="row g-3 mb-4">

@@ -194,6 +194,37 @@ class SaleRepository extends ServiceEntityRepository
     }
 
     /**
+     * @return array<int, array<string, mixed>>
+     */
+    public function findRecentSalesForUser(Business $business, User $user, \DateTimeImmutable $from, \DateTimeImmutable $to, int $limit = 10): array
+    {
+        return $this->createQueryBuilder('s')
+            ->select('s.id AS saleId')
+            ->addSelect('s.createdAt AS createdAt')
+            ->addSelect('s.total AS total')
+            ->addSelect('COALESCE(c.name, :defaultCustomer) AS customerName')
+            ->addSelect('MIN(p.method) AS paymentMethod')
+            ->leftJoin('s.customer', 'c')
+            ->leftJoin('s.payments', 'p')
+            ->andWhere('s.business = :business')
+            ->andWhere('s.status = :status')
+            ->andWhere('s.createdBy = :seller')
+            ->andWhere('s.createdAt >= :from')
+            ->andWhere('s.createdAt < :to')
+            ->setParameter('business', $business)
+            ->setParameter('status', Sale::STATUS_CONFIRMED)
+            ->setParameter('defaultCustomer', 'Consumidor final')
+            ->setParameter('seller', $user)
+            ->setParameter('from', $from)
+            ->setParameter('to', $to)
+            ->groupBy('s.id, c.name, s.createdAt, s.total')
+            ->orderBy('s.createdAt', 'DESC')
+            ->setMaxResults($limit)
+            ->getQuery()
+            ->getArrayResult();
+    }
+
+    /**
      * @param array<int, int> $ids
      * @return Sale[]
      */

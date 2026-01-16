@@ -31,14 +31,16 @@ class DashboardService
      */
     public function getSummary(Business $business, User $user): array
     {
+        $isAdmin = $this->isAdmin($user);
+
         return [
             'generatedAt' => (new \DateTimeImmutable('now', $this->getTimezone()))->format(\DateTimeInterface::ATOM),
             'data' => [
-                'kpisToday' => $this->getTodayKpis($business, $user),
-                'kpisMonth' => $this->getMonthKpis($business),
-                'charts' => $this->getCharts($business),
+                'kpisToday' => $this->getTodayKpis($business, $user, $isAdmin),
+                'kpisMonth' => $isAdmin ? $this->getMonthKpis($business) : $this->getEmptyMonthKpis(),
+                'charts' => $this->getCharts($business, $user, $isAdmin),
                 'alerts' => $this->getAlerts($business),
-                'recent' => $this->getRecent($business),
+                'recent' => $this->getRecent($business, $user, $isAdmin),
             ],
         ];
     }
@@ -46,10 +48,10 @@ class DashboardService
     /**
      * @return array<string, mixed>
      */
-    public function getTodayKpis(Business $business, User $user): array
+    public function getTodayKpis(Business $business, User $user, bool $isAdmin): array
     {
         [$from, $to] = $this->getTodayRange();
-        $totals = $this->saleRepository->aggregateTotals($business, $from, $to);
+        $totals = $this->saleRepository->aggregateTotals($business, $from, $to, $isAdmin ? null : $user);
 
         $cashExpected = $this->computeCashExpected($business, $user);
         $count = max(1, $totals['count']);
@@ -85,10 +87,10 @@ class DashboardService
     /**
      * @return array<string, mixed>
      */
-    public function getCharts(Business $business): array
+    public function getCharts(Business $business, User $user, bool $isAdmin): array
     {
         [$todayFrom, $todayTo] = $this->getTodayRange();
-        $hourly = $this->saleRepository->aggregateByHour($business, $todayFrom, $todayTo);
+        $hourly = $this->saleRepository->aggregateByHour($business, $todayFrom, $todayTo, $isAdmin ? null : $user);
         $hourMap = array_column($hourly, 'amount', 'hour');
 
         $salesByHourToday = [];
@@ -100,7 +102,7 @@ class DashboardService
         }
 
         [$weekFrom, $weekTo, $dates] = $this->getLast7DaysRange();
-        $daily = $this->saleRepository->aggregateByDate($business, $weekFrom, $weekTo);
+        $daily = $isAdmin ? $this->saleRepository->aggregateByDate($business, $weekFrom, $weekTo) : [];
         $dayMap = array_column($daily, 'amount', 'date');
 
         $salesLast7Days = [];
@@ -111,7 +113,7 @@ class DashboardService
             ];
         }
 
-        $paymentTotals = $this->paymentRepository->aggregateTotalsByMethodForRange($business, $todayFrom, $todayTo);
+        $paymentTotals = $this->paymentRepository->aggregateTotalsByMethodForRange($business, $todayFrom, $todayTo, $isAdmin ? null : $user);
         $paymentDistributionToday = [];
         foreach (self::PAYMENT_METHODS as $method) {
             $paymentDistributionToday[] = [
@@ -167,9 +169,14 @@ class DashboardService
     /**
      * @return array<string, mixed>
      */
-    public function getRecent(Business $business): array
+    public function getRecent(Business $business, User $user, bool $isAdmin): array
     {
-        $sales = $this->saleRepository->findRecentSales($business, 10);
+        if ($isAdmin) {
+            $sales = $this->saleRepository->findRecentSales($business, 10);
+        } else {
+            [$from, $to] = $this->getTodayRange();
+            $sales = $this->saleRepository->findRecentSalesForUser($business, $user, $from, $to, 10);
+        }
         $tz = $this->getTimezone();
 
         $recentSales = array_map(static function (array $row) use ($tz): array {
@@ -187,6 +194,26 @@ class DashboardService
         return [
             'recentSalesTop10' => $recentSales,
         ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function getEmptyMonthKpis(): array
+    {
+        return [
+            'salesMonthAmount' => 0.0,
+            'salesMonthCount' => 0,
+            'accountSalesMonthPercent' => 0.0,
+            'activeCustomersMonthCount' => 0,
+        ];
+    }
+
+    private function isAdmin(User $user): bool
+    {
+        $roles = $user->getRoles();
+
+        return in_array('ROLE_ADMIN', $roles, true) || in_array('ROLE_BUSINESS_ADMIN', $roles, true);
     }
 
     private function computeCashExpected(Business $business, User $user): ?float
