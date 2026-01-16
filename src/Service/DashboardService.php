@@ -42,7 +42,7 @@ class DashboardService
                 'kpisToday' => $this->getTodayKpis($business, $user, $isAdmin),
                 'kpisMonth' => $isAdmin ? $this->getMonthKpis($business) : $this->getEmptyMonthKpis(),
                 'charts' => $this->getCharts($business, $user, $isAdmin),
-                'alerts' => $this->getAlerts($business),
+                'alerts' => $this->getAlerts($business, $user, $isAdmin),
                 'recent' => $this->getRecent($business, $user, $isAdmin),
             ],
         ];
@@ -53,8 +53,18 @@ class DashboardService
      */
     public function getTodayKpis(Business $business, User $user, bool $isAdmin): array
     {
-        [$from, $to] = $this->getTodayRange();
-        $totals = $this->saleRepository->aggregateTotals($business, $from, $to, $isAdmin ? null : $user);
+        if ($isAdmin) {
+            [$from, $to] = $this->getTodayRange();
+            $totals = $this->saleRepository->aggregateTotals($business, $from, $to);
+        } else {
+            $range = $this->getUserSessionRange($business, $user);
+            if ($range === null) {
+                $totals = ['amount' => 0.0, 'count' => 0, 'avg' => 0.0];
+            } else {
+                [$from, $to] = $range;
+                $totals = $this->saleRepository->aggregateTotals($business, $from, $to, $user);
+            }
+        }
 
         $cashExpected = $this->computeCashExpected($business, $user);
         $count = max(1, $totals['count']);
@@ -92,8 +102,21 @@ class DashboardService
      */
     public function getCharts(Business $business, User $user, bool $isAdmin): array
     {
-        [$todayFrom, $todayTo] = $this->getTodayRange();
-        $hourly = $this->saleRepository->aggregateByHour($business, $todayFrom, $todayTo, $isAdmin ? null : $user);
+        if ($isAdmin) {
+            [$todayFrom, $todayTo] = $this->getTodayRange();
+            $hourly = $this->saleRepository->aggregateByHour($business, $todayFrom, $todayTo);
+            $paymentTotals = $this->paymentRepository->aggregateTotalsByMethodForRange($business, $todayFrom, $todayTo);
+        } else {
+            $range = $this->getUserSessionRange($business, $user);
+            if ($range === null) {
+                $hourly = [];
+                $paymentTotals = [];
+            } else {
+                [$todayFrom, $todayTo] = $range;
+                $hourly = $this->saleRepository->aggregateByHour($business, $todayFrom, $todayTo, $user);
+                $paymentTotals = $this->paymentRepository->aggregateTotalsByMethodForRange($business, $todayFrom, $todayTo, $user);
+            }
+        }
         $hourMap = array_column($hourly, 'amount', 'hour');
 
         $salesByHourToday = [];
@@ -116,7 +139,6 @@ class DashboardService
             ];
         }
 
-        $paymentTotals = $this->paymentRepository->aggregateTotalsByMethodForRange($business, $todayFrom, $todayTo, $isAdmin ? null : $user);
         $paymentDistributionToday = [];
         foreach (self::PAYMENT_METHODS as $method) {
             $paymentDistributionToday[] = [
@@ -135,10 +157,23 @@ class DashboardService
     /**
      * @return array<string, mixed>
      */
-    public function getAlerts(Business $business): array
+    public function getAlerts(Business $business, User $user, bool $isAdmin): array
     {
-        $lowStock = $this->productRepository->findLowStockTop($business, 5);
-        $debtors = $this->customerAccountMovementRepository->findTopDebtors($business, 5);
+        if ($isAdmin) {
+            $lowStock = $this->productRepository->findLowStockTop($business, 5);
+            $debtors = $this->customerAccountMovementRepository->findTopDebtors($business, 5);
+        } else {
+            $range = $this->getUserSessionRange($business, $user);
+            if ($range === null) {
+                return [
+                    'lowStockTop5' => [],
+                    'topDebtorsTop5' => [],
+                ];
+            }
+            [$from, $to] = $range;
+            $lowStock = [];
+            $debtors = $this->customerAccountMovementRepository->findTopDebtorsForUserInRange($business, $user, $from, $to, 5);
+        }
         $ids = array_map(static fn (array $row) => (int) $row['customerId'], $debtors);
         $customers = $ids ? $this->customerRepository->findBy(['id' => $ids]) : [];
 
@@ -177,8 +212,13 @@ class DashboardService
         if ($isAdmin) {
             $sales = $this->saleRepository->findRecentSales($business, 10);
         } else {
-            [$from, $to] = $this->getTodayRange();
-            $sales = $this->saleRepository->findRecentSalesForUser($business, $user, $from, $to, 10);
+            $range = $this->getUserSessionRange($business, $user);
+            if ($range === null) {
+                $sales = [];
+            } else {
+                [$from, $to] = $range;
+                $sales = $this->saleRepository->findRecentSalesForUser($business, $user, $from, $to, 10);
+            }
         }
         $tz = $this->getTimezone();
 
@@ -242,6 +282,22 @@ class DashboardService
         $cash = (float) ($totals['CASH'] ?? 0.0);
 
         return (float) $session->getInitialCash() + $cash;
+    }
+
+    /**
+     * @return array{0: \DateTimeImmutable, 1: \DateTimeImmutable}|null
+     */
+    private function getUserSessionRange(Business $business, User $user): ?array
+    {
+        $session = $this->cashSessionRepository->findOpenForUser($business, $user);
+        if ($session === null) {
+            return null;
+        }
+
+        $from = $session->getOpenedAt() ?? new \DateTimeImmutable('today', $this->getTimezone());
+        $to = new \DateTimeImmutable('now', $this->getTimezone());
+
+        return [$from, $to];
     }
 
     /**

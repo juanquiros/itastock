@@ -5,6 +5,7 @@ namespace App\Repository;
 use App\Entity\Business;
 use App\Entity\Customer;
 use App\Entity\CustomerAccountMovement;
+use App\Entity\User;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
 
@@ -93,6 +94,34 @@ class CustomerAccountMovementRepository extends ServiceEntityRepository
             ->having($balanceExpression.' > 0')
             ->orderBy('balance', 'DESC')
             ->setParameter('business', $business)
+            ->setParameter('debit', CustomerAccountMovement::TYPE_DEBIT)
+            ->setMaxResults($limit);
+
+        return $qb->getQuery()->getArrayResult();
+    }
+
+    /**
+     * @return array<int, array{customerId:int, balance: float, lastMovement: ?string}>
+     */
+    public function findTopDebtorsForUserInRange(Business $business, User $user, \DateTimeImmutable $from, \DateTimeImmutable $to, int $limit = 5): array
+    {
+        $balanceExpression = 'COALESCE(SUM(CASE WHEN m.type = :debit THEN m.amount ELSE -m.amount END), 0)';
+
+        $qb = $this->createQueryBuilder('m')
+            ->select('IDENTITY(m.customer) AS customerId')
+            ->addSelect($balanceExpression.' AS balance')
+            ->addSelect('MAX(m.createdAt) AS lastMovement')
+            ->andWhere('m.business = :business')
+            ->andWhere('m.createdBy = :user')
+            ->andWhere('m.createdAt >= :from')
+            ->andWhere('m.createdAt < :to')
+            ->groupBy('m.customer')
+            ->having($balanceExpression.' > 0')
+            ->orderBy('balance', 'DESC')
+            ->setParameter('business', $business)
+            ->setParameter('user', $user)
+            ->setParameter('from', $from)
+            ->setParameter('to', $to)
             ->setParameter('debit', CustomerAccountMovement::TYPE_DEBIT)
             ->setMaxResults($limit);
 
