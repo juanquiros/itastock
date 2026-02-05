@@ -8,6 +8,7 @@ use App\Entity\Discount;
 use App\Entity\Product;
 use App\Repository\CategoryRepository;
 use App\Repository\ProductRepository;
+use Doctrine\Common\Collections\Collection;
 use Symfony\Bridge\Doctrine\Form\Type\EntityType;
 use Symfony\Component\Form\AbstractType;
 use Symfony\Component\Form\Extension\Core\Type\CheckboxType;
@@ -235,22 +236,26 @@ class DiscountType extends AbstractType
 
             $categories = $form->get('categories')->getData();
             if ($categories) {
-                $conditions['categories'] = array_map(static fn (Category $category) => $category->getId(), $categories);
+                $categoryItems = $categories instanceof Collection ? $categories->toArray() : (array) $categories;
+                $conditions['categories'] = array_map(static fn (Category $category) => $category->getId(), $categoryItems);
             }
 
             $products = $form->get('products')->getData();
             if ($products) {
-                $conditions['products'] = array_map(static fn (Product $product) => $product->getId(), $products);
+                $productItems = $products instanceof Collection ? $products->toArray() : (array) $products;
+                $conditions['products'] = array_map(static fn (Product $product) => $product->getId(), $productItems);
             }
 
             $excludeCategories = $form->get('excludeCategories')->getData();
             if ($excludeCategories) {
-                $conditions['exclude_categories'] = array_map(static fn (Category $category) => $category->getId(), $excludeCategories);
+                $excludeCategoryItems = $excludeCategories instanceof Collection ? $excludeCategories->toArray() : (array) $excludeCategories;
+                $conditions['exclude_categories'] = array_map(static fn (Category $category) => $category->getId(), $excludeCategoryItems);
             }
 
             $excludeProducts = $form->get('excludeProducts')->getData();
             if ($excludeProducts) {
-                $conditions['exclude_products'] = array_map(static fn (Product $product) => $product->getId(), $excludeProducts);
+                $excludeProductItems = $excludeProducts instanceof Collection ? $excludeProducts->toArray() : (array) $excludeProducts;
+                $conditions['exclude_products'] = array_map(static fn (Product $product) => $product->getId(), $excludeProductItems);
             }
 
             $days = (array) $form->get('daysOfWeek')->getData();
