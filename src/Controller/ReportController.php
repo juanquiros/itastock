@@ -61,6 +61,28 @@ class ReportController extends AbstractController
         ], 'deudores.pdf');
     }
 
+    #[Route('/discounts', name: 'discounts', methods: ['GET'])]
+    public function discounts(Request $request): Response
+    {
+        $business = $this->requireBusinessContext();
+        $fromInput = $request->query->get('from');
+        $toInput = $request->query->get('to');
+
+        $from = $fromInput ? new \DateTimeImmutable($fromInput.' 00:00:00') : new \DateTimeImmutable('first day of this month');
+        $to = $toInput ? new \DateTimeImmutable($toInput.' 23:59:59') : new \DateTimeImmutable('last day of this month');
+
+        $report = $this->reportService->getDiscountImpact($business, $from, $to);
+
+        return $this->render('reports/discounts.html.twig', [
+            'summary' => $report['summary'],
+            'ranking' => $report['ranking'],
+            'byPayment' => $report['byPayment'],
+            'sales' => $report['sales'],
+            'from' => $from,
+            'to' => $to,
+        ]);
+    }
+
     #[Route('/stock-low/pdf', name: 'stock_low_pdf', methods: ['GET'])]
     public function stockLowPdf(): Response
     {

@@ -1,0 +1,67 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Descuentos · ItaStock{% endblock %}
+
+{% block body %}
+    <div class="d-flex align-items-center justify-content-between mb-3">
+        <div>
+            <p class="text-uppercase text-muted mb-1 small fw-semibold">Promociones</p>
+            <h1 class="h4 mb-0">Descuentos</h1>
+            <p class="text-secondary mb-0">Configurá reglas y promociones para tus ventas.</p>
+        </div>
+        <a class="btn btn-primary" href="{{ path('app_discount_new') }}">Nuevo descuento</a>
+    </div>
+
+    <div class="card shadow-sm">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Nombre</th>
+                            <th>Estado</th>
+                            <th class="text-end">Prioridad</th>
+                            <th class="text-end">Acción</th>
+                            <th class="text-end">Acumulable</th>
+                            <th class="text-end">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for discount in discounts %}
+                            <tr>
+                                <td class="fw-semibold">{{ discount.name }}</td>
+                                <td>
+                                    {% if discount.status == 'ACTIVE' %}
+                                        <span class="badge bg-success">Activa</span>
+                                    {% else %}
+                                        <span class="badge bg-secondary">Inactiva</span>
+                                    {% endif %}
+                                </td>
+                                <td class="text-end">{{ discount.priority }}</td>
+                                <td class="text-end">
+                                    {{ discount.actionType == 'PERCENTAGE' ? discount.actionValue ~ '%' : '$' ~ discount.actionValue }}
+                                </td>
+                                <td class="text-end">
+                                    {{ discount.stackable ? 'Sí' : 'No' }}
+                                </td>
+                                <td class="text-end">
+                                    <div class="btn-group" role="group">
+                                        <a class="btn btn-sm btn-outline-secondary" href="{{ path('app_discount_edit', { id: discount.id }) }}">Editar</a>
+                                        <form method="post" action="{{ path('app_discount_delete', { id: discount.id }) }}" onsubmit="return confirm('¿Eliminar este descuento?');">
+                                            <input type="hidden" name="_token" value="{{ csrf_token('delete' ~ discount.id) }}">
+                                            <button class="btn btn-sm btn-outline-danger" type="submit">Eliminar</button>
+                                        </form>
+                                    </div>
+                                </td>
+                            </tr>
+                        {% else %}
+                            <tr>
+                                <td class="text-center text-muted" colspan="6">Aún no hay descuentos configurados.</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+{% endblock %}

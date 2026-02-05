@@ -82,6 +82,15 @@
     </table>
 
     <div class="totals">
+        <div><strong>Subtotal:</strong> ${{ sale.subtotal }}</div>
+        <div><strong>Descuentos:</strong> -${{ sale.discountTotal }}</div>
+        {% if sale.saleDiscounts|length > 0 %}
+            <div style="margin-top: 4px;">
+                {% for saleDiscount in sale.saleDiscounts %}
+                    <div>{{ saleDiscount.discountName }} · -${{ saleDiscount.appliedAmount }}</div>
+                {% endfor %}
+            </div>
+        {% endif %}
         <div><strong>Total:</strong> ${{ sale.total }}</div>
     </div>
 

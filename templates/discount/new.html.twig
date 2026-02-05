@@ -1,0 +1,19 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Nuevo descuento · ItaStock{% endblock %}
+
+{% block body %}
+    <div class="d-flex align-items-center justify-content-between mb-3">
+        <div>
+            <p class="text-uppercase text-muted mb-1 small fw-semibold">Promociones</p>
+            <h1 class="h4 mb-0">Nuevo descuento</h1>
+            <p class="text-secondary mb-0">Definí reglas y acciones para promociones reales.</p>
+        </div>
+    </div>
+
+    <div class="card shadow-sm">
+        <div class="card-body">
+            {{ include('discount/_form.html.twig', { form: form }) }}
+        </div>
+    </div>
+{% endblock %}

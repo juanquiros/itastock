@@ -38,6 +38,12 @@ class Sale
     #[ORM\Column(type: 'decimal', precision: 10, scale: 2)]
     private ?string $total = '0.00';
 
+    #[ORM\Column(type: 'decimal', precision: 10, scale: 2)]
+    private ?string $subtotal = '0.00';
+
+    #[ORM\Column(type: 'decimal', precision: 10, scale: 2)]
+    private ?string $discountTotal = '0.00';
+
     #[ORM\Column(length: 16, options: ['default' => self::STATUS_CONFIRMED])]
     private string $status = self::STATUS_CONFIRMED;
 
@@ -64,11 +70,16 @@ class Sale
     #[ORM\OneToMany(mappedBy: 'sale', targetEntity: Payment::class, cascade: ['persist'], orphanRemoval: true)]
     private Collection $payments;
 
+    /** @var Collection<int, SaleDiscount> */
+    #[ORM\OneToMany(mappedBy: 'sale', targetEntity: SaleDiscount::class, cascade: ['persist'], orphanRemoval: true)]
+    private Collection $saleDiscounts;
+
     public function __construct()
     {
         $this->createdAt = new \DateTimeImmutable();
         $this->items = new ArrayCollection();
         $this->payments = new ArrayCollection();
+        $this->saleDiscounts = new ArrayCollection();
     }
 
     public function getId(): ?int
@@ -132,6 +143,30 @@ class Sale
     public function setTotal(string $total): self
     {
         $this->total = $total;
+
+        return $this;
+    }
+
+    public function getSubtotal(): ?string
+    {
+        return $this->subtotal;
+    }
+
+    public function setSubtotal(string $subtotal): self
+    {
+        $this->subtotal = $subtotal;
+
+        return $this;
+    }
+
+    public function getDiscountTotal(): ?string
+    {
+        return $this->discountTotal;
+    }
+
+    public function setDiscountTotal(string $discountTotal): self
+    {
+        $this->discountTotal = $discountTotal;
 
         return $this;
     }
@@ -243,6 +278,35 @@ class Sale
     public function getPayments(): Collection
     {
         return $this->payments;
+    }
+
+    /**
+     * @return Collection<int, SaleDiscount>
+     */
+    public function getSaleDiscounts(): Collection
+    {
+        return $this->saleDiscounts;
+    }
+
+    public function addSaleDiscount(SaleDiscount $saleDiscount): self
+    {
+        if (!$this->saleDiscounts->contains($saleDiscount)) {
+            $this->saleDiscounts->add($saleDiscount);
+            $saleDiscount->setSale($this);
+        }
+
+        return $this;
+    }
+
+    public function removeSaleDiscount(SaleDiscount $saleDiscount): self
+    {
+        if ($this->saleDiscounts->removeElement($saleDiscount)) {
+            if ($saleDiscount->getSale() === $this) {
+                $saleDiscount->setSale(null);
+            }
+        }
+
+        return $this;
     }
 
     public function addPayment(Payment $payment): self

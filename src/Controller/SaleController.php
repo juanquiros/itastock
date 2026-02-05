@@ -19,6 +19,7 @@ use App\Repository\PriceListRepository;
 use App\Repository\SaleRepository;
 use App\Security\BusinessContext;
 use App\Service\CustomerAccountService;
+use App\Service\DiscountEngine;
 use App\Service\PdfService;
 use App\Service\PricingService;
 use Doctrine\ORM\EntityManagerInterface;
@@ -42,6 +43,7 @@ class SaleController extends AbstractController
         private readonly PlatformSettingsRepository $platformSettingsRepository,
         private readonly PricingService $pricingService,
         private readonly CustomerAccountService $customerAccountService,
+        private readonly DiscountEngine $discountEngine,
         private readonly PdfService $pdfService,
         private readonly BusinessContext $businessContext,
     ) {
@@ -149,6 +151,142 @@ class SaleController extends AbstractController
         ]);
     }
 
+    #[Route('/preview', name: 'preview', methods: ['POST'])]
+    public function preview(Request $request): JsonResponse
+    {
+        $business = $this->requireBusinessContext();
+
+        $payload = $request->toArray();
+        $itemsData = $payload['items'] ?? [];
+        $customerId = (int) ($payload['customer_id'] ?? 0);
+        $paymentMethod = strtoupper((string) ($payload['payment_method'] ?? 'CASH'));
+        $allowedMethods = ['CASH', 'TRANSFER', 'CARD', 'ACCOUNT'];
+
+        if (!in_array($paymentMethod, $allowedMethods, true)) {
+            return $this->json(['error' => 'Medio de pago inválido.'], Response::HTTP_BAD_REQUEST);
+        }
+
+        $productRepository = $this->entityManager->getRepository(Product::class);
+        $products = $productRepository->findBy(['business' => $business, 'isActive' => true], ['name' => 'ASC']);
+        $productIndex = [];
+        foreach ($products as $product) {
+            $productIndex[$product->getId()] = $product;
+        }
+
+        $customer = null;
+        if ($customerId > 0) {
+            $customer = $this->entityManager->getRepository(Customer::class)->find($customerId);
+            if (!$customer instanceof Customer || $customer->getBusiness() !== $business) {
+                return $this->json(['error' => 'Cliente inválido.'], Response::HTTP_BAD_REQUEST);
+            }
+
+            if (!$customer->isActive() && $paymentMethod === 'ACCOUNT') {
+                return $this->json(['error' => 'El cliente está inactivo y no puede usar cuenta corriente.'], Response::HTTP_BAD_REQUEST);
+            }
+        }
+
+        if ($paymentMethod === 'ACCOUNT' && !$customer instanceof Customer) {
+            return $this->json(['error' => 'Elegí un cliente activo para vender en cuenta corriente.'], Response::HTTP_BAD_REQUEST);
+        }
+
+        if (!is_array($itemsData) || count($itemsData) === 0) {
+            return $this->json([
+                'subtotal' => '0.00',
+                'discountTotal' => '0.00',
+                'total' => '0.00',
+                'discounts' => [],
+                'lines' => [],
+            ]);
+        }
+
+        $sale = new Sale();
+        $sale->setBusiness($business);
+        $sale->setCustomer($customer);
+
+        $subtotalCents = 0;
+        foreach ($itemsData as $row) {
+            $productId = (int) ($row['product_id'] ?? 0);
+            $qty = $this->normalizeQuantity($row['qty'] ?? null);
+
+            if ($productId === 0 || $qty === null || bccomp($qty, '0', 3) <= 0) {
+                continue;
+            }
+
+            if (!isset($productIndex[$productId])) {
+                return $this->json(['error' => 'Producto inválido.'], Response::HTTP_BAD_REQUEST);
+            }
+
+            $product = $productIndex[$productId];
+
+            $qtyStep = $product->getQtyStep() ?? '0.100';
+            $allowsFractional = $product->allowsFractionalQty();
+
+            if ($product->getUomBase() === Product::UOM_UNIT && $allowsFractional === false && !$this->isIntegerQuantity($qty)) {
+                return $this->json(['error' => sprintf('La cantidad de %s debe ser entera.', $product->getName())], Response::HTTP_BAD_REQUEST);
+            }
+
+            if ($allowsFractional === false && bccomp($qty, '1', 3) < 0) {
+                return $this->json(['error' => sprintf('La cantidad mínima para %s es 1.', $product->getName())], Response::HTTP_BAD_REQUEST);
+            }
+
+            if ($allowsFractional && !$this->isMultipleOfStep($qty, $qtyStep)) {
+                return $this->json(['error' => sprintf('La cantidad de %s debe ser múltiplo de %s.', $product->getName(), $qtyStep)], Response::HTTP_BAD_REQUEST);
+            }
+
+            if (bccomp($qty, $product->getStock(), 3) === 1) {
+                return $this->json(['error' => sprintf('No hay stock suficiente para %s.', $product->getName())], Response::HTTP_BAD_REQUEST);
+            }
+
+            $unitPrice = $this->pricingService->resolveUnitPrice($product, $customer);
+            [$lineTotal, $lineCents] = $this->calculateLineTotal(number_format($unitPrice, 2, '.', ''), $qty);
+            $subtotalCents += $lineCents;
+
+            $item = new SaleItem();
+            $item->setProduct($product);
+            $item->setDescription($product->getName());
+            $item->setQty($qty);
+            $item->setUnitPrice(number_format($unitPrice, 2, '.', ''));
+            $item->setLineSubtotal($lineTotal);
+            $item->setLineDiscount('0.00');
+            $item->setLineTotal($lineTotal);
+            $sale->addItem($item);
+        }
+
+        if (count($sale->getItems()) === 0) {
+            return $this->json([
+                'subtotal' => '0.00',
+                'discountTotal' => '0.00',
+                'total' => '0.00',
+                'discounts' => [],
+                'lines' => [],
+            ]);
+        }
+
+        $sale->setSubtotal($this->formatCents($subtotalCents));
+        $sale->setDiscountTotal('0.00');
+        $sale->setTotal($this->formatCents($subtotalCents));
+
+        $this->discountEngine->applyDiscounts($sale, $paymentMethod);
+
+        return $this->json([
+            'subtotal' => $sale->getSubtotal(),
+            'discountTotal' => $sale->getDiscountTotal(),
+            'total' => $sale->getTotal(),
+            'discounts' => array_map(static fn ($saleDiscount) => [
+                'name' => $saleDiscount->getDiscountName(),
+                'actionType' => $saleDiscount->getActionType(),
+                'actionValue' => $saleDiscount->getActionValue(),
+                'appliedAmount' => $saleDiscount->getAppliedAmount(),
+            ], $sale->getSaleDiscounts()->toArray()),
+            'lines' => array_map(static fn (SaleItem $item) => [
+                'product_id' => $item->getProduct()?->getId(),
+                'lineSubtotal' => $item->getLineSubtotal(),
+                'lineDiscount' => $item->getLineDiscount(),
+                'lineTotal' => $item->getLineTotal(),
+            ], $sale->getItems()->toArray()),
+        ]);
+    }
+
     #[Route('/{id}/ticket', name: 'ticket', methods: ['GET'])]
     public function ticket(Sale $sale): Response
     {
@@ -236,7 +374,7 @@ class SaleController extends AbstractController
         $sale->setPosNumber($posNumber);
         $sale->setPosSequence($this->nextPosSequence($business, $posNumber));
 
-        $totalCents = 0;
+        $subtotalCents = 0;
 
         foreach ($itemsData as $row) {
             $productId = (int) ($row['product_id'] ?? 0);
@@ -281,13 +419,15 @@ class SaleController extends AbstractController
 
             $unitPrice = $this->pricingService->resolveUnitPrice($product, $customer);
             [$lineTotal, $lineCents] = $this->calculateLineTotal(number_format($unitPrice, 2, '.', ''), $qty);
-            $totalCents += $lineCents;
+            $subtotalCents += $lineCents;
 
             $item = new SaleItem();
             $item->setProduct($product);
             $item->setDescription($product->getName());
             $item->setQty($qty);
             $item->setUnitPrice(number_format($unitPrice, 2, '.', ''));
+            $item->setLineSubtotal($lineTotal);
+            $item->setLineDiscount('0.00');
             $item->setLineTotal($lineTotal);
             $sale->addItem($item);
 
@@ -309,7 +449,11 @@ class SaleController extends AbstractController
             return $this->redirectToRoute('app_sale_new');
         }
 
-        $sale->setTotal($this->formatCents($totalCents));
+        $sale->setSubtotal($this->formatCents($subtotalCents));
+        $sale->setDiscountTotal('0.00');
+        $sale->setTotal($this->formatCents($subtotalCents));
+
+        $this->discountEngine->applyDiscounts($sale, $paymentMethod);
 
         $payment = new Payment();
         $payment->setAmount($sale->getTotal());

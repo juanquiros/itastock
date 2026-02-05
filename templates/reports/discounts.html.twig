@@ -1,0 +1,150 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Impacto de descuentos · ItaStock{% endblock %}
+
+{% block body %}
+    <div class="d-flex align-items-center justify-content-between mb-3">
+        <div>
+            <p class="text-uppercase text-muted mb-1 small fw-semibold">Reportes</p>
+            <h1 class="h4 mb-0">Impacto de descuentos</h1>
+            <p class="text-secondary mb-0">Seguimiento de promociones aplicadas en ventas confirmadas.</p>
+        </div>
+        <a class="btn btn-outline-secondary" href="{{ path('app_reports_index') }}">Volver</a>
+    </div>
+
+    <div class="card shadow-sm mb-4">
+        <div class="card-body">
+            <form method="get" class="row g-3 align-items-end">
+                <div class="col-md-4">
+                    <label class="form-label fw-semibold" for="from">Desde</label>
+                    <input class="form-control" type="date" id="from" name="from" value="{{ from|date('Y-m-d') }}">
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label fw-semibold" for="to">Hasta</label>
+                    <input class="form-control" type="date" id="to" name="to" value="{{ to|date('Y-m-d') }}">
+                </div>
+                <div class="col-md-4">
+                    <button class="btn btn-primary">Actualizar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="row g-3 mb-4">
+        <div class="col-md-6 col-lg-4">
+            <div class="card shadow-sm h-100">
+                <div class="card-body">
+                    <div class="text-muted small">Ventas con descuento</div>
+                    <div class="h4 mb-0">{{ summary.salesWithDiscount }}</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6 col-lg-4">
+            <div class="card shadow-sm h-100">
+                <div class="card-body">
+                    <div class="text-muted small">Total descontado</div>
+                    <div class="h4 mb-0">${{ summary.totalDiscounted|number_format(2, '.', ',') }}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-3">
+        <div class="col-lg-6">
+            <div class="card shadow-sm h-100">
+                <div class="card-body">
+                    <h2 class="h6 fw-semibold">Ranking por descuento</h2>
+                    <div class="table-responsive">
+                        <table class="table table-sm align-middle mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Descuento</th>
+                                    <th class="text-end">Total aplicado</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for row in ranking %}
+                                    <tr>
+                                        <td>{{ row.name }}</td>
+                                        <td class="text-end">${{ row.total|number_format(2, '.', ',') }}</td>
+                                    </tr>
+                                {% else %}
+                                    <tr>
+                                        <td class="text-center text-muted" colspan="2">Sin descuentos aplicados.</td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-6">
+            <div class="card shadow-sm h-100">
+                <div class="card-body">
+                    <h2 class="h6 fw-semibold">Impacto por medio de pago</h2>
+                    <div class="table-responsive">
+                        <table class="table table-sm align-middle mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Medio</th>
+                                    <th class="text-end">Ventas</th>
+                                    <th class="text-end">Total descontado</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for row in byPayment %}
+                                    <tr>
+                                        <td>{{ row.method ?: 'N/D' }}</td>
+                                        <td class="text-end">{{ row.salesCount }}</td>
+                                        <td class="text-end">${{ row.totalDiscount|number_format(2, '.', ',') }}</td>
+                                    </tr>
+                                {% else %}
+                                    <tr>
+                                        <td class="text-center text-muted" colspan="3">Sin descuentos aplicados.</td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card shadow-sm mt-4">
+        <div class="card-body">
+            <h2 class="h6 fw-semibold">Ventas con descuento</h2>
+            <div class="table-responsive">
+                <table class="table table-sm align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>#</th>
+                            <th>Fecha</th>
+                            <th class="text-end">Subtotal</th>
+                            <th class="text-end">Descuento</th>
+                            <th class="text-end">Total</th>
+                            <th>Pago</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in sales %}
+                            <tr>
+                                <td>{{ row.saleId }}</td>
+                                <td>{{ row.createdAt|date('d/m/Y H:i') }}</td>
+                                <td class="text-end">${{ row.subtotal|number_format(2, '.', ',') }}</td>
+                                <td class="text-end">-${{ row.discountTotal|number_format(2, '.', ',') }}</td>
+                                <td class="text-end">${{ row.total|number_format(2, '.', ',') }}</td>
+                                <td>{{ row.paymentMethod ?: 'N/D' }}</td>
+                            </tr>
+                        {% else %}
+                            <tr>
+                                <td class="text-center text-muted" colspan="6">Sin ventas con descuento en el período.</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+{% endblock %}

@@ -1,0 +1,46 @@
+ItaStock - Motor de Descuentos (Sprint Final)
+
+Qué es el motor de descuentos
+El motor de descuentos permite definir reglas comerciales configurables por cada comercio. Cada regla determina condiciones (cuándo aplica) y una acción (qué descuento aplicar), con prioridad y política de acumulación.
+
+Cómo funcionan las reglas
+Cada descuento tiene:
+- Condiciones: combinaciones de categorías, productos, monto mínimo, medio de pago, fechas, días y horarios.
+- Acción: porcentaje o monto fijo.
+- Prioridad: los descuentos con mayor prioridad se evalúan primero.
+- Acumulación: si un descuento no es acumulable, se detiene la evaluación de los siguientes.
+
+Las condiciones se almacenan en JSON con un formato controlado y se gestionan desde un formulario guiado. Claves permitidas:
+- payment_methods
+- min_amount
+- min_amount_scope
+- categories
+- products
+- exclude_categories
+- exclude_products
+- days_of_week
+- hours
+
+Ejemplo real
+Regla: Comprando productos de la categoría Panadería por un monto mayor a $15.000 y pagando en efectivo, obtenés 5% de descuento.
+Configuración sugerida:
+- Categorías incluidas: Panadería
+- Monto mínimo: 15000
+- Monto mínimo sobre: Orden completa
+- Medio de pago: Efectivo
+- Acción: Porcentaje 5
+- Prioridad: 100
+- Acumulación: No
+
+Flujo POS
+1) El POS arma la venta con los ítems seleccionados.
+2) Antes de confirmar, se consulta el endpoint de preview.
+3) El motor calcula subtotal, descuentos y total final en el servidor.
+4) El POS muestra los totales y la lista de descuentos.
+5) Al confirmar, se persisten los descuentos aplicados y se registra el total neto.
+
+Notas importantes de producción
+- Todos los cálculos se hacen en centavos (enteros) para evitar errores de redondeo.
+- El subtotal y el descuento total quedan almacenados en la venta.
+- Cada descuento aplicado se guarda en SaleDiscount para auditoría y reportes.
+- La vista previa y la venta final utilizan el mismo motor para garantizar consistencia.

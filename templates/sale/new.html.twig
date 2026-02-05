@@ -91,8 +91,17 @@
 
                                 <div class="card shadow-sm">
                                     <div class="card-body">
+                                        <div class="d-flex align-items-center justify-content-between mb-2">
+                                            <div class="text-muted">Subtotal</div>
+                                            <div class="fw-semibold" id="sale-subtotal">$0.00</div>
+                                        </div>
+                                        <div class="d-flex align-items-center justify-content-between mb-2">
+                                            <div class="text-muted">Descuentos</div>
+                                            <div class="fw-semibold text-danger" id="sale-discount-total">-$0.00</div>
+                                        </div>
+                                        <ul class="list-unstyled small text-muted mb-3" id="sale-discounts"></ul>
                                         <div class="d-flex align-items-center justify-content-between mb-3">
-                                            <div class="text-muted">Total de la venta</div>
+                                            <div class="text-muted">Total final</div>
                                             <div class="h3 mb-0 fw-bold" id="sale-total">$0.00</div>
                                         </div>
                                         <div class="d-flex justify-content-between gap-2">
@@ -168,6 +177,9 @@
             const resultsContainer = document.getElementById('search-results');
             const itemsTable = document.getElementById('sale-items');
             const emptyRow = document.getElementById('empty-row');
+            const subtotalElement = document.getElementById('sale-subtotal');
+            const discountTotalElement = document.getElementById('sale-discount-total');
+            const discountList = document.getElementById('sale-discounts');
             const totalElement = document.getElementById('sale-total');
             const customerSearch = document.getElementById('customer-search');
             const customerResults = document.getElementById('customer-results');
@@ -190,7 +202,12 @@
             const finalizeSale = document.getElementById('finalize-sale');
             const scanAlert = document.getElementById('barcode-scan-alert');
             const scanWarningModal = document.getElementById('barcode-scan-warning');
+            const previewUrl = '{{ path('app_sale_preview') }}';
+            let currentSubtotal = 0;
+            let currentDiscountTotal = 0;
             let currentTotal = 0;
+            let previewTimer = null;
+            let previewInFlight = false;
 
             function formatMoney(value) {
                 return `$${value.toFixed(2)}`;
@@ -459,10 +476,105 @@
                 updateTotal();
             }
 
-            function updateTotal() {
-                currentTotal = items.reduce((sum, item) => sum + (item.price * item.qty), 0);
+            function renderDiscountList(discounts = []) {
+                if (!discountList) {
+                    return;
+                }
+
+                if (!discounts || discounts.length === 0) {
+                    discountList.innerHTML = '<li>Sin descuentos aplicados.</li>';
+                    return;
+                }
+
+                discountList.innerHTML = discounts.map((discount) => {
+                    const amount = discount.appliedAmount ? parseFloat(discount.appliedAmount) : 0;
+                    return `<li>${discount.name} · -${formatMoney(amount)}</li>`;
+                }).join('');
+            }
+
+            function applyFallbackTotals() {
+                currentSubtotal = items.reduce((sum, item) => sum + (item.price * item.qty), 0);
+                currentDiscountTotal = 0;
+                currentTotal = currentSubtotal;
+
+                if (subtotalElement) {
+                    subtotalElement.textContent = formatMoney(currentSubtotal);
+                }
+                if (discountTotalElement) {
+                    discountTotalElement.textContent = `-${formatMoney(currentDiscountTotal)}`;
+                }
                 totalElement.textContent = formatMoney(currentTotal);
+                renderDiscountList([]);
                 updateCashChange();
+            }
+
+            function applyPreviewTotals(payload) {
+                if (!payload) {
+                    return;
+                }
+
+                currentSubtotal = parseFloat(payload.subtotal || '0');
+                currentDiscountTotal = parseFloat(payload.discountTotal || '0');
+                currentTotal = parseFloat(payload.total || '0');
+
+                if (subtotalElement) {
+                    subtotalElement.textContent = formatMoney(currentSubtotal);
+                }
+                if (discountTotalElement) {
+                    discountTotalElement.textContent = `-${formatMoney(currentDiscountTotal)}`;
+                }
+                totalElement.textContent = formatMoney(currentTotal);
+                renderDiscountList(payload.discounts || []);
+                updateCashChange();
+            }
+
+            function schedulePreview() {
+                if (previewTimer) {
+                    clearTimeout(previewTimer);
+                }
+                previewTimer = setTimeout(() => {
+                    fetchPreview();
+                }, 350);
+            }
+
+            async function fetchPreview() {
+                if (previewInFlight || items.length === 0) {
+                    return;
+                }
+
+                previewInFlight = true;
+                try {
+                    const response = await fetch(previewUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+                        body: JSON.stringify({
+                            items: items.map((item) => ({
+                                product_id: item.product_id,
+                                qty: item.qty.toFixed(3),
+                            })),
+                            customer_id: selectedCustomer ? selectedCustomer.id : 0,
+                            payment_method: paymentMethodModal.value,
+                        }),
+                    });
+
+                    if (!response.ok) {
+                        applyFallbackTotals();
+                        return;
+                    }
+
+                    const payload = await response.json();
+                    applyPreviewTotals(payload);
+                } catch (error) {
+                    console.warn('No se pudo previsualizar el descuento', error);
+                    applyFallbackTotals();
+                } finally {
+                    previewInFlight = false;
+                }
+            }
+
+            function updateTotal() {
+                applyFallbackTotals();
+                schedulePreview();
             }
 
             function updateCashChange() {
@@ -510,6 +622,7 @@
                     cashGiven.value = '';
                     cashGivenInput.value = '';
                 }
+                updateTotal();
             }
 
             function showWorkspace() {

@@ -1,0 +1,134 @@
+{{ form_start(form) }}
+    <div class="row g-3">
+        <div class="col-md-6">
+            {{ form_label(form.name, null, {'label_attr': {'class': 'form-label fw-semibold'}}) }}
+            {{ form_widget(form.name, {'attr': {'class': 'form-control'}}) }}
+            {{ form_errors(form.name) }}
+        </div>
+        <div class="col-md-3">
+            {{ form_label(form.status, null, {'label_attr': {'class': 'form-label fw-semibold'}}) }}
+            {{ form_widget(form.status, {'attr': {'class': 'form-select'}}) }}
+            {{ form_errors(form.status) }}
+        </div>
+        <div class="col-md-3">
+            {{ form_label(form.priority, null, {'label_attr': {'class': 'form-label fw-semibold'}}) }}
+            {{ form_widget(form.priority, {'attr': {'class': 'form-control'}}) }}
+            {{ form_errors(form.priority) }}
+        </div>
+    </div>
+
+    <div class="row g-3 mt-2">
+        <div class="col-md-4">
+            {{ form_label(form.actionType, null, {'label_attr': {'class': 'form-label fw-semibold'}}) }}
+            {{ form_widget(form.actionType, {'attr': {'class': 'form-select'}}) }}
+            {{ form_errors(form.actionType) }}
+        </div>
+        <div class="col-md-4">
+            {{ form_label(form.actionValue, null, {'label_attr': {'class': 'form-label fw-semibold'}}) }}
+            {{ form_widget(form.actionValue, {'attr': {'class': 'form-control'}}) }}
+            {{ form_errors(form.actionValue) }}
+        </div>
+        <div class="col-md-4">
+            {{ form_label(form.logicOperator, null, {'label_attr': {'class': 'form-label fw-semibold'}}) }}
+            {{ form_widget(form.logicOperator, {'attr': {'class': 'form-select'}}) }}
+            {{ form_errors(form.logicOperator) }}
+        </div>
+    </div>
+
+    <div class="row g-3 mt-2">
+        <div class="col-md-6">
+            {{ form_label(form.startAt, null, {'label_attr': {'class': 'form-label fw-semibold'}}) }}
+            {{ form_widget(form.startAt, {'attr': {'class': 'form-control'}}) }}
+            {{ form_errors(form.startAt) }}
+        </div>
+        <div class="col-md-6">
+            {{ form_label(form.endAt, null, {'label_attr': {'class': 'form-label fw-semibold'}}) }}
+            {{ form_widget(form.endAt, {'attr': {'class': 'form-control'}}) }}
+            {{ form_errors(form.endAt) }}
+        </div>
+    </div>
+
+    <div class="form-check form-switch mt-3">
+        {{ form_widget(form.stackable, {'attr': {'class': 'form-check-input'}}) }}
+        {{ form_label(form.stackable, null, {'label_attr': {'class': 'form-check-label fw-semibold'}}) }}
+        {{ form_errors(form.stackable) }}
+    </div>
+
+    <hr class="my-4">
+
+    <h2 class="h6">Condiciones</h2>
+    <p class="text-muted small mb-3">Definí cuándo aplica el descuento. Combiná condiciones con el operador elegido.</p>
+
+    <div class="mb-3">
+        {{ form_label(form.paymentMethods, null, {'label_attr': {'class': 'form-label fw-semibold'}}) }}
+        <div class="d-flex flex-wrap gap-3">
+            {{ form_widget(form.paymentMethods) }}
+        </div>
+        {{ form_errors(form.paymentMethods) }}
+    </div>
+
+    <div class="row g-3">
+        <div class="col-md-6">
+            {{ form_label(form.minAmount, null, {'label_attr': {'class': 'form-label fw-semibold'}}) }}
+            {{ form_widget(form.minAmount, {'attr': {'class': 'form-control'}}) }}
+            {{ form_errors(form.minAmount) }}
+        </div>
+        <div class="col-md-6">
+            {{ form_label(form.minAmountScope, null, {'label_attr': {'class': 'form-label fw-semibold'}}) }}
+            {{ form_widget(form.minAmountScope, {'attr': {'class': 'form-select'}}) }}
+            {{ form_errors(form.minAmountScope) }}
+        </div>
+    </div>
+
+    <div class="row g-3 mt-2">
+        <div class="col-md-6">
+            {{ form_label(form.categories, null, {'label_attr': {'class': 'form-label fw-semibold'}}) }}
+            {{ form_widget(form.categories, {'attr': {'class': 'form-select', 'size': 6}}) }}
+            {{ form_errors(form.categories) }}
+        </div>
+        <div class="col-md-6">
+            {{ form_label(form.products, null, {'label_attr': {'class': 'form-label fw-semibold'}}) }}
+            {{ form_widget(form.products, {'attr': {'class': 'form-select', 'size': 6}}) }}
+            {{ form_errors(form.products) }}
+        </div>
+    </div>
+
+    <div class="row g-3 mt-2">
+        <div class="col-md-6">
+            {{ form_label(form.excludeCategories, null, {'label_attr': {'class': 'form-label fw-semibold'}}) }}
+            {{ form_widget(form.excludeCategories, {'attr': {'class': 'form-select', 'size': 6}}) }}
+            {{ form_errors(form.excludeCategories) }}
+        </div>
+        <div class="col-md-6">
+            {{ form_label(form.excludeProducts, null, {'label_attr': {'class': 'form-label fw-semibold'}}) }}
+            {{ form_widget(form.excludeProducts, {'attr': {'class': 'form-select', 'size': 6}}) }}
+            {{ form_errors(form.excludeProducts) }}
+        </div>
+    </div>
+
+    <div class="mt-3">
+        {{ form_label(form.daysOfWeek, null, {'label_attr': {'class': 'form-label fw-semibold'}}) }}
+        <div class="d-flex flex-wrap gap-3">
+            {{ form_widget(form.daysOfWeek) }}
+        </div>
+        {{ form_errors(form.daysOfWeek) }}
+    </div>
+
+    <div class="row g-3 mt-2">
+        <div class="col-md-6">
+            {{ form_label(form.hoursStart, null, {'label_attr': {'class': 'form-label fw-semibold'}}) }}
+            {{ form_widget(form.hoursStart, {'attr': {'class': 'form-control'}}) }}
+            {{ form_errors(form.hoursStart) }}
+        </div>
+        <div class="col-md-6">
+            {{ form_label(form.hoursEnd, null, {'label_attr': {'class': 'form-label fw-semibold'}}) }}
+            {{ form_widget(form.hoursEnd, {'attr': {'class': 'form-control'}}) }}
+            {{ form_errors(form.hoursEnd) }}
+        </div>
+    </div>
+
+    <div class="d-flex justify-content-end gap-2 mt-4">
+        <a class="btn btn-outline-secondary" href="{{ path('app_discount_index') }}">Cancelar</a>
+        <button class="btn btn-primary">Guardar</button>
+    </div>
+{{ form_end(form) }}

@@ -34,6 +34,12 @@ class SaleItem
     #[ORM\Column(type: 'decimal', precision: 10, scale: 2)]
     private ?string $lineTotal = '0.00';
 
+    #[ORM\Column(type: 'decimal', precision: 10, scale: 2)]
+    private ?string $lineSubtotal = '0.00';
+
+    #[ORM\Column(type: 'decimal', precision: 10, scale: 2)]
+    private ?string $lineDiscount = '0.00';
+
     public function getId(): ?int
     {
         return $this->id;
@@ -107,6 +113,30 @@ class SaleItem
     public function setLineTotal(string $lineTotal): self
     {
         $this->lineTotal = $lineTotal;
+
+        return $this;
+    }
+
+    public function getLineSubtotal(): ?string
+    {
+        return $this->lineSubtotal;
+    }
+
+    public function setLineSubtotal(string $lineSubtotal): self
+    {
+        $this->lineSubtotal = $lineSubtotal;
+
+        return $this;
+    }
+
+    public function getLineDiscount(): ?string
+    {
+        return $this->lineDiscount;
+    }
+
+    public function setLineDiscount(string $lineDiscount): self
+    {
+        $this->lineDiscount = $lineDiscount;
 
         return $this;
     }
