@@ -36,8 +36,10 @@ class SalesAdminController extends AbstractController
     {
         $business = $this->requireBusinessContext();
 
-        $fromInput = $request->query->get('from');
-        $toInput = $request->query->get('to');
+        $fromInput = trim((string) $request->query->get('from', ''));
+        $toInput = trim((string) $request->query->get('to', ''));
+        $fromInput = $fromInput !== '' ? $fromInput : null;
+        $toInput = $toInput !== '' ? $toInput : null;
         $errors = [];
 
         $fromDate = $fromInput ? \DateTimeImmutable::createFromFormat('Y-m-d', $fromInput) : null;
@@ -110,8 +112,10 @@ class SalesAdminController extends AbstractController
     {
         $business = $this->requireBusinessContext();
 
-        $fromInput = $request->query->get('from');
-        $toInput = $request->query->get('to');
+        $fromInput = trim((string) $request->query->get('from', ''));
+        $toInput = trim((string) $request->query->get('to', ''));
+        $fromInput = $fromInput !== '' ? $fromInput : null;
+        $toInput = $toInput !== '' ? $toInput : null;
         $errors = [];
 
         $fromDate = $fromInput ? \DateTimeImmutable::createFromFormat('Y-m-d', $fromInput) : null;
