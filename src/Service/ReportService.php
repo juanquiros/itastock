@@ -316,4 +316,110 @@ class ReportService
             'saleDetails' => $saleDetails,
         ];
     }
+
+    /**
+     * @return array{summary: array{net: float, iva: float, total: float}, invoices: array<int, array<string, mixed>>}
+     */
+    public function getPurchaseVatReport(Business $business, \DateTimeImmutable $from, \DateTimeImmutable $to): array
+    {
+        $connection = $this->saleRepository->getEntityManager()->getConnection();
+        $params = [
+            'businessId' => $business->getId(),
+            'from' => $from->format('Y-m-d'),
+            'to' => $to->format('Y-m-d'),
+        ];
+
+        $rows = $connection->fetchAllAssociative(
+            <<<SQL
+                SELECT pi.id,
+                       s.name AS supplierName,
+                       pi.invoice_type AS invoiceType,
+                       pi.point_of_sale AS pointOfSale,
+                       pi.invoice_number AS invoiceNumber,
+                       pi.invoice_date AS invoiceDate,
+                       pi.net_amount AS netAmount,
+                       pi.iva_rate AS ivaRate,
+                       pi.iva_amount AS ivaAmount,
+                       pi.total_amount AS totalAmount
+                FROM purchase_invoices pi
+                INNER JOIN suppliers s ON s.id = pi.supplier_id
+                WHERE pi.business_id = :businessId
+                  AND pi.status = 'CONFIRMED'
+                  AND pi.invoice_date >= :from
+                  AND pi.invoice_date <= :to
+                ORDER BY pi.invoice_date ASC, pi.id ASC
+            SQL,
+            $params
+        );
+
+        $summary = [
+            'net' => 0.0,
+            'iva' => 0.0,
+            'total' => 0.0,
+        ];
+
+        $invoices = array_map(static function (array $row) use (&$summary): array {
+            $net = (float) $row['netAmount'];
+            $iva = (float) $row['ivaAmount'];
+            $total = (float) $row['totalAmount'];
+
+            $summary['net'] += $net;
+            $summary['iva'] += $iva;
+            $summary['total'] += $total;
+
+            return [
+                'id' => (int) $row['id'],
+                'supplierName' => (string) $row['supplierName'],
+                'invoiceType' => (string) $row['invoiceType'],
+                'pointOfSale' => $row['pointOfSale'] !== null ? (string) $row['pointOfSale'] : null,
+                'invoiceNumber' => (string) $row['invoiceNumber'],
+                'invoiceDate' => new \DateTimeImmutable($row['invoiceDate']),
+                'netAmount' => $net,
+                'ivaRate' => (float) $row['ivaRate'],
+                'ivaAmount' => $iva,
+                'totalAmount' => $total,
+            ];
+        }, $rows);
+
+        return [
+            'summary' => $summary,
+            'invoices' => $invoices,
+        ];
+    }
+
+    /**
+     * @return array<int, array{supplierName: string, total: float, invoicesCount: int}>
+     */
+    public function getPurchaseTotalsBySupplier(Business $business, \DateTimeImmutable $from, \DateTimeImmutable $to): array
+    {
+        $connection = $this->saleRepository->getEntityManager()->getConnection();
+        $params = [
+            'businessId' => $business->getId(),
+            'from' => $from->format('Y-m-d'),
+            'to' => $to->format('Y-m-d'),
+        ];
+
+        $rows = $connection->fetchAllAssociative(
+            <<<SQL
+                SELECT s.name AS supplierName,
+                       COUNT(pi.id) AS invoicesCount,
+                       COALESCE(SUM(pi.total_amount), 0) AS totalAmount
+                FROM purchase_invoices pi
+                INNER JOIN suppliers s ON s.id = pi.supplier_id
+                WHERE pi.business_id = :businessId
+                  AND pi.status = 'CONFIRMED'
+                  AND pi.invoice_date >= :from
+                  AND pi.invoice_date <= :to
+                GROUP BY s.name
+                ORDER BY totalAmount DESC
+            SQL,
+            $params
+        );
+
+        return array_map(static fn (array $row) => [
+            'supplierName' => (string) $row['supplierName'],
+            'total' => (float) $row['totalAmount'],
+            'invoicesCount' => (int) $row['invoicesCount'],
+        ], $rows);
+    }
 }

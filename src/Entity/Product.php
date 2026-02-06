@@ -59,6 +59,10 @@ class Product
     #[Assert\PositiveOrZero]
     private string $stock = '0.000';
 
+    #[ORM\Column(type: 'decimal', precision: 10, scale: 3, nullable: true)]
+    #[Assert\PositiveOrZero]
+    private ?string $targetStock = null;
+
     #[ORM\Column(length: 8, options: ['default' => self::UOM_UNIT])]
     #[Assert\Choice(choices: [self::UOM_UNIT, self::UOM_KG, self::UOM_G, self::UOM_L, self::UOM_ML])]
     private string $uomBase = self::UOM_UNIT;
@@ -87,6 +91,17 @@ class Product
     #[ORM\ManyToOne]
     #[ORM\JoinColumn(onDelete: 'SET NULL')]
     private ?CatalogProduct $catalogProduct = null;
+
+    #[ORM\ManyToOne]
+    #[ORM\JoinColumn(onDelete: 'SET NULL')]
+    private ?Supplier $supplier = null;
+
+    #[ORM\Column(length: 64, nullable: true)]
+    private ?string $supplierSku = null;
+
+    #[ORM\Column(type: 'decimal', precision: 10, scale: 2, nullable: true)]
+    #[Assert\PositiveOrZero]
+    private ?string $purchasePrice = null;
 
     /** @var Collection<int, StockMovement> */
     #[ORM\OneToMany(mappedBy: 'product', targetEntity: StockMovement::class, orphanRemoval: true)]
@@ -188,6 +203,18 @@ class Product
     public function setStock(string $stock): self
     {
         $this->stock = bcadd($stock, '0', 3);
+
+        return $this;
+    }
+
+    public function getTargetStock(): ?string
+    {
+        return $this->targetStock;
+    }
+
+    public function setTargetStock(?string $targetStock): self
+    {
+        $this->targetStock = $targetStock !== null ? bcadd($targetStock, '0', 3) : null;
 
         return $this;
     }
@@ -294,6 +321,42 @@ class Product
     public function setCatalogProduct(?CatalogProduct $catalogProduct): self
     {
         $this->catalogProduct = $catalogProduct;
+
+        return $this;
+    }
+
+    public function getSupplier(): ?Supplier
+    {
+        return $this->supplier;
+    }
+
+    public function setSupplier(?Supplier $supplier): self
+    {
+        $this->supplier = $supplier;
+
+        return $this;
+    }
+
+    public function getSupplierSku(): ?string
+    {
+        return $this->supplierSku;
+    }
+
+    public function setSupplierSku(?string $supplierSku): self
+    {
+        $this->supplierSku = $supplierSku;
+
+        return $this;
+    }
+
+    public function getPurchasePrice(): ?string
+    {
+        return $this->purchasePrice;
+    }
+
+    public function setPurchasePrice(?string $purchasePrice): self
+    {
+        $this->purchasePrice = $purchasePrice !== null ? bcadd($purchasePrice, '0', 2) : null;
 
         return $this;
     }

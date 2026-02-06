@@ -1,0 +1,30 @@
+ItaStock - Proveedores, pedidos y compras (solo administrador)
+
+Roles
+- BUSINESS_ADMIN: puede ver y gestionar proveedores, pedidos a proveedores, compras y reportes de IVA compras.
+- BUSINESS_SELLER: no ve proveedores, pedidos, compras ni costos. El POS no cambia en este sprint.
+
+Gestión de proveedores
+- Crear y editar proveedores con datos fiscales y de contacto.
+- Cada proveedor pertenece al comercio actual.
+- Un producto puede tener un proveedor principal y un SKU de proveedor.
+
+Pedidos automáticos por stock bajo
+- El sistema detecta productos con stock <= stock mínimo.
+- Solo considera productos con proveedor asignado.
+- Se generan pedidos en estado DRAFT agrupados por proveedor.
+- Cantidad sugerida: targetStock - stock actual (si no hay targetStock se usa stock mínimo).
+- El administrador revisa, ajusta cantidades y confirma manualmente.
+
+Flujo pedido -> recibido -> compra
+1) Generar pedidos en borrador desde el panel de pedidos.
+2) Editar el pedido en borrador (cantidades, costos, notas).
+3) Confirmar pedido.
+4) Marcar recibido para actualizar stock.
+5) Registrar compra/factura (manual o desde pedido recibido).
+6) Confirmar compra para que quede en IVA compras.
+
+IVA compras
+- Solo las compras en estado CONFIRMED se incluyen en reportes.
+- Reporte de IVA compras por período (neto, IVA, total).
+- Reporte de total comprado por proveedor.
