@@ -161,6 +161,8 @@ class SalesAdminController extends AbstractController
         $rows = $this->reportService->getSalesForRange($business, $fromDate, $toDate, $filters);
         $total = array_reduce($rows, static fn ($carry, $row) => $carry + (float) $row['total'], 0.0);
 
+        @set_time_limit(120);
+
         return $this->pdfService->render('reports/sales_pdf.html.twig', [
             'business' => $business,
             'rows' => $rows,
