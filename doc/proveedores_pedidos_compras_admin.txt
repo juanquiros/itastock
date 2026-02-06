@@ -28,3 +28,7 @@ IVA compras
 - Solo las compras en estado CONFIRMED se incluyen en reportes.
 - Reporte de IVA compras por período (neto, IVA, total).
 - Reporte de total comprado por proveedor.
+
+Base de datos
+- Aplicar cambios con migrations: php bin/console doctrine:migrations:migrate.
+- Evitar doctrine:schema:update en entornos con migraciones pendientes.
