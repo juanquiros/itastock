@@ -5,6 +5,7 @@ namespace App\Form;
 use App\Entity\Brand;
 use App\Entity\Category;
 use App\Entity\Product;
+use App\Entity\Supplier;
 use Doctrine\ORM\EntityRepository;
 use Symfony\Bridge\Doctrine\Form\Type\EntityType;
 use Symfony\Component\Form\AbstractType;
@@ -13,6 +14,7 @@ use Symfony\Component\Form\Extension\Core\Type\ChoiceType;
 use Symfony\Component\Form\Extension\Core\Type\HiddenType;
 use Symfony\Component\Form\Extension\Core\Type\NumberType;
 use Symfony\Component\Form\Extension\Core\Type\TextType;
+use Symfony\Component\Form\FormError;
 use Symfony\Component\Form\FormEvent;
 use Symfony\Component\Form\FormEvents;
 use Symfony\Component\Form\FormBuilderInterface;
@@ -56,6 +58,31 @@ class ProductType extends AbstractType
                 'scale' => 2,
                 'html5' => true,
                 'attr' => ['step' => '0.01'],
+            ])
+            ->add('purchasePrice', NumberType::class, [
+                'label' => 'Precio de compra',
+                'required' => false,
+                'scale' => 2,
+                'html5' => true,
+                'attr' => ['step' => '0.01'],
+                'help' => 'Costo',
+            ])
+            ->add('supplier', EntityType::class, [
+                'label' => 'Proveedor',
+                'class' => Supplier::class,
+                'choice_label' => 'name',
+                'placeholder' => 'Sin proveedor',
+                'required' => false,
+                'query_builder' => function (EntityRepository $er) use ($options) {
+                    return $er->createQueryBuilder('s')
+                        ->where('s.business = :business')
+                        ->setParameter('business', $options['current_business'])
+                        ->orderBy('s.name', 'ASC');
+                },
+            ])
+            ->add('supplierSku', TextType::class, [
+                'label' => 'Código proveedor',
+                'required' => false,
             ])
             ->add('uomBase', ChoiceType::class, [
                 'label' => 'Unidad de medida',
@@ -176,6 +203,20 @@ class ProductType extends AbstractType
             }
 
             $event->setData($data);
+        });
+
+        $builder->addEventListener(FormEvents::POST_SUBMIT, function (FormEvent $event) use ($options): void {
+            $product = $event->getData();
+
+            if (!$product instanceof Product) {
+                return;
+            }
+
+            $supplier = $product->getSupplier();
+            $business = $options['current_business'];
+            if ($supplier !== null && $business !== null && $supplier->getBusiness()?->getId() !== $business->getId()) {
+                $event->getForm()->get('supplier')->addError(new FormError('Proveedor inválido.'));
+            }
         });
     }
 

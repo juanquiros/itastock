@@ -1,0 +1,17 @@
+Hotfix: Proveedor en formulario de productos
+
+Problema resuelto
+- El administrador no podía asignar proveedor desde la UI del producto.
+
+Campos agregados
+- supplier (selector de proveedor)
+- supplierSku (código proveedor)
+- purchasePrice (precio de compra)
+
+Seguridad
+- El selector muestra solo proveedores del comercio actual.
+- Si se intenta enviar un proveedor de otro comercio, el formulario rechaza el cambio.
+
+Cambios aplicados
+- ProductType: se agregaron campos y validación.
+- templates/product/_form.html.twig: se mostraron los campos nuevos.
