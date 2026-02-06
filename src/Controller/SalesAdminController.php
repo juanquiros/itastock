@@ -129,6 +129,12 @@ class SalesAdminController extends AbstractController
             $errors[] = 'La fecha desde debe ser menor o igual a la fecha hasta.';
         }
 
+        if ($fromDate === null && $toDate === null && $errors === []) {
+            $today = new \DateTimeImmutable('today');
+            $fromDate = $today;
+            $toDate = $today;
+        }
+
         if ($fromDate === null || $toDate === null || $errors !== []) {
             return $this->render('sale/export.html.twig', [
                 'errors' => $errors,
