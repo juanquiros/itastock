@@ -55,6 +55,7 @@ class PurchaseOrderController extends AbstractController
         <form method="post" action="{{ path('app_purchase_order_generate') }}">
             <button class="btn btn-primary">Generar sugerencias</button>
         </form>
+        <a class="btn btn-outline-secondary" href="{{ path('app_purchase_order_new') }}">Nuevo pedido</a>
     </div>
 
     <div class="card shadow-sm">
@@ -98,6 +99,68 @@ TWIG;
 
         return new Response($this->twig->createTemplate($template)->render([
             'orders' => $orders,
+        ]));
+    }
+
+    #[Route('/new', name: 'new', methods: ['GET', 'POST'])]
+    public function new(Request $request): Response
+    {
+        $business = $this->requireBusinessContext();
+        $suppliers = $this->entityManager->getRepository(\App\Entity\Supplier::class)
+            ->findBy(['business' => $business, 'active' => true], ['name' => 'ASC']);
+
+        if ($request->isMethod('POST')) {
+            $supplierId = (int) $request->request->get('supplier_id');
+            $supplier = $this->entityManager->getRepository(\App\Entity\Supplier::class)->find($supplierId);
+            if ($supplier === null || $supplier->getBusiness()?->getId() !== $business->getId()) {
+                $this->addFlash('danger', 'Seleccioná un proveedor válido.');
+            } else {
+                $order = new PurchaseOrder();
+                $order->setBusiness($business);
+                $order->setSupplier($supplier);
+                $this->entityManager->persist($order);
+                $this->entityManager->flush();
+
+                return $this->redirectToRoute('app_purchase_order_edit', ['id' => $order->getId()]);
+            }
+        }
+
+        $template = <<<'TWIG'
+{% extends 'base.html.twig' %}
+
+{% block title %}Nuevo pedido · ItaStock{% endblock %}
+
+{% block body %}
+    <div class="mb-4">
+        <p class="text-uppercase text-muted mb-1 small fw-semibold">Administración</p>
+        <h1 class="h4 mb-0">Nuevo pedido a proveedor</h1>
+        <p class="text-secondary mb-0">Seleccioná el proveedor para empezar a cargar productos.</p>
+    </div>
+
+    <div class="card shadow-sm">
+        <div class="card-body">
+            <form method="post" class="row g-3">
+                <div class="col-md-6">
+                    <label class="form-label">Proveedor</label>
+                    <select class="form-select" name="supplier_id" required>
+                        <option value="">Seleccionar</option>
+                        {% for supplier in suppliers %}
+                            <option value="{{ supplier.id }}">{{ supplier.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-12 d-flex gap-2">
+                    <button class="btn btn-primary">Crear pedido</button>
+                    <a class="btn btn-outline-secondary" href="{{ path('app_purchase_order_index') }}">Volver</a>
+                </div>
+            </form>
+        </div>
+    </div>
+{% endblock %}
+TWIG;
+
+        return new Response($this->twig->createTemplate($template)->render([
+            'suppliers' => $suppliers,
         ]));
     }
 
