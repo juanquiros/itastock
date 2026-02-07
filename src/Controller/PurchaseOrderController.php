@@ -196,6 +196,11 @@ TWIG;
                     if (!is_array($row)) {
                         continue;
                     }
+                    if (!empty($row['remove'])) {
+                        $purchaseOrder->removeItem($item);
+                        $this->entityManager->remove($item);
+                        continue;
+                    }
                     $qty = (string) ($row['qty'] ?? '0');
                     if (bccomp($qty, '0', 3) <= 0) {
                         $purchaseOrder->removeItem($item);
@@ -309,6 +314,7 @@ TWIG;
                                 <th class="text-end">Cantidad</th>
                                 <th class="text-end">Costo unitario</th>
                                 <th class="text-end">Subtotal</th>
+                                <th class="text-center">Quitar</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -330,10 +336,17 @@ TWIG;
                                         {% endif %}
                                     </td>
                                     <td class="text-end">{{ item.subtotal }}</td>
+                                    <td class="text-center">
+                                        {% if order.status == 'DRAFT' %}
+                                            <input class="form-check-input" type="checkbox" name="items[{{ item.id }}][remove]" value="1">
+                                        {% else %}
+                                            -
+                                        {% endif %}
+                                    </td>
                                 </tr>
                             {% else %}
                                 <tr>
-                                    <td colspan="4" class="text-muted">No hay items en este pedido.</td>
+                                    <td colspan="5" class="text-muted">No hay items en este pedido.</td>
                                 </tr>
                             {% endfor %}
                         </tbody>
@@ -360,7 +373,10 @@ TWIG;
                         </div>
                         <p class="small text-muted mb-0 mt-2">Solo se permiten productos del mismo proveedor.</p>
                     </div>
-                    <button class="btn btn-primary">Guardar cambios</button>
+                    <div class="d-flex gap-2">
+                        <button class="btn btn-primary">Guardar cambios</button>
+                        <button class="btn btn-outline-primary" name="add_item" value="1">Agregar producto</button>
+                    </div>
                 {% endif %}
             </form>
             <div class="mt-3 text-end">
