@@ -399,19 +399,22 @@ TWIG;
             if (!input || !list || !hidden) {
                 return;
             }
-            const setHiddenFromList = () => {
-                const option = Array.from(list.options).find((opt) => opt.value === input.value);
+            const normalizeValue = (value) => value.trim().toLowerCase();
+            const setHiddenFromList = (value) => {
+                const currentValue = normalizeValue(value ?? input.value);
+                const option = Array.from(list.options).find((opt) => normalizeValue(opt.value) === currentValue);
                 hidden.value = option ? option.dataset.id : '';
             };
             const updateOptions = async (value) => {
                 const term = value.trim();
-                list.innerHTML = '';
                 if (term.length < 3) {
                     hidden.value = '';
+                    list.innerHTML = '';
                     return;
                 }
                 const response = await fetch(`${searchUrl}?term=${encodeURIComponent(term)}`);
                 const data = await response.json();
+                list.innerHTML = '';
                 data.items.forEach((product) => {
                     const option = document.createElement('option');
                     const label = `${product.name} · SKU ${product.sku}${product.supplierSku ? ' · Prov ' + product.supplierSku : ''}${product.barcode ? ' · Barras ' + product.barcode : ''}`;
@@ -419,13 +422,21 @@ TWIG;
                     option.dataset.id = product.id;
                     list.appendChild(option);
                 });
-                setHiddenFromList();
+                setHiddenFromList(term);
             };
             input.addEventListener('input', () => {
-                updateOptions(input.value);
+                const currentValue = input.value;
+                const matchingOption = Array.from(list.options).find(
+                    (opt) => normalizeValue(opt.value) === normalizeValue(currentValue),
+                );
+                if (matchingOption) {
+                    hidden.value = matchingOption.dataset.id;
+                    return;
+                }
+                updateOptions(currentValue);
             });
-            input.addEventListener('change', setHiddenFromList);
-            input.addEventListener('blur', setHiddenFromList);
+            input.addEventListener('change', () => setHiddenFromList());
+            input.addEventListener('blur', () => setHiddenFromList());
 
             let autosaveTimer;
             const scheduleAutosave = () => {
