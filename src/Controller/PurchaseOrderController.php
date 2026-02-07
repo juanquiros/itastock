@@ -538,7 +538,12 @@ TWIG;
                             if (removeInput) {
                                 removeInput.value = '1';
                             }
-                            row.remove();
+                            row.querySelectorAll('input').forEach((input) => {
+                                if (input !== removeInput) {
+                                    input.disabled = true;
+                                }
+                            });
+                            row.style.display = 'none';
                         }
                         scheduleAutosave();
                     }
