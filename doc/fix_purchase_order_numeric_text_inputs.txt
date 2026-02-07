@@ -1,0 +1,16 @@
+Sintoma
+- Guardar o agregar producto requerian blur o dos clics cuando qty/unitCost eran type=number.
+
+Cambio
+- Inputs de qty y unitCost pasaron a type=text con inputmode=decimal y sanitizacion al tipear.
+
+Normalizacion
+- Se elimina separador de miles y se usa el ultimo '.' o ',' como separador decimal, convirtiendo a '.'.
+
+Validacion backend
+- Solo se acepta float valido con regex ^\d+(\.\d+)?$; valores invalidos se rechazan.
+
+Pasos de prueba manual
+1) Editar qty y hacer click directo en Guardar (1 click).
+2) Editar unitCost y hacer click directo en Agregar producto (1 click).
+3) Probar "1.234,56" y "1,234.56" y verificar persistencia correcta.

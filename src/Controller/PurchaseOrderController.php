@@ -198,6 +198,14 @@ TWIG;
         if ($request->isMethod('POST')) {
             $isXmlHttpRequest = $request->isXmlHttpRequest();
             $purchaseOrder->setNotes($this->nullify($request->request->get('notes')));
+            $invalidNumberResponse = function () use ($isXmlHttpRequest, $purchaseOrder): Response {
+                if ($isXmlHttpRequest) {
+                    return new JsonResponse(['ok' => false, 'error' => 'invalid_number'], Response::HTTP_BAD_REQUEST);
+                }
+                $this->addFlash('danger', 'Cantidad o precio inválido.');
+
+                return $this->redirectToRoute('app_purchase_order_edit', ['id' => $purchaseOrder->getId()]);
+            };
 
             if ($purchaseOrder->getStatus() === PurchaseOrder::STATUS_DRAFT) {
                 $itemData = $request->request->all('items');
@@ -212,13 +220,25 @@ TWIG;
                         $this->entityManager->remove($item);
                         continue;
                     }
-                    $qty = (string) ($row['qty'] ?? '0');
+                    $qtyRaw = (string) ($row['qty'] ?? '');
+                    $qty = $this->normalizeDecimalString($qtyRaw);
+                    if ($qty === null || $qty === '' || !preg_match('/^\d+(\.\d+)?$/', $qty)) {
+                        return $invalidNumberResponse();
+                    }
                     if (bccomp($qty, '0', 3) <= 0) {
                         $purchaseOrder->removeItem($item);
                         $this->entityManager->remove($item);
                         continue;
                     }
-                    $unitCost = (string) ($row['unitCost'] ?? '0.00');
+                    $unitCostRaw = (string) ($row['unitCost'] ?? '');
+                    if (trim($unitCostRaw) === '') {
+                        $unitCost = '0.00';
+                    } else {
+                        $unitCost = $this->normalizeDecimalString($unitCostRaw);
+                        if ($unitCost === null || $unitCost === '' || !preg_match('/^\d+(\.\d+)?$/', $unitCost)) {
+                            return $invalidNumberResponse();
+                        }
+                    }
                     $item->setQuantity($qty);
                     $item->setUnitCost($unitCost);
                     $item->setSubtotal(bcmul($qty, $unitCost, 2));
@@ -230,8 +250,12 @@ TWIG;
                         continue;
                     }
                     $newProductId = (int) ($newItem['product_id'] ?? 0);
-                    $newQty = (string) ($newItem['qty'] ?? '0');
-                    if ($newProductId <= 0 || bccomp($newQty, '0', 3) <= 0) {
+                    $newQtyRaw = (string) ($newItem['qty'] ?? '');
+                    $newQty = $this->normalizeDecimalString($newQtyRaw);
+                    if ($newProductId <= 0 || $newQty === null || $newQty === '' || !preg_match('/^\d+(\.\d+)?$/', $newQty)) {
+                        return $invalidNumberResponse();
+                    }
+                    if (bccomp($newQty, '0', 3) <= 0) {
                         continue;
                     }
                     $product = $this->entityManager->getRepository(Product::class)->find($newProductId);
@@ -239,6 +263,13 @@ TWIG;
                         && $product->getBusiness()?->getId() === $business->getId()
                         && $product->getSupplier()?->getId() === $purchaseOrder->getSupplier()?->getId()) {
                         $unitCostInput = (string) ($newItem['unitCost'] ?? '');
+                        $unitCostNormalized = null;
+                        if (trim($unitCostInput) !== '') {
+                            $unitCostNormalized = $this->normalizeDecimalString($unitCostInput);
+                            if ($unitCostNormalized === null || $unitCostNormalized === '' || !preg_match('/^\d+(\.\d+)?$/', $unitCostNormalized)) {
+                                return $invalidNumberResponse();
+                            }
+                        }
                         $existingItem = null;
                         foreach ($purchaseOrder->getItems() as $currentItem) {
                             if ($currentItem->getProduct()?->getId() === $newProductId) {
@@ -248,7 +279,7 @@ TWIG;
                         }
                         if ($existingItem instanceof PurchaseOrderItem) {
                             $mergedQty = bcadd($existingItem->getQuantity(), $newQty, 3);
-                            $unitCost = $unitCostInput !== '' ? $unitCostInput : $existingItem->getUnitCost();
+                            $unitCost = $unitCostNormalized !== null ? $unitCostNormalized : $existingItem->getUnitCost();
                             $existingItem->setQuantity($mergedQty);
                             $existingItem->setUnitCost($unitCost);
                             $existingItem->setSubtotal(bcmul($mergedQty, $unitCost, 2));
@@ -256,7 +287,7 @@ TWIG;
                             $item = new PurchaseOrderItem();
                             $item->setProduct($product);
                             $item->setQuantity($newQty);
-                            $unitCost = $unitCostInput !== '' ? $unitCostInput : ($product->getPurchasePrice() ?? $product->getCost() ?? '0.00');
+                            $unitCost = $unitCostNormalized !== null ? $unitCostNormalized : ($product->getPurchasePrice() ?? $product->getCost() ?? '0.00');
                             $item->setUnitCost($unitCost);
                             $item->setSubtotal(bcmul($newQty, $unitCost, 2));
                             $purchaseOrder->addItem($item);
@@ -356,14 +387,14 @@ TWIG;
                                     <td>{{ item.product.name }}</td>
                                     <td class="text-end">
                                         {% if order.status == 'DRAFT' %}
-                                            <input class="form-control form-control-sm text-end" name="items[{{ item.id }}][qty]" value="{{ item.quantity }}">
+                                            <input class="form-control form-control-sm text-end" name="items[{{ item.id }}][qty]" value="{{ item.quantity }}" type="text" inputmode="decimal">
                                         {% else %}
                                             {{ item.quantity }}
                                         {% endif %}
                                     </td>
                                     <td class="text-end">
                                         {% if order.status == 'DRAFT' %}
-                                            <input class="form-control form-control-sm text-end" name="items[{{ item.id }}][unitCost]" value="{{ item.unitCost }}">
+                                            <input class="form-control form-control-sm text-end" name="items[{{ item.id }}][unitCost]" value="{{ item.unitCost }}" type="text" inputmode="decimal">
                                         {% else %}
                                             {{ item.unitCost }}
                                         {% endif %}
@@ -398,11 +429,11 @@ TWIG;
                             </div>
                             <div class="col-md-3">
                                 <label class="form-label">Cantidad</label>
-                                <input class="form-control form-control-sm" name="new_qty" type="number" step="0.001">
+                                <input class="form-control form-control-sm" name="new_qty" type="text" inputmode="decimal">
                             </div>
                             <div class="col-md-3">
                                 <label class="form-label">Costo unitario</label>
-                                <input class="form-control form-control-sm" name="new_unit_cost" type="number" step="0.01">
+                                <input class="form-control form-control-sm" name="new_unit_cost" type="text" inputmode="decimal">
                             </div>
                         </div>
                         <p class="small text-muted mb-0 mt-2">Solo se permiten productos del mismo proveedor.</p>
@@ -497,6 +528,38 @@ TWIG;
             let autosaveDirty = false;
             let autosaveInFlight = null;
             let finalSubmitRequested = false;
+            const normalizeDecimal = (value) => {
+                const raw = value === null || value === undefined ? '' : String(value).trim();
+                if (!raw) {
+                    return '';
+                }
+                const compact = raw.replace(/\s+/g, '');
+                const lastComma = compact.lastIndexOf(',');
+                const lastDot = compact.lastIndexOf('.');
+                const lastSeparator = Math.max(lastComma, lastDot);
+                if (lastSeparator === -1) {
+                    return compact.replace(/[^\d]/g, '');
+                }
+                const integerPart = compact.slice(0, lastSeparator).replace(/[^\d]/g, '');
+                const decimalPart = compact.slice(lastSeparator + 1).replace(/[^\d]/g, '');
+                return `${integerPart}.${decimalPart}`;
+            };
+            const normalizeAllNumericInputs = () => {
+                if (!form) {
+                    return;
+                }
+                const numericInputs = form.querySelectorAll('input[name$="[qty]"], input[name$="[unitCost]"], input[name="new_qty"], input[name="new_unit_cost"]');
+                numericInputs.forEach((input) => {
+                    const normalized = normalizeDecimal(input.value);
+                    input.value = normalized;
+                });
+            };
+            const sanitizeNumericInput = (input) => {
+                const cleanValue = input.value.replace(/[^0-9.,\s]/g, '');
+                if (cleanValue !== input.value) {
+                    input.value = cleanValue;
+                }
+            };
             const setControlsDisabled = (disabled) => {
                 if (saveButton) {
                     saveButton.disabled = disabled;
@@ -515,6 +578,7 @@ TWIG;
                 if (!form) {
                     return Promise.resolve();
                 }
+                normalizeAllNumericInputs();
                 if (!force && !autosaveDirty) {
                     return Promise.resolve();
                 }
@@ -579,6 +643,9 @@ TWIG;
             };
 
             if (addButton && tableBody) {
+                addButton.addEventListener('mousedown', () => {
+                    normalizeAllNumericInputs();
+                });
                 addButton.addEventListener('click', async () => {
                     setHiddenFromList();
                     await saveOrder(true);
@@ -606,8 +673,8 @@ TWIG;
                     row.dataset.newItem = 'true';
                     row.innerHTML = `
                         <td>${label}<input type="hidden" name="new_items[${newIndex}][product_id]" value="${productId}"></td>
-                        <td class="text-end"><input class="form-control form-control-sm text-end" name="new_items[${newIndex}][qty]" value="${qty}"></td>
-                        <td class="text-end"><input class="form-control form-control-sm text-end" name="new_items[${newIndex}][unitCost]" value="${unitCost}"></td>
+                        <td class="text-end"><input class="form-control form-control-sm text-end" name="new_items[${newIndex}][qty]" value="${qty}" type="text" inputmode="decimal"></td>
+                        <td class="text-end"><input class="form-control form-control-sm text-end" name="new_items[${newIndex}][unitCost]" value="${unitCost}" type="text" inputmode="decimal"></td>
                         <td class="text-end">-</td>
                         <td class="text-center"><button class="btn btn-link text-danger p-0" type="button" data-action="remove-new">Quitar</button></td>
                     `;
@@ -658,6 +725,11 @@ TWIG;
             }
 
             if (form) {
+                if (saveButton) {
+                    saveButton.addEventListener('mousedown', () => {
+                        normalizeAllNumericInputs();
+                    });
+                }
                 form.addEventListener('submit', (event) => {
                     if (finalSubmitRequested) {
                         finalSubmitRequested = false;
@@ -685,6 +757,7 @@ TWIG;
                         return;
                     }
                     if (event.target && event.target.matches('input[name$=\"[qty]\"], input[name$=\"[unitCost]\"], input[name=\"new_qty\"], input[name=\"new_unit_cost\"]')) {
+                        sanitizeNumericInput(event.target);
                         scheduleAutosave(300);
                     }
                 });
@@ -883,5 +956,33 @@ TWIG;
         $value = is_string($value) ? trim($value) : null;
 
         return $value === '' ? null : $value;
+    }
+
+    private function normalizeDecimalString(?string $value): ?string
+    {
+        if ($value === null) {
+            return null;
+        }
+        $normalized = trim($value);
+        if ($normalized === '') {
+            return null;
+        }
+        $normalized = preg_replace('/\s+/', '', $normalized);
+        $normalized = preg_replace('/[^\d\.,]/', '', $normalized);
+        if ($normalized === '') {
+            return null;
+        }
+        $lastComma = strrpos($normalized, ',');
+        $lastDot = strrpos($normalized, '.');
+        $lastSeparator = max($lastComma !== false ? $lastComma : -1, $lastDot !== false ? $lastDot : -1);
+        if ($lastSeparator === -1) {
+            return preg_replace('/[^\d]/', '', $normalized);
+        }
+        $integerPart = substr($normalized, 0, $lastSeparator);
+        $decimalPart = substr($normalized, $lastSeparator + 1);
+        $integerPart = preg_replace('/[^\d]/', '', $integerPart);
+        $decimalPart = preg_replace('/[^\d]/', '', $decimalPart);
+
+        return $integerPart . '.' . $decimalPart;
     }
 }
