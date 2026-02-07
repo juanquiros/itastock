@@ -44,6 +44,9 @@ class PurchaseOrder
     #[ORM\Column(type: 'datetime_immutable', nullable: true)]
     private ?\DateTimeImmutable $emailSentAt = null;
 
+    #[ORM\Column(type: 'datetime_immutable', nullable: true)]
+    private ?\DateTimeImmutable $emailFailedAt = null;
+
     /** @var Collection<int, PurchaseOrderItem> */
     #[ORM\OneToMany(mappedBy: 'purchaseOrder', targetEntity: PurchaseOrderItem::class, orphanRemoval: true, cascade: ['persist'])]
     private Collection $items;
@@ -128,6 +131,18 @@ class PurchaseOrder
     public function setEmailSentAt(?\DateTimeImmutable $emailSentAt): self
     {
         $this->emailSentAt = $emailSentAt;
+
+        return $this;
+    }
+
+    public function getEmailFailedAt(): ?\DateTimeImmutable
+    {
+        return $this->emailFailedAt;
+    }
+
+    public function setEmailFailedAt(?\DateTimeImmutable $emailFailedAt): self
+    {
+        $this->emailFailedAt = $emailFailedAt;
 
         return $this;
     }

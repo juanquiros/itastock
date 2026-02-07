@@ -5,7 +5,7 @@ Implementación
 Uso
 - En la pantalla de edición del pedido, si el estado es CONFIRMED aparece el botón "Enviar por email".
 - Al hacer click se envía el correo al email del proveedor.
-- En el listado de pedidos se muestra el estado de email (Enviado/Pendiente) según si se registró el envío.
+- En el listado de pedidos se muestra el estado de email (Enviado/Error) según el resultado del envío.
 
 Contenido del email (sin precios)
 - Encabezado con Pedido #ID y fecha de generación.

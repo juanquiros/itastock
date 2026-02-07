@@ -85,8 +85,8 @@ class PurchaseOrderController extends AbstractController
                                 <td>
                                     {% if order.emailSentAt %}
                                         <span class="badge bg-success">Enviado</span>
-                                    {% else %}
-                                        <span class="badge bg-light text-dark">Pendiente</span>
+                                    {% elseif order.emailFailedAt %}
+                                        <span class="badge bg-danger">Error</span>
                                     {% endif %}
                                 </td>
                                 <td>{{ order.createdAt|date('d/m/Y H:i') }}</td>
@@ -680,12 +680,15 @@ TWIG;
         $result = $supplierEmailService->send($purchaseOrder);
 
         if (!$result['sent']) {
+            $purchaseOrder->setEmailFailedAt(new \DateTimeImmutable());
+            $this->entityManager->flush();
             $this->addFlash('danger', 'No se pudo enviar el email al proveedor.');
 
             return $this->redirectToRoute('app_purchase_order_edit', ['id' => $purchaseOrder->getId()]);
         }
 
         $purchaseOrder->setEmailSentAt(new \DateTimeImmutable());
+        $purchaseOrder->setEmailFailedAt(null);
         $this->entityManager->flush();
         $this->addFlash('success', 'Email enviado al proveedor.');
 
