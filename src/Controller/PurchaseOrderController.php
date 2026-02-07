@@ -300,7 +300,7 @@ TWIG;
     <div class="card shadow-sm mb-4">
         <div class="card-body">
             <h2 class="h6 fw-semibold">Detalle del pedido</h2>
-            <form method="post" class="vstack gap-3">
+            <form method="post" class="vstack gap-3" id="purchase-order-form">
                 <div>
                     <label class="form-label">Notas</label>
                     <textarea class="form-control" name="notes" rows="2">{{ order.notes }}</textarea>
@@ -376,6 +376,7 @@ TWIG;
                         <button class="btn btn-primary">Guardar cambios</button>
                         <button class="btn btn-outline-primary" type="button" data-action="add-item">Agregar producto</button>
                     </div>
+                    <p class="small text-muted mb-0" id="autosave-status"></p>
                 {% endif %}
             </form>
             <div class="mt-3 text-end">
@@ -392,6 +393,8 @@ TWIG;
             const searchUrl = "{{ path('app_purchase_order_products', {id: order.id}) }}";
             const addButton = document.querySelector('[data-action=\"add-item\"]');
             const tableBody = document.querySelector('table.table tbody');
+            const form = document.getElementById('purchase-order-form');
+            const autosaveStatus = document.getElementById('autosave-status');
             let newIndex = 0;
             if (!input || !list || !hidden) {
                 return;
@@ -423,6 +426,36 @@ TWIG;
             });
             input.addEventListener('change', setHiddenFromList);
             input.addEventListener('blur', setHiddenFromList);
+
+            let autosaveTimer;
+            const scheduleAutosave = () => {
+                if (!form) {
+                    return;
+                }
+                if (autosaveStatus) {
+                    autosaveStatus.textContent = 'Guardando cambios...';
+                }
+                if (autosaveTimer) {
+                    clearTimeout(autosaveTimer);
+                }
+                autosaveTimer = setTimeout(async () => {
+                    const formData = new FormData(form);
+                    try {
+                        await fetch(form.action || window.location.href, {
+                            method: 'POST',
+                            body: formData,
+                            headers: {'X-Requested-With': 'XMLHttpRequest'},
+                        });
+                        if (autosaveStatus) {
+                            autosaveStatus.textContent = 'Cambios guardados.';
+                        }
+                    } catch (error) {
+                        if (autosaveStatus) {
+                            autosaveStatus.textContent = 'No se pudieron guardar los cambios.';
+                        }
+                    }
+                }, 1200);
+            };
 
             if (addButton && tableBody) {
                 addButton.addEventListener('click', () => {
@@ -462,6 +495,7 @@ TWIG;
                     hidden.value = '';
                     if (qtyInput) qtyInput.value = '';
                     if (unitCostInput) unitCostInput.value = '';
+                    scheduleAutosave();
                 });
 
                 tableBody.addEventListener('click', (event) => {
@@ -472,7 +506,17 @@ TWIG;
                         if (row) {
                             row.remove();
                         }
+                        scheduleAutosave();
                     }
+                });
+            }
+
+            if (form) {
+                form.addEventListener('change', (event) => {
+                    if (event.target && event.target.closest('[data-action=\"add-item\"]')) {
+                        return;
+                    }
+                    scheduleAutosave();
                 });
             }
         })();
