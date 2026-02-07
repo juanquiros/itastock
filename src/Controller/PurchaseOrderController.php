@@ -214,40 +214,24 @@ TWIG;
                     $item->setSubtotal(bcmul($qty, $unitCost, 2));
                 }
 
-                $newProductId = (int) $request->request->get('new_product_id');
-                $newQty = (string) $request->request->get('new_qty');
-                $newSearch = trim((string) $request->request->get('new_product_search'));
-                $product = null;
-
-                if ($newProductId > 0) {
-                    $product = $this->entityManager->getRepository(Product::class)->find($newProductId);
-                } elseif ($newSearch !== '' && mb_strlen($newSearch) >= 3) {
-                    $matches = $this->entityManager->getRepository(Product::class)->createQueryBuilder('p')
-                        ->andWhere('p.business = :business')
-                        ->andWhere('p.supplier = :supplier')
-                        ->andWhere('p.name = :term OR p.sku = :term OR p.supplierSku = :term OR p.barcode = :term')
-                        ->setParameter('business', $business)
-                        ->setParameter('supplier', $purchaseOrder->getSupplier())
-                        ->setParameter('term', $newSearch)
-                        ->setMaxResults(2)
-                        ->getQuery()
-                        ->getResult();
-
-                    if (count($matches) === 1) {
-                        $product = $matches[0];
-                    } elseif (count($matches) > 1) {
-                        $this->addFlash('warning', 'Se encontraron varios productos con ese texto, elegí uno de la lista sugerida.');
+                $newItems = $request->request->all('new_items');
+                foreach ($newItems as $newItem) {
+                    if (!is_array($newItem)) {
+                        continue;
                     }
-                }
-
-                if ($product instanceof Product && bccomp($newQty, '0', 3) > 0) {
+                    $newProductId = (int) ($newItem['product_id'] ?? 0);
+                    $newQty = (string) ($newItem['qty'] ?? '0');
+                    if ($newProductId <= 0 || bccomp($newQty, '0', 3) <= 0) {
+                        continue;
+                    }
+                    $product = $this->entityManager->getRepository(Product::class)->find($newProductId);
                     if ($product instanceof Product
                         && $product->getBusiness()?->getId() === $business->getId()
                         && $product->getSupplier()?->getId() === $purchaseOrder->getSupplier()?->getId()) {
                         $item = new PurchaseOrderItem();
                         $item->setProduct($product);
                         $item->setQuantity($newQty);
-                        $unitCostInput = (string) $request->request->get('new_unit_cost');
+                        $unitCostInput = (string) ($newItem['unitCost'] ?? '');
                         $unitCost = $unitCostInput !== '' ? $unitCostInput : ($product->getPurchasePrice() ?? $product->getCost() ?? '0.00');
                         $item->setUnitCost($unitCost);
                         $item->setSubtotal(bcmul($newQty, $unitCost, 2));
@@ -390,7 +374,7 @@ TWIG;
                     </div>
                     <div class="d-flex gap-2">
                         <button class="btn btn-primary">Guardar cambios</button>
-                        <button class="btn btn-outline-primary" name="add_item" value="1">Agregar producto</button>
+                        <button class="btn btn-outline-primary" type="button" data-action="add-item">Agregar producto</button>
                     </div>
                 {% endif %}
             </form>
@@ -406,6 +390,9 @@ TWIG;
             const hidden = document.querySelector('[name=\"new_product_id\"]');
             const list = document.getElementById('supplier-products');
             const searchUrl = "{{ path('app_purchase_order_products', {id: order.id}) }}";
+            const addButton = document.querySelector('[data-action=\"add-item\"]');
+            const tableBody = document.querySelector('table.table tbody');
+            let newIndex = 0;
             if (!input || !list || !hidden) {
                 return;
             }
@@ -436,6 +423,58 @@ TWIG;
             });
             input.addEventListener('change', setHiddenFromList);
             input.addEventListener('blur', setHiddenFromList);
+
+            if (addButton && tableBody) {
+                addButton.addEventListener('click', () => {
+                    setHiddenFromList();
+                    const productId = hidden.value;
+                    const label = input.value.trim();
+                    const qtyInput = document.querySelector('[name=\"new_qty\"]');
+                    const unitCostInput = document.querySelector('[name=\"new_unit_cost\"]');
+                    const qty = qtyInput ? qtyInput.value.trim() : '';
+                    const unitCost = unitCostInput ? unitCostInput.value.trim() : '';
+
+                    if (!productId) {
+                        alert('Seleccioná un producto de la lista sugerida.');
+                        return;
+                    }
+                    if (!qty || parseFloat(qty) <= 0) {
+                        alert('Ingresá una cantidad válida.');
+                        return;
+                    }
+
+                    const emptyRow = tableBody.querySelector('tr td[colspan]');
+                    if (emptyRow) {
+                        emptyRow.closest('tr').remove();
+                    }
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td>${label}<input type="hidden" name="new_items[${newIndex}][product_id]" value="${productId}"></td>
+                        <td class="text-end"><input class="form-control form-control-sm text-end" name="new_items[${newIndex}][qty]" value="${qty}"></td>
+                        <td class="text-end"><input class="form-control form-control-sm text-end" name="new_items[${newIndex}][unitCost]" value="${unitCost}"></td>
+                        <td class="text-end">-</td>
+                        <td class="text-center"><button class="btn btn-link text-danger p-0" type="button" data-action="remove-new">Quitar</button></td>
+                    `;
+                    tableBody.appendChild(row);
+                    newIndex += 1;
+
+                    input.value = '';
+                    hidden.value = '';
+                    if (qtyInput) qtyInput.value = '';
+                    if (unitCostInput) unitCostInput.value = '';
+                });
+
+                tableBody.addEventListener('click', (event) => {
+                    const target = event.target;
+                    if (target && target.matches('[data-action=\"remove-new\"]')) {
+                        event.preventDefault();
+                        const row = target.closest('tr');
+                        if (row) {
+                            row.remove();
+                        }
+                    }
+                });
+            }
         })();
     </script>
 {% endblock %}
