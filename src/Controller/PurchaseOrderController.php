@@ -439,6 +439,7 @@ TWIG;
             input.addEventListener('blur', () => setHiddenFromList());
 
             let autosaveTimer;
+            let autosaveNeedsReload = false;
             const scheduleAutosave = () => {
                 if (!form) {
                     return;
@@ -457,6 +458,10 @@ TWIG;
                             body: formData,
                             headers: {'X-Requested-With': 'XMLHttpRequest'},
                         });
+                        if (autosaveNeedsReload) {
+                            window.location.reload();
+                            return;
+                        }
                         if (autosaveStatus) {
                             autosaveStatus.textContent = 'Cambios guardados.';
                         }
@@ -492,6 +497,7 @@ TWIG;
                         emptyRow.closest('tr').remove();
                     }
                     const row = document.createElement('tr');
+                    row.dataset.newItem = 'true';
                     row.innerHTML = `
                         <td>${label}<input type="hidden" name="new_items[${newIndex}][product_id]" value="${productId}"></td>
                         <td class="text-end"><input class="form-control form-control-sm text-end" name="new_items[${newIndex}][qty]" value="${qty}"></td>
@@ -501,6 +507,7 @@ TWIG;
                     `;
                     tableBody.appendChild(row);
                     newIndex += 1;
+                    autosaveNeedsReload = true;
 
                     input.value = '';
                     hidden.value = '';
@@ -517,6 +524,7 @@ TWIG;
                         if (row) {
                             row.remove();
                         }
+                        autosaveNeedsReload = true;
                         scheduleAutosave();
                     }
                 });
