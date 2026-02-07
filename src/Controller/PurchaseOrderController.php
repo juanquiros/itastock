@@ -14,6 +14,7 @@ use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpFoundation\StreamedResponse;
+use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\Routing\Annotation\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 use Twig\Environment;
@@ -215,8 +216,31 @@ TWIG;
 
                 $newProductId = (int) $request->request->get('new_product_id');
                 $newQty = (string) $request->request->get('new_qty');
-                if ($newProductId > 0 && bccomp($newQty, '0', 3) > 0) {
+                $newSearch = trim((string) $request->request->get('new_product_search'));
+                $product = null;
+
+                if ($newProductId > 0) {
                     $product = $this->entityManager->getRepository(Product::class)->find($newProductId);
+                } elseif ($newSearch !== '' && mb_strlen($newSearch) >= 3) {
+                    $matches = $this->entityManager->getRepository(Product::class)->createQueryBuilder('p')
+                        ->andWhere('p.business = :business')
+                        ->andWhere('p.supplier = :supplier')
+                        ->andWhere('p.name = :term OR p.sku = :term OR p.supplierSku = :term OR p.barcode = :term')
+                        ->setParameter('business', $business)
+                        ->setParameter('supplier', $purchaseOrder->getSupplier())
+                        ->setParameter('term', $newSearch)
+                        ->setMaxResults(2)
+                        ->getQuery()
+                        ->getResult();
+
+                    if (count($matches) === 1) {
+                        $product = $matches[0];
+                    } elseif (count($matches) > 1) {
+                        $this->addFlash('warning', 'Se encontraron varios productos con ese texto, elegí uno de la lista sugerida.');
+                    }
+                }
+
+                if ($product instanceof Product && bccomp($newQty, '0', 3) > 0) {
                     if ($product instanceof Product
                         && $product->getBusiness()?->getId() === $business->getId()
                         && $product->getSupplier()?->getId() === $purchaseOrder->getSupplier()?->getId()) {
@@ -239,15 +263,6 @@ TWIG;
 
             return $this->redirectToRoute('app_purchase_order_edit', ['id' => $purchaseOrder->getId()]);
         }
-
-        $products = $this->entityManager->getRepository(Product::class)->createQueryBuilder('p')
-            ->andWhere('p.business = :business')
-            ->andWhere('p.supplier = :supplier')
-            ->setParameter('business', $business)
-            ->setParameter('supplier', $purchaseOrder->getSupplier())
-            ->orderBy('p.name', 'ASC')
-            ->getQuery()
-            ->getResult();
 
         $orderTotal = '0.00';
         foreach ($purchaseOrder->getItems() as $item) {
@@ -387,33 +402,40 @@ TWIG;
     </div>
     <script>
         (function () {
-            const products = {{ products|json_encode|raw }};
             const input = document.querySelector('[name=\"new_product_search\"]');
             const hidden = document.querySelector('[name=\"new_product_id\"]');
             const list = document.getElementById('supplier-products');
+            const searchUrl = "{{ path('app_purchase_order_products', {id: order.id}) }}";
             if (!input || !list || !hidden) {
                 return;
             }
-            const updateOptions = (value) => {
-                const term = value.toLowerCase();
+            const setHiddenFromList = () => {
+                const option = Array.from(list.options).find((opt) => opt.value === input.value);
+                hidden.value = option ? option.dataset.id : '';
+            };
+            const updateOptions = async (value) => {
+                const term = value.trim();
                 list.innerHTML = '';
-                const matches = products.filter((product) => {
-                    const haystack = `${product.name} ${product.sku} ${product.supplierSku ?? ''} ${product.barcode ?? ''}`.toLowerCase();
-                    return haystack.includes(term);
-                }).slice(0, 20);
-                matches.forEach((product) => {
+                if (term.length < 3) {
+                    hidden.value = '';
+                    return;
+                }
+                const response = await fetch(`${searchUrl}?term=${encodeURIComponent(term)}`);
+                const data = await response.json();
+                data.items.forEach((product) => {
                     const option = document.createElement('option');
                     const label = `${product.name} · SKU ${product.sku}${product.supplierSku ? ' · Prov ' + product.supplierSku : ''}${product.barcode ? ' · Barras ' + product.barcode : ''}`;
                     option.value = label;
                     option.dataset.id = product.id;
                     list.appendChild(option);
                 });
+                setHiddenFromList();
             };
             input.addEventListener('input', () => {
                 updateOptions(input.value);
-                const option = Array.from(list.options).find((opt) => opt.value === input.value);
-                hidden.value = option ? option.dataset.id : '';
             });
+            input.addEventListener('change', setHiddenFromList);
+            input.addEventListener('blur', setHiddenFromList);
         })();
     </script>
 {% endblock %}
@@ -421,15 +443,42 @@ TWIG;
 
         return new Response($this->twig->createTemplate($template)->render([
             'order' => $purchaseOrder,
-            'products' => array_map(static fn (Product $product) => [
+            'orderTotal' => $orderTotal,
+        ]));
+    }
+
+    #[Route('/{id}/products', name: 'products', requirements: ['id' => '\\d+'], methods: ['GET'])]
+    public function products(Request $request, PurchaseOrder $purchaseOrder): JsonResponse
+    {
+        $business = $this->requireBusinessContext();
+        $this->denyIfDifferentBusiness($purchaseOrder, $business);
+
+        $term = trim((string) $request->query->get('term'));
+        if (mb_strlen($term) < 3) {
+            return new JsonResponse(['items' => []]);
+        }
+
+        $qb = $this->entityManager->getRepository(Product::class)->createQueryBuilder('p')
+            ->andWhere('p.business = :business')
+            ->andWhere('p.supplier = :supplier')
+            ->andWhere('p.name LIKE :term OR p.sku LIKE :term OR p.supplierSku LIKE :term OR p.barcode LIKE :term')
+            ->setParameter('business', $business)
+            ->setParameter('supplier', $purchaseOrder->getSupplier())
+            ->setParameter('term', '%'.$term.'%')
+            ->orderBy('p.name', 'ASC')
+            ->setMaxResults(20);
+
+        $products = $qb->getQuery()->getResult();
+
+        return new JsonResponse([
+            'items' => array_map(static fn (Product $product) => [
                 'id' => $product->getId(),
                 'name' => $product->getName(),
                 'sku' => $product->getSku(),
                 'supplierSku' => $product->getSupplierSku(),
                 'barcode' => $product->getBarcode(),
             ], $products),
-            'orderTotal' => $orderTotal,
-        ]));
+        ]);
     }
 
     #[Route('/{id}/confirm', name: 'confirm', requirements: ['id' => '\\d+'], methods: ['POST'])]
