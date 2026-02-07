@@ -1,0 +1,14 @@
+Sintoma
+- Con foco en Cantidad/Costo del bloque Agregar producto, el boton Agregar producto requería dos clics.
+
+Causa
+- Los inputs type=number no comitean el valor hasta blur.
+
+Solucion
+- new_qty y new_unit_cost pasaron a text con inputmode=decimal, sanitizacion al tipear y normalizacion antes de usar.
+- Backend valida floats normalizados con la regla del ultimo separador.
+
+Como probar
+1) Escribir cantidad y hacer click directo en Agregar producto (1 click).
+2) Escribir costo unitario y hacer click directo en Agregar producto (1 click).
+3) Probar 1.234,56 y 1,234.56 y verificar persistencia correcta.

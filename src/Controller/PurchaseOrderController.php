@@ -387,14 +387,14 @@ TWIG;
                                     <td>{{ item.product.name }}</td>
                                     <td class="text-end">
                                         {% if order.status == 'DRAFT' %}
-                                            <input class="form-control form-control-sm text-end" name="items[{{ item.id }}][qty]" value="{{ item.quantity }}" type="text" inputmode="decimal">
+                                            <input class="form-control form-control-sm text-end" name="items[{{ item.id }}][qty]" value="{{ item.quantity }}">
                                         {% else %}
                                             {{ item.quantity }}
                                         {% endif %}
                                     </td>
                                     <td class="text-end">
                                         {% if order.status == 'DRAFT' %}
-                                            <input class="form-control form-control-sm text-end" name="items[{{ item.id }}][unitCost]" value="{{ item.unitCost }}" type="text" inputmode="decimal">
+                                            <input class="form-control form-control-sm text-end" name="items[{{ item.id }}][unitCost]" value="{{ item.unitCost }}">
                                         {% else %}
                                             {{ item.unitCost }}
                                         {% endif %}
@@ -429,11 +429,11 @@ TWIG;
                             </div>
                             <div class="col-md-3">
                                 <label class="form-label">Cantidad</label>
-                                <input class="form-control form-control-sm" name="new_qty" type="text" inputmode="decimal">
+                                <input class="form-control form-control-sm" name="new_qty" type="text" inputmode="decimal" autocomplete="off">
                             </div>
                             <div class="col-md-3">
                                 <label class="form-label">Costo unitario</label>
-                                <input class="form-control form-control-sm" name="new_unit_cost" type="text" inputmode="decimal">
+                                <input class="form-control form-control-sm" name="new_unit_cost" type="text" inputmode="decimal" autocomplete="off">
                             </div>
                         </div>
                         <p class="small text-muted mb-0 mt-2">Solo se permiten productos del mismo proveedor.</p>
@@ -542,17 +542,20 @@ TWIG;
                 }
                 const integerPart = compact.slice(0, lastSeparator).replace(/[^\d]/g, '');
                 const decimalPart = compact.slice(lastSeparator + 1).replace(/[^\d]/g, '');
+                if (decimalPart === '') {
+                    return integerPart;
+                }
                 return `${integerPart}.${decimalPart}`;
             };
-            const normalizeAllNumericInputs = () => {
-                if (!form) {
-                    return;
+            const normalizeNewItemInputs = () => {
+                const qtyInput = document.querySelector('[name="new_qty"]');
+                const unitCostInput = document.querySelector('[name="new_unit_cost"]');
+                if (qtyInput) {
+                    qtyInput.value = normalizeDecimal(qtyInput.value);
                 }
-                const numericInputs = form.querySelectorAll('input[name$="[qty]"], input[name$="[unitCost]"], input[name="new_qty"], input[name="new_unit_cost"]');
-                numericInputs.forEach((input) => {
-                    const normalized = normalizeDecimal(input.value);
-                    input.value = normalized;
-                });
+                if (unitCostInput) {
+                    unitCostInput.value = normalizeDecimal(unitCostInput.value);
+                }
             };
             const sanitizeNumericInput = (input) => {
                 const cleanValue = input.value.replace(/[^0-9.,\s]/g, '');
@@ -578,7 +581,6 @@ TWIG;
                 if (!form) {
                     return Promise.resolve();
                 }
-                normalizeAllNumericInputs();
                 if (!force && !autosaveDirty) {
                     return Promise.resolve();
                 }
@@ -643,12 +645,9 @@ TWIG;
             };
 
             if (addButton && tableBody) {
-                addButton.addEventListener('mousedown', () => {
-                    normalizeAllNumericInputs();
-                });
                 addButton.addEventListener('click', async () => {
                     setHiddenFromList();
-                    await saveOrder(true);
+                    normalizeNewItemInputs();
                     const productId = hidden.value;
                     const label = input.value.trim();
                     const qtyInput = document.querySelector('[name=\"new_qty\"]');
@@ -664,6 +663,7 @@ TWIG;
                         alert('Ingresá una cantidad válida.');
                         return;
                     }
+                    await saveOrder(true);
 
                     const emptyRow = tableBody.querySelector('tr td[colspan]');
                     if (emptyRow) {
@@ -673,8 +673,8 @@ TWIG;
                     row.dataset.newItem = 'true';
                     row.innerHTML = `
                         <td>${label}<input type="hidden" name="new_items[${newIndex}][product_id]" value="${productId}"></td>
-                        <td class="text-end"><input class="form-control form-control-sm text-end" name="new_items[${newIndex}][qty]" value="${qty}" type="text" inputmode="decimal"></td>
-                        <td class="text-end"><input class="form-control form-control-sm text-end" name="new_items[${newIndex}][unitCost]" value="${unitCost}" type="text" inputmode="decimal"></td>
+                        <td class="text-end"><input class="form-control form-control-sm text-end" name="new_items[${newIndex}][qty]" value="${qty}" type="text" inputmode="decimal" autocomplete="off"></td>
+                        <td class="text-end"><input class="form-control form-control-sm text-end" name="new_items[${newIndex}][unitCost]" value="${unitCost}" type="text" inputmode="decimal" autocomplete="off"></td>
                         <td class="text-end">-</td>
                         <td class="text-center"><button class="btn btn-link text-danger p-0" type="button" data-action="remove-new">Quitar</button></td>
                     `;
@@ -725,11 +725,6 @@ TWIG;
             }
 
             if (form) {
-                if (saveButton) {
-                    saveButton.addEventListener('mousedown', () => {
-                        normalizeAllNumericInputs();
-                    });
-                }
                 form.addEventListener('submit', (event) => {
                     if (finalSubmitRequested) {
                         finalSubmitRequested = false;
@@ -756,10 +751,12 @@ TWIG;
                     if (event.target && event.target.closest('[data-action=\"add-item\"]')) {
                         return;
                     }
-                    if (event.target && event.target.matches('input[name$=\"[qty]\"], input[name$=\"[unitCost]\"], input[name=\"new_qty\"], input[name=\"new_unit_cost\"]')) {
+                    if (event.target && event.target.matches('input[name=\"new_qty\"], input[name=\"new_unit_cost\"]')) {
                         sanitizeNumericInput(event.target);
                         scheduleAutosave(300);
+                        return;
                     }
+                    scheduleAutosave(300);
                 });
                 form.addEventListener('change', (event) => {
                     if (event.target && event.target.closest('[data-action=\"add-item\"]')) {
@@ -771,9 +768,12 @@ TWIG;
                     if (event.target && event.target.closest('[data-action=\"add-item\"]')) {
                         return;
                     }
-                    if (event.target && event.target.matches('input[name$=\"[qty]\"], input[name$=\"[unitCost]\"], input[name=\"new_qty\"], input[name=\"new_unit_cost\"]')) {
+                    if (event.target && event.target.matches('input[name=\"new_qty\"], input[name=\"new_unit_cost\"]')) {
+                        normalizeNewItemInputs();
                         saveOrder(false);
+                        return;
                     }
+                    saveOrder(false);
                 }, true);
             }
         })();
@@ -982,6 +982,9 @@ TWIG;
         $decimalPart = substr($normalized, $lastSeparator + 1);
         $integerPart = preg_replace('/[^\d]/', '', $integerPart);
         $decimalPart = preg_replace('/[^\d]/', '', $decimalPart);
+        if ($decimalPart === '') {
+            return $integerPart;
+        }
 
         return $integerPart . '.' . $decimalPart;
     }
