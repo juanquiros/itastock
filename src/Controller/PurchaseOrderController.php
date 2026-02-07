@@ -496,6 +496,7 @@ TWIG;
             let autosaveNeedsReload = false;
             let autosaveDirty = false;
             let autosaveInFlight = null;
+            let finalSubmitRequested = false;
             const setControlsDisabled = (disabled) => {
                 if (saveButton) {
                     saveButton.disabled = disabled;
@@ -658,9 +659,21 @@ TWIG;
 
             if (form) {
                 form.addEventListener('submit', (event) => {
+                    if (finalSubmitRequested) {
+                        finalSubmitRequested = false;
+                        if (saveButton) {
+                            saveButton.disabled = true;
+                        }
+                        return;
+                    }
                     if (autosaveTimer || autosaveNeedsReload || autosaveDirty || autosaveInFlight) {
                         event.preventDefault();
-                        saveOrder(true);
+                        Promise.resolve(autosaveInFlight)
+                            .then(() => saveOrder(true))
+                            .then(() => {
+                                finalSubmitRequested = true;
+                                form.submit();
+                            });
                         return;
                     }
                     if (saveButton) {

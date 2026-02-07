@@ -1,0 +1,13 @@
+Sintoma
+- Editar qty/unitCost y hacer click en "Guardar" requeria dos clics.
+
+Causa
+- El submit prevenia el envio y solo disparaba autosave, sin reintentar el submit luego.
+
+Solucion aplicada
+- Se agrego la bandera finalSubmitRequested y se dispara form.submit() tras completar autosave.
+
+Como probar
+1) Editar cantidad o costo unitario y hacer click en "Guardar".
+2) Verificar que guarda y redirige en el primer click.
+3) Confirmar que el autosave sigue funcionando sin recargar la pagina.
