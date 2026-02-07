@@ -383,6 +383,10 @@ TWIG;
                         <span class="spinner-border spinner-border-sm text-secondary d-none" id="autosave-spinner" role="status" aria-hidden="true"></span>
                     </div>
                     <p class="small text-muted mb-0" id="autosave-status"></p>
+                {% else %}
+                    <div class="d-flex gap-2 align-items-center">
+                        <button class="btn btn-outline-primary">Guardar notas</button>
+                    </div>
                 {% endif %}
             </form>
             <div class="mt-3 text-end">
