@@ -31,4 +31,20 @@ class PdfService
             'Content-Disposition' => sprintf('attachment; filename="%s"', $filename),
         ]);
     }
+
+    public function generateBytes(string $template, array $context): string
+    {
+        $html = $this->twig->render($template, $context);
+
+        $options = new Options();
+        $options->set('defaultFont', 'Inter');
+        $options->set('isRemoteEnabled', true);
+
+        $dompdf = new Dompdf($options);
+        $dompdf->loadHtml($html, 'UTF-8');
+        $dompdf->setPaper('A4', 'portrait');
+        $dompdf->render();
+
+        return $dompdf->output();
+    }
 }

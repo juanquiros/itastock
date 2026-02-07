@@ -1,0 +1,23 @@
+Implementación
+- Se agregó el envío de pedido confirmado al proveedor por email desde /app/admin/purchase-orders/{id}/edit.
+- El envío usa un servicio dedicado que compone un email HTML sin precios y, cuando es posible, adjunta un PDF sin precios generado en memoria.
+
+Uso
+- En la pantalla de edición del pedido, si el estado es CONFIRMED aparece el botón "Enviar por email".
+- Al hacer click se envía el correo al email del proveedor.
+
+Contenido del email (sin precios)
+- Encabezado con Pedido #ID y fecha de generación.
+- Tabla con:
+  - Código proveedor (supplierSku o "-" si no existe)
+  - Nombre de producto
+  - Cantidad
+- Notas del pedido si existen.
+- NO incluye costos unitarios, subtotales ni totales.
+
+Proveedor sin email
+- Si el proveedor no tiene email cargado se muestra un flash de error y no se envía nada.
+
+PDF adjunto
+- Se adjunta un PDF simple sin precios, generado con un template específico y renderizado en memoria.
+- Si el PDF falla, el email se envía igual y se muestra un flash warning.

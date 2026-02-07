@@ -9,6 +9,7 @@ use App\Entity\PurchaseOrderItem;
 use App\Security\BusinessContext;
 use App\Service\PurchaseSuggestionService;
 use App\Service\PdfService;
+use App\Service\PurchaseOrderSupplierEmailService;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
@@ -283,6 +284,9 @@ TWIG;
         {% if order.status == 'CONFIRMED' %}
             <form method="post" action="{{ path('app_purchase_order_receive', {id: order.id}) }}">
                 <button class="btn btn-outline-primary">Marcar recibido</button>
+            </form>
+            <form method="post" action="{{ path('app_purchase_order_send_email', {id: order.id}) }}">
+                <button class="btn btn-outline-secondary">Enviar por email</button>
             </form>
         {% endif %}
         {% if order.status in ['DRAFT', 'CONFIRMED'] %}
@@ -640,6 +644,42 @@ TWIG;
                 'barcode' => $product->getBarcode(),
             ], $products),
         ]);
+    }
+
+    #[Route('/{id}/send-email', name: 'send_email', requirements: ['id' => '\\d+'], methods: ['POST'])]
+    public function sendEmail(PurchaseOrder $purchaseOrder, PurchaseOrderSupplierEmailService $supplierEmailService): Response
+    {
+        $business = $this->requireBusinessContext();
+        $this->denyIfDifferentBusiness($purchaseOrder, $business);
+
+        if ($purchaseOrder->getStatus() !== PurchaseOrder::STATUS_CONFIRMED) {
+            $this->addFlash('warning', 'Solo se pueden enviar pedidos confirmados.');
+
+            return $this->redirectToRoute('app_purchase_order_edit', ['id' => $purchaseOrder->getId()]);
+        }
+
+        $supplierEmail = trim((string) $purchaseOrder->getSupplier()?->getEmail());
+        if ($supplierEmail === '') {
+            $this->addFlash('danger', 'El proveedor no tiene email cargado.');
+
+            return $this->redirectToRoute('app_purchase_order_edit', ['id' => $purchaseOrder->getId()]);
+        }
+
+        $result = $supplierEmailService->send($purchaseOrder);
+
+        if (!$result['sent']) {
+            $this->addFlash('danger', 'No se pudo enviar el email al proveedor.');
+
+            return $this->redirectToRoute('app_purchase_order_edit', ['id' => $purchaseOrder->getId()]);
+        }
+
+        $this->addFlash('success', 'Email enviado al proveedor.');
+
+        if ($result['pdf_failed']) {
+            $this->addFlash('warning', 'El email se envió pero no se pudo adjuntar el PDF.');
+        }
+
+        return $this->redirectToRoute('app_purchase_order_edit', ['id' => $purchaseOrder->getId()]);
     }
 
     #[Route('/{id}/confirm', name: 'confirm', requirements: ['id' => '\\d+'], methods: ['POST'])]
