@@ -8,10 +8,12 @@ use App\Entity\PurchaseOrder;
 use App\Entity\PurchaseOrderItem;
 use App\Security\BusinessContext;
 use App\Service\PurchaseSuggestionService;
+use App\Service\PdfService;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 use Symfony\Component\Routing\Annotation\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 use Twig\Environment;
@@ -24,6 +26,7 @@ class PurchaseOrderController extends AbstractController
         private readonly EntityManagerInterface $entityManager,
         private readonly BusinessContext $businessContext,
         private readonly PurchaseSuggestionService $purchaseSuggestionService,
+        private readonly PdfService $pdfService,
         private readonly Environment $twig,
     ) {
     }
@@ -119,44 +122,47 @@ TWIG;
         $business = $this->requireBusinessContext();
         $this->denyIfDifferentBusiness($purchaseOrder, $business);
 
-        if ($request->isMethod('POST') && $purchaseOrder->getStatus() === PurchaseOrder::STATUS_DRAFT) {
+        if ($request->isMethod('POST')) {
             $purchaseOrder->setNotes($this->nullify($request->request->get('notes')));
-            $itemData = $request->request->all('items');
 
-            foreach ($purchaseOrder->getItems() as $item) {
-                $row = $itemData[$item->getId()] ?? null;
-                if (!is_array($row)) {
-                    continue;
-                }
-                $qty = (string) ($row['qty'] ?? '0');
-                if (bccomp($qty, '0', 3) <= 0) {
-                    $purchaseOrder->removeItem($item);
-                    $this->entityManager->remove($item);
-                    continue;
-                }
-                $unitCost = (string) ($row['unitCost'] ?? '0.00');
-                $item->setQuantity($qty);
-                $item->setUnitCost($unitCost);
-                $item->setSubtotal(bcmul($qty, $unitCost, 2));
-            }
+            if ($purchaseOrder->getStatus() === PurchaseOrder::STATUS_DRAFT) {
+                $itemData = $request->request->all('items');
 
-            $newProductId = (int) $request->request->get('new_product_id');
-            $newQty = (string) $request->request->get('new_qty');
-            if ($newProductId > 0 && bccomp($newQty, '0', 3) > 0) {
-                $product = $this->entityManager->getRepository(Product::class)->find($newProductId);
-                if ($product instanceof Product
-                    && $product->getBusiness()?->getId() === $business->getId()
-                    && $product->getSupplier()?->getId() === $purchaseOrder->getSupplier()?->getId()) {
-                    $item = new PurchaseOrderItem();
-                    $item->setProduct($product);
-                    $item->setQuantity($newQty);
-                    $unitCostInput = (string) $request->request->get('new_unit_cost');
-                    $unitCost = $unitCostInput !== '' ? $unitCostInput : ($product->getPurchasePrice() ?? $product->getCost() ?? '0.00');
+                foreach ($purchaseOrder->getItems() as $item) {
+                    $row = $itemData[$item->getId()] ?? null;
+                    if (!is_array($row)) {
+                        continue;
+                    }
+                    $qty = (string) ($row['qty'] ?? '0');
+                    if (bccomp($qty, '0', 3) <= 0) {
+                        $purchaseOrder->removeItem($item);
+                        $this->entityManager->remove($item);
+                        continue;
+                    }
+                    $unitCost = (string) ($row['unitCost'] ?? '0.00');
+                    $item->setQuantity($qty);
                     $item->setUnitCost($unitCost);
-                    $item->setSubtotal(bcmul($newQty, $unitCost, 2));
-                    $purchaseOrder->addItem($item);
-                } else {
-                    $this->addFlash('danger', 'El producto no pertenece al proveedor o al comercio actual.');
+                    $item->setSubtotal(bcmul($qty, $unitCost, 2));
+                }
+
+                $newProductId = (int) $request->request->get('new_product_id');
+                $newQty = (string) $request->request->get('new_qty');
+                if ($newProductId > 0 && bccomp($newQty, '0', 3) > 0) {
+                    $product = $this->entityManager->getRepository(Product::class)->find($newProductId);
+                    if ($product instanceof Product
+                        && $product->getBusiness()?->getId() === $business->getId()
+                        && $product->getSupplier()?->getId() === $purchaseOrder->getSupplier()?->getId()) {
+                        $item = new PurchaseOrderItem();
+                        $item->setProduct($product);
+                        $item->setQuantity($newQty);
+                        $unitCostInput = (string) $request->request->get('new_unit_cost');
+                        $unitCost = $unitCostInput !== '' ? $unitCostInput : ($product->getPurchasePrice() ?? $product->getCost() ?? '0.00');
+                        $item->setUnitCost($unitCost);
+                        $item->setSubtotal(bcmul($newQty, $unitCost, 2));
+                        $purchaseOrder->addItem($item);
+                    } else {
+                        $this->addFlash('danger', 'El producto no pertenece al proveedor o al comercio actual.');
+                    }
                 }
             }
 
@@ -164,6 +170,20 @@ TWIG;
             $this->addFlash('success', 'Pedido actualizado.');
 
             return $this->redirectToRoute('app_purchase_order_edit', ['id' => $purchaseOrder->getId()]);
+        }
+
+        $products = $this->entityManager->getRepository(Product::class)->createQueryBuilder('p')
+            ->andWhere('p.business = :business')
+            ->andWhere('p.supplier = :supplier')
+            ->setParameter('business', $business)
+            ->setParameter('supplier', $purchaseOrder->getSupplier())
+            ->orderBy('p.name', 'ASC')
+            ->getQuery()
+            ->getResult();
+
+        $orderTotal = '0.00';
+        foreach ($purchaseOrder->getItems() as $item) {
+            $orderTotal = bcadd($orderTotal, $item->getSubtotal(), 2);
         }
 
         $template = <<<'TWIG'
@@ -175,7 +195,16 @@ TWIG;
     <div class="mb-4">
         <p class="text-uppercase text-muted mb-1 small fw-semibold">Administración</p>
         <h1 class="h4 mb-0">Pedido #{{ order.id }}</h1>
-        <p class="text-secondary mb-0">Proveedor: {{ order.supplier.name }}</p>
+        <p class="text-secondary mb-0">
+            Proveedor: {{ order.supplier.name }}
+            {% if order.supplier.email %}
+                · <a href="mailto:{{ order.supplier.email }}">{{ order.supplier.email }}</a>
+            {% endif %}
+            {% if order.supplier.phone %}
+                · <a href="tel:{{ order.supplier.phone }}">{{ order.supplier.phone }}</a>
+                · <a href="https://wa.me/{{ order.supplier.phone|replace({' ': '', '+': ''}) }}" target="_blank" rel="noopener">WhatsApp</a>
+            {% endif %}
+        </p>
     </div>
 
     <div class="d-flex gap-2 mb-4">
@@ -189,9 +218,15 @@ TWIG;
                 <button class="btn btn-outline-primary">Marcar recibido</button>
             </form>
         {% endif %}
+        {% if order.status in ['DRAFT', 'CONFIRMED'] %}
+            <form method="post" action="{{ path('app_purchase_order_cancel', {id: order.id}) }}">
+                <button class="btn btn-outline-danger">Cancelar pedido</button>
+            </form>
+        {% endif %}
         {% if order.status == 'RECEIVED' %}
             <a class="btn btn-primary" href="{{ path('app_purchase_invoice_from_order', {id: order.id}) }}">Cargar compra</a>
         {% endif %}
+        <a class="btn btn-outline-secondary" href="{{ path('app_purchase_order_pdf', {id: order.id}) }}">Descargar PDF</a>
         <a class="btn btn-outline-secondary" href="{{ path('app_purchase_order_index') }}">Volver</a>
     </div>
 
@@ -201,7 +236,7 @@ TWIG;
             <form method="post" class="vstack gap-3">
                 <div>
                     <label class="form-label">Notas</label>
-                    <textarea class="form-control" name="notes" rows="2" {{ order.status != 'DRAFT' ? 'disabled' }}>{{ order.notes }}</textarea>
+                    <textarea class="form-control" name="notes" rows="2">{{ order.notes }}</textarea>
                 </div>
                 <div class="table-responsive">
                     <table class="table table-sm align-middle">
@@ -245,15 +280,17 @@ TWIG;
                     <div class="border rounded p-3">
                         <h3 class="h6 fw-semibold">Agregar producto</h3>
                         <div class="row g-2">
-                            <div class="col-md-4">
-                                <label class="form-label">ID producto</label>
-                                <input class="form-control form-control-sm" name="new_product_id" type="number" min="1">
+                            <div class="col-md-6">
+                                <label class="form-label">Producto</label>
+                                <input class="form-control form-control-sm" name="new_product_search" list="supplier-products" autocomplete="off" placeholder="Nombre, SKU, código prov o barras">
+                                <datalist id="supplier-products"></datalist>
+                                <input type="hidden" name="new_product_id">
                             </div>
-                            <div class="col-md-4">
+                            <div class="col-md-3">
                                 <label class="form-label">Cantidad</label>
                                 <input class="form-control form-control-sm" name="new_qty" type="number" step="0.001">
                             </div>
-                            <div class="col-md-4">
+                            <div class="col-md-3">
                                 <label class="form-label">Costo unitario</label>
                                 <input class="form-control form-control-sm" name="new_unit_cost" type="number" step="0.01">
                             </div>
@@ -263,13 +300,56 @@ TWIG;
                     <button class="btn btn-primary">Guardar cambios</button>
                 {% endif %}
             </form>
+            <div class="mt-3 text-end">
+                <span class="text-muted">Total pedido: </span>
+                <span class="fw-semibold">{{ orderTotal }}</span>
+            </div>
         </div>
     </div>
+    <script>
+        (function () {
+            const products = {{ products|json_encode|raw }};
+            const input = document.querySelector('[name=\"new_product_search\"]');
+            const hidden = document.querySelector('[name=\"new_product_id\"]');
+            const list = document.getElementById('supplier-products');
+            if (!input || !list || !hidden) {
+                return;
+            }
+            const updateOptions = (value) => {
+                const term = value.toLowerCase();
+                list.innerHTML = '';
+                const matches = products.filter((product) => {
+                    const haystack = `${product.name} ${product.sku} ${product.supplierSku ?? ''} ${product.barcode ?? ''}`.toLowerCase();
+                    return haystack.includes(term);
+                }).slice(0, 20);
+                matches.forEach((product) => {
+                    const option = document.createElement('option');
+                    const label = `${product.name} · SKU ${product.sku}${product.supplierSku ? ' · Prov ' + product.supplierSku : ''}${product.barcode ? ' · Barras ' + product.barcode : ''}`;
+                    option.value = label;
+                    option.dataset.id = product.id;
+                    list.appendChild(option);
+                });
+            };
+            input.addEventListener('input', () => {
+                updateOptions(input.value);
+                const option = Array.from(list.options).find((opt) => opt.value === input.value);
+                hidden.value = option ? option.dataset.id : '';
+            });
+        })();
+    </script>
 {% endblock %}
 TWIG;
 
         return new Response($this->twig->createTemplate($template)->render([
             'order' => $purchaseOrder,
+            'products' => array_map(static fn (Product $product) => [
+                'id' => $product->getId(),
+                'name' => $product->getName(),
+                'sku' => $product->getSku(),
+                'supplierSku' => $product->getSupplierSku(),
+                'barcode' => $product->getBarcode(),
+            ], $products),
+            'orderTotal' => $orderTotal,
         ]));
     }
 
@@ -311,6 +391,43 @@ TWIG;
         }
 
         return $this->redirectToRoute('app_purchase_order_edit', ['id' => $purchaseOrder->getId()]);
+    }
+
+    #[Route('/{id}/cancel', name: 'cancel', requirements: ['id' => '\\d+'], methods: ['POST'])]
+    public function cancel(PurchaseOrder $purchaseOrder): Response
+    {
+        $business = $this->requireBusinessContext();
+        $this->denyIfDifferentBusiness($purchaseOrder, $business);
+
+        if ($purchaseOrder->getStatus() === PurchaseOrder::STATUS_RECEIVED) {
+            $this->addFlash('warning', 'Un pedido recibido no se puede cancelar.');
+        } elseif ($purchaseOrder->getStatus() === PurchaseOrder::STATUS_CANCELLED) {
+            $this->addFlash('info', 'El pedido ya está cancelado.');
+        } else {
+            $purchaseOrder->setStatus(PurchaseOrder::STATUS_CANCELLED);
+            $this->entityManager->flush();
+            $this->addFlash('success', 'Pedido cancelado.');
+        }
+
+        return $this->redirectToRoute('app_purchase_order_edit', ['id' => $purchaseOrder->getId()]);
+    }
+
+    #[Route('/{id}/pdf', name: 'pdf', requirements: ['id' => '\\d+'], methods: ['GET'])]
+    public function pdf(PurchaseOrder $purchaseOrder): Response
+    {
+        $business = $this->requireBusinessContext();
+        $this->denyIfDifferentBusiness($purchaseOrder, $business);
+
+        $orderTotal = '0.00';
+        foreach ($purchaseOrder->getItems() as $item) {
+            $orderTotal = bcadd($orderTotal, $item->getSubtotal(), 2);
+        }
+
+        return $this->pdfService->render('purchase_order/pdf.html.twig', [
+            'order' => $purchaseOrder,
+            'orderTotal' => $orderTotal,
+            'generatedAt' => new \DateTimeImmutable(),
+        ], sprintf('pedido-%d.pdf', $purchaseOrder->getId()));
     }
 
     private function requireBusinessContext(): Business

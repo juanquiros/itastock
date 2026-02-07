@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="UTF-8">
+        <style>
+            body { font-family: Arial, sans-serif; font-size: 12px; color: #111; }
+            h1 { font-size: 18px; margin: 0 0 8px; }
+            table { width: 100%; border-collapse: collapse; margin-top: 12px; }
+            th, td { border: 1px solid #ddd; padding: 6px; }
+            th { background: #f5f5f5; text-align: left; }
+            .text-end { text-align: right; }
+            .meta { margin-bottom: 12px; }
+        </style>
+    </head>
+    <body>
+        <h1>IVA compras</h1>
+        <div class="meta">
+            <div>Comercio: {{ business.name }}</div>
+            <div>Periodo: {{ from|date('d/m/Y') }} - {{ to|date('d/m/Y') }}</div>
+            <div>Generado: {{ generatedAt|date('d/m/Y H:i') }}</div>
+        </div>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>Fecha</th>
+                    <th>Proveedor</th>
+                    <th>Comprobante</th>
+                    <th class="text-end">Neto</th>
+                    <th class="text-end">IVA</th>
+                    <th class="text-end">Total</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for invoice in report.invoices %}
+                    <tr>
+                        <td>{{ invoice.invoiceDate|date('d/m/Y') }}</td>
+                        <td>{{ invoice.supplierName }}</td>
+                        <td>{{ invoice.invoiceType }} {{ invoice.pointOfSale ?: '' }} {{ invoice.invoiceNumber }}</td>
+                        <td class="text-end">{{ invoice.netAmount|number_format(2, '.', ',') }}</td>
+                        <td class="text-end">{{ invoice.ivaAmount|number_format(2, '.', ',') }}</td>
+                        <td class="text-end">{{ invoice.totalAmount|number_format(2, '.', ',') }}</td>
+                    </tr>
+                {% else %}
+                    <tr>
+                        <td colspan="6">Sin compras confirmadas</td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <p class="text-end"><strong>Total neto: {{ report.summary.net|number_format(2, '.', ',') }}</strong></p>
+        <p class="text-end"><strong>Total IVA: {{ report.summary.iva|number_format(2, '.', ',') }}</strong></p>
+        <p class="text-end"><strong>Total: {{ report.summary.total|number_format(2, '.', ',') }}</strong></p>
+    </body>
+</html>

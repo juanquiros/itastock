@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="UTF-8">
+        <style>
+            body { font-family: Arial, sans-serif; font-size: 12px; color: #111; }
+            h1 { font-size: 18px; margin: 0 0 8px; }
+            table { width: 100%; border-collapse: collapse; margin-top: 12px; }
+            th, td { border: 1px solid #ddd; padding: 6px; }
+            th { background: #f5f5f5; text-align: left; }
+            .text-end { text-align: right; }
+            .meta { margin-bottom: 12px; }
+        </style>
+    </head>
+    <body>
+        <h1>Pedido #{{ order.id }}</h1>
+        <div class="meta">
+            <div>Proveedor: {{ order.supplier.name }}</div>
+            {% if order.supplier.email %}
+                <div>Email: {{ order.supplier.email }}</div>
+            {% endif %}
+            {% if order.supplier.phone %}
+                <div>Teléfono: {{ order.supplier.phone }}</div>
+            {% endif %}
+            <div>Estado: {{ order.status }}</div>
+            <div>Generado: {{ generatedAt|date('d/m/Y H:i') }}</div>
+        </div>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>Producto</th>
+                    <th class="text-end">Cantidad</th>
+                    <th class="text-end">Costo unitario</th>
+                    <th class="text-end">Subtotal</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in order.items %}
+                    <tr>
+                        <td>{{ item.product.name }}</td>
+                        <td class="text-end">{{ item.quantity }}</td>
+                        <td class="text-end">{{ item.unitCost }}</td>
+                        <td class="text-end">{{ item.subtotal }}</td>
+                    </tr>
+                {% else %}
+                    <tr>
+                        <td colspan="4">Sin items</td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <p class="text-end"><strong>Total: {{ orderTotal }}</strong></p>
+
+        {% if order.notes %}
+            <p><strong>Notas:</strong> {{ order.notes }}</p>
+        {% endif %}
+    </body>
+</html>

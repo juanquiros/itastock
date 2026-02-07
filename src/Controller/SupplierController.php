@@ -28,6 +28,7 @@ class SupplierController extends AbstractController
     public function index(Request $request): Response
     {
         $business = $this->requireBusinessContext();
+        $search = trim((string) $request->query->get('q'));
 
         if ($request->isMethod('POST')) {
             $name = trim((string) $request->request->get('name'));
@@ -53,8 +54,15 @@ class SupplierController extends AbstractController
             }
         }
 
-        $suppliers = $this->entityManager->getRepository(Supplier::class)
-            ->findBy(['business' => $business], ['name' => 'ASC']);
+        $qb = $this->entityManager->getRepository(Supplier::class)->createQueryBuilder('s')
+            ->andWhere('s.business = :business')
+            ->setParameter('business', $business)
+            ->orderBy('s.name', 'ASC');
+        if ($search !== '') {
+            $qb->andWhere('s.name LIKE :term OR s.cuit LIKE :term OR s.email LIKE :term OR s.phone LIKE :term')
+                ->setParameter('term', '%'.$search.'%');
+        }
+        $suppliers = $qb->getQuery()->getResult();
 
         $template = <<<'TWIG'
 {% extends 'base.html.twig' %}
@@ -119,6 +127,14 @@ class SupplierController extends AbstractController
     <div class="card shadow-sm">
         <div class="card-body">
             <h2 class="h6 fw-semibold">Listado</h2>
+            <form method="get" class="row g-2 mb-3">
+                <div class="col-md-6">
+                    <input class="form-control form-control-sm" name="q" placeholder="Buscar por nombre, CUIT, email o teléfono" value="{{ search }}">
+                </div>
+                <div class="col-md-2">
+                    <button class="btn btn-outline-secondary btn-sm">Buscar</button>
+                </div>
+            </form>
             <div class="table-responsive">
                 <table class="table table-sm align-middle">
                     <thead>
@@ -138,8 +154,22 @@ class SupplierController extends AbstractController
                                 <td>{{ supplier.name }}</td>
                                 <td>{{ supplier.cuit ?: '-' }}</td>
                                 <td>{{ supplier.ivaCondition }}</td>
-                                <td>{{ supplier.email ?: '-' }}</td>
-                                <td>{{ supplier.phone ?: '-' }}</td>
+                                <td>
+                                    {% if supplier.email %}
+                                        <a href="mailto:{{ supplier.email }}">{{ supplier.email }}</a>
+                                    {% else %}
+                                        -
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if supplier.phone %}
+                                        <a href="tel:{{ supplier.phone }}">{{ supplier.phone }}</a>
+                                        <span class="text-muted">·</span>
+                                        <a href="https://wa.me/{{ supplier.phone|replace({' ': '', '+': ''}) }}" target="_blank" rel="noopener">WhatsApp</a>
+                                    {% else %}
+                                        -
+                                    {% endif %}
+                                </td>
                                 <td>
                                     {% if supplier.active %}
                                         <span class="badge bg-success">Activo</span>
@@ -166,6 +196,7 @@ TWIG;
 
         return new Response($this->twig->createTemplate($template)->render([
             'suppliers' => $suppliers,
+            'search' => $search,
         ]));
     }
 

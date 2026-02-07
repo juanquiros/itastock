@@ -9,6 +9,7 @@ use App\Service\PdfService;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 use Symfony\Component\Routing\Annotation\Route;
 use Symfony\Component\Security\Core\Exception\AccessDeniedException;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
@@ -135,6 +136,10 @@ class ReportController extends AbstractController
             <button class="btn btn-primary">Actualizar</button>
         </div>
     </form>
+    <div class="d-flex gap-2 mb-4">
+        <a class="btn btn-outline-secondary btn-sm" href="{{ path('app_reports_purchase_vat_csv', {from: from|date('Y-m-d'), to: to|date('Y-m-d')}) }}">CSV</a>
+        <a class="btn btn-primary btn-sm" href="{{ path('app_reports_purchase_vat_pdf', {from: from|date('Y-m-d'), to: to|date('Y-m-d')}) }}">PDF</a>
+    </div>
 
     <div class="card shadow-sm mb-4">
         <div class="card-body">
@@ -197,6 +202,67 @@ TWIG;
             'from' => $from,
             'to' => $to,
         ]));
+    }
+
+    #[Route('/purchase-vat/pdf', name: 'purchase_vat_pdf', methods: ['GET'])]
+    public function purchaseVatPdf(Request $request): Response
+    {
+        $business = $this->requireBusinessContext();
+        $fromInput = $request->query->get('from');
+        $toInput = $request->query->get('to');
+
+        $from = $fromInput ? new \DateTimeImmutable($fromInput) : new \DateTimeImmutable('first day of this month');
+        $to = $toInput ? new \DateTimeImmutable($toInput) : new \DateTimeImmutable('last day of this month');
+
+        $report = $this->reportService->getPurchaseVatReport($business, $from, $to);
+
+        return $this->pdfService->render('reports/purchase_vat_pdf.html.twig', [
+            'business' => $business,
+            'report' => $report,
+            'from' => $from,
+            'to' => $to,
+            'generatedAt' => new \DateTimeImmutable(),
+        ], 'iva-compras.pdf');
+    }
+
+    #[Route('/purchase-vat.csv', name: 'purchase_vat_csv', methods: ['GET'])]
+    public function purchaseVatCsv(Request $request): Response
+    {
+        $business = $this->requireBusinessContext();
+        $fromInput = $request->query->get('from');
+        $toInput = $request->query->get('to');
+
+        $from = $fromInput ? new \DateTimeImmutable($fromInput) : new \DateTimeImmutable('first day of this month');
+        $to = $toInput ? new \DateTimeImmutable($toInput) : new \DateTimeImmutable('last day of this month');
+
+        $report = $this->reportService->getPurchaseVatReport($business, $from, $to);
+
+        $response = new StreamedResponse();
+        $response->setCallback(static function () use ($report): void {
+            $handle = fopen('php://output', 'w');
+            fputcsv($handle, ['fecha', 'proveedor', 'tipo', 'punto_venta', 'numero', 'neto', 'iva_rate', 'iva', 'total'], ';');
+
+            foreach ($report['invoices'] as $invoice) {
+                fputcsv($handle, [
+                    $invoice['invoiceDate']->format('Y-m-d'),
+                    $invoice['supplierName'],
+                    $invoice['invoiceType'],
+                    $invoice['pointOfSale'] ?? '',
+                    $invoice['invoiceNumber'],
+                    number_format($invoice['netAmount'], 2, '.', ''),
+                    number_format($invoice['ivaRate'], 2, '.', ''),
+                    number_format($invoice['ivaAmount'], 2, '.', ''),
+                    number_format($invoice['totalAmount'], 2, '.', ''),
+                ], ';');
+            }
+
+            fclose($handle);
+        });
+
+        $response->headers->set('Content-Type', 'text/csv; charset=utf-8');
+        $response->headers->set('Content-Disposition', 'attachment; filename=\"iva-compras.csv\"');
+
+        return $response;
     }
 
     #[Route('/purchase-suppliers', name: 'purchase_suppliers', methods: ['GET'])]
