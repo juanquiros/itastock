@@ -373,9 +373,10 @@ TWIG;
                         </div>
                         <p class="small text-muted mb-0 mt-2">Solo se permiten productos del mismo proveedor.</p>
                     </div>
-                    <div class="d-flex gap-2">
+                    <div class="d-flex gap-2 align-items-center">
                         <button class="btn btn-primary">Guardar cambios</button>
                         <button class="btn btn-outline-primary" type="button" data-action="add-item">Agregar producto</button>
+                        <span class="spinner-border spinner-border-sm text-secondary d-none" id="autosave-spinner" role="status" aria-hidden="true"></span>
                     </div>
                     <p class="small text-muted mb-0" id="autosave-status"></p>
                 {% endif %}
@@ -396,7 +397,9 @@ TWIG;
             const tableBody = document.querySelector('table.table tbody');
             const form = document.getElementById('purchase-order-form');
             const autosaveStatus = document.getElementById('autosave-status');
+            const autosaveSpinner = document.getElementById('autosave-spinner');
             const saveButton = form ? form.querySelector('button.btn.btn-primary') : null;
+            const addItemButton = document.querySelector('[data-action="add-item"]');
             let newIndex = 0;
             if (!input || !list || !hidden) {
                 return;
@@ -442,6 +445,20 @@ TWIG;
 
             let autosaveTimer;
             let autosaveNeedsReload = false;
+            const setControlsDisabled = (disabled) => {
+                if (saveButton) {
+                    saveButton.disabled = disabled;
+                }
+                if (addItemButton) {
+                    addItemButton.disabled = disabled;
+                }
+                if (!tableBody) {
+                    return;
+                }
+                tableBody.querySelectorAll('[data-action=\"remove-new\"], [data-action=\"remove-existing\"]').forEach((button) => {
+                    button.disabled = disabled;
+                });
+            };
             const scheduleAutosave = () => {
                 if (!form) {
                     return;
@@ -449,6 +466,10 @@ TWIG;
                 if (autosaveStatus) {
                     autosaveStatus.textContent = 'Guardando cambios...';
                 }
+                if (autosaveSpinner) {
+                    autosaveSpinner.classList.remove('d-none');
+                }
+                setControlsDisabled(true);
                 if (autosaveTimer) {
                     clearTimeout(autosaveTimer);
                 }
@@ -467,10 +488,18 @@ TWIG;
                         if (autosaveStatus) {
                             autosaveStatus.textContent = 'Cambios guardados.';
                         }
+                        if (autosaveSpinner) {
+                            autosaveSpinner.classList.add('d-none');
+                        }
+                        setControlsDisabled(false);
                     } catch (error) {
                         if (autosaveStatus) {
                             autosaveStatus.textContent = 'No se pudieron guardar los cambios.';
                         }
+                        if (autosaveSpinner) {
+                            autosaveSpinner.classList.add('d-none');
+                        }
+                        setControlsDisabled(false);
                     }
                 }, 1200);
             };
