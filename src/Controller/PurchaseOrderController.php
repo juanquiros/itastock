@@ -337,7 +337,8 @@ TWIG;
                                     <td class="text-end">{{ item.subtotal }}</td>
                                     <td class="text-center">
                                         {% if order.status == 'DRAFT' %}
-                                            <input class="form-check-input" type="checkbox" name="items[{{ item.id }}][remove]" value="1">
+                                            <input type="hidden" name="items[{{ item.id }}][remove]" value="0">
+                                            <button class="btn btn-link text-danger p-0" type="button" data-action="remove-existing" data-item-id="{{ item.id }}">✕</button>
                                         {% else %}
                                             -
                                         {% endif %}
@@ -395,6 +396,7 @@ TWIG;
             const tableBody = document.querySelector('table.table tbody');
             const form = document.getElementById('purchase-order-form');
             const autosaveStatus = document.getElementById('autosave-status');
+            const saveButton = form ? form.querySelector('button.btn.btn-primary') : null;
             let newIndex = 0;
             if (!input || !list || !hidden) {
                 return;
@@ -527,10 +529,33 @@ TWIG;
                         autosaveNeedsReload = true;
                         scheduleAutosave();
                     }
+                    if (target && target.matches('[data-action=\"remove-existing\"]')) {
+                        event.preventDefault();
+                        const row = target.closest('tr');
+                        if (row) {
+                            const itemId = target.getAttribute('data-item-id');
+                            const removeInput = row.querySelector(`input[name=\"items[${itemId}][remove]\"]`);
+                            if (removeInput) {
+                                removeInput.value = '1';
+                            }
+                            row.remove();
+                        }
+                        scheduleAutosave();
+                    }
                 });
             }
 
             if (form) {
+                form.addEventListener('submit', (event) => {
+                    if (autosaveTimer || autosaveNeedsReload) {
+                        event.preventDefault();
+                        scheduleAutosave();
+                        return;
+                    }
+                    if (saveButton) {
+                        saveButton.disabled = true;
+                    }
+                });
                 form.addEventListener('change', (event) => {
                     if (event.target && event.target.closest('[data-action=\"add-item\"]')) {
                         return;
