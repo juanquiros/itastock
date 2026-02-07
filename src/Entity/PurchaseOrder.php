@@ -41,6 +41,9 @@ class PurchaseOrder
     #[ORM\Column(type: 'datetime_immutable')]
     private ?\DateTimeImmutable $updatedAt = null;
 
+    #[ORM\Column(type: 'datetime_immutable', nullable: true)]
+    private ?\DateTimeImmutable $emailSentAt = null;
+
     /** @var Collection<int, PurchaseOrderItem> */
     #[ORM\OneToMany(mappedBy: 'purchaseOrder', targetEntity: PurchaseOrderItem::class, orphanRemoval: true, cascade: ['persist'])]
     private Collection $items;
@@ -115,6 +118,18 @@ class PurchaseOrder
     public function getUpdatedAt(): ?\DateTimeImmutable
     {
         return $this->updatedAt;
+    }
+
+    public function getEmailSentAt(): ?\DateTimeImmutable
+    {
+        return $this->emailSentAt;
+    }
+
+    public function setEmailSentAt(?\DateTimeImmutable $emailSentAt): self
+    {
+        $this->emailSentAt = $emailSentAt;
+
+        return $this;
     }
 
     /**

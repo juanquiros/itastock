@@ -69,6 +69,7 @@ class PurchaseOrderController extends AbstractController
                             <th>ID</th>
                             <th>Proveedor</th>
                             <th>Estado</th>
+                            <th>Email</th>
                             <th>Creado</th>
                             <th></th>
                         </tr>
@@ -81,14 +82,21 @@ class PurchaseOrderController extends AbstractController
                                 <td>
                                     <span class="badge bg-secondary">{{ order.status }}</span>
                                 </td>
+                                <td>
+                                    {% if order.emailSentAt %}
+                                        <span class="badge bg-success">Enviado</span>
+                                    {% else %}
+                                        <span class="badge bg-light text-dark">Pendiente</span>
+                                    {% endif %}
+                                </td>
                                 <td>{{ order.createdAt|date('d/m/Y H:i') }}</td>
                                 <td class="text-end">
                                     <a class="btn btn-outline-secondary btn-sm" href="{{ path('app_purchase_order_edit', {id: order.id}) }}">Ver / editar</a>
                                 </td>
                             </tr>
-                        {% else %}
+                            {% else %}
                             <tr>
-                                <td colspan="5" class="text-muted">No hay pedidos todavía.</td>
+                                <td colspan="6" class="text-muted">No hay pedidos todavía.</td>
                             </tr>
                         {% endfor %}
                     </tbody>
@@ -677,6 +685,8 @@ TWIG;
             return $this->redirectToRoute('app_purchase_order_edit', ['id' => $purchaseOrder->getId()]);
         }
 
+        $purchaseOrder->setEmailSentAt(new \DateTimeImmutable());
+        $this->entityManager->flush();
         $this->addFlash('success', 'Email enviado al proveedor.');
 
         if ($result['pdf_failed']) {

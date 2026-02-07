@@ -5,6 +5,7 @@ Implementación
 Uso
 - En la pantalla de edición del pedido, si el estado es CONFIRMED aparece el botón "Enviar por email".
 - Al hacer click se envía el correo al email del proveedor.
+- En el listado de pedidos se muestra el estado de email (Enviado/Pendiente) según si se registró el envío.
 
 Contenido del email (sin precios)
 - Encabezado con Pedido #ID y fecha de generación.
@@ -15,6 +16,7 @@ Contenido del email (sin precios)
   - Nombre de producto
   - Cantidad
 - NO incluye costos unitarios, subtotales ni totales.
+- Incluye un link a los términos de uso de ItaStock al pie del correo.
 
 Proveedor sin email
 - Si el proveedor no tiene email cargado se muestra un flash de error y no se envía nada.

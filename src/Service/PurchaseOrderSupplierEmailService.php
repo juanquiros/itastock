@@ -7,6 +7,7 @@ use Psr\Log\LoggerInterface;
 use Symfony\Bridge\Twig\Mime\TemplatedEmail;
 use Symfony\Component\Mailer\MailerInterface;
 use Symfony\Component\Mime\Address;
+use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 
 class PurchaseOrderSupplierEmailService
 {
@@ -14,6 +15,7 @@ class PurchaseOrderSupplierEmailService
         private readonly MailerInterface $mailer,
         private readonly PdfService $pdfService,
         private readonly LoggerInterface $logger,
+        private readonly UrlGeneratorInterface $urlGenerator,
         private readonly string $mailFrom,
         private readonly string $appName,
     ) {
@@ -34,6 +36,7 @@ class PurchaseOrderSupplierEmailService
                 'generatedAt' => $generatedAt,
                 'appName' => $this->appName,
                 'headerSubtitle' => 'Detalle de pedido para proveedor',
+                'termsUrl' => $this->urlGenerator->generate('public_terms', [], UrlGeneratorInterface::ABSOLUTE_URL),
             ]);
 
         $pdfFailed = false;
