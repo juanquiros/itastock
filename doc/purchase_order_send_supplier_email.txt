@@ -8,11 +8,12 @@ Uso
 
 Contenido del email (sin precios)
 - Encabezado con Pedido #ID y fecha de generación.
+- Datos del comercio (nombre del negocio).
+- Mensaje del comercio tomado de las notas del pedido (si existen).
 - Tabla con:
   - Código proveedor (supplierSku o "-" si no existe)
   - Nombre de producto
   - Cantidad
-- Notas del pedido si existen.
 - NO incluye costos unitarios, subtotales ni totales.
 
 Proveedor sin email

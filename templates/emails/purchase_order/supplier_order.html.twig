@@ -7,6 +7,16 @@
     <p style="margin: 0 0 16px; font-size: 14px;">
         Fecha: {{ generatedAt|date('d/m/Y H:i') }}
     </p>
+    <p style="margin: 0 0 16px; font-size: 14px;">
+        Comercio: {{ order.business.name }}
+    </p>
+
+    {% if order.notes %}
+        <div style="margin: 0 0 16px; font-size: 14px;">
+            <strong>Mensaje del comercio:</strong>
+            <div>{{ order.notes|nl2br }}</div>
+        </div>
+    {% endif %}
 
     <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="border-collapse: collapse; font-size: 14px;">
         <thead>
@@ -30,8 +40,4 @@
             {% endfor %}
         </tbody>
     </table>
-
-    {% if order.notes %}
-        <p style="margin: 16px 0 0; font-size: 14px;"><strong>Notas:</strong> {{ order.notes }}</p>
-    {% endif %}
 {% endblock %}
