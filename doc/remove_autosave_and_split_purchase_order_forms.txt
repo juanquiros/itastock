@@ -1,0 +1,25 @@
+Se eliminó el autosave para evitar guardados implícitos y estados inconsistentes. Ahora todo guardado se realiza únicamente por acciones explícitas del usuario.
+
+Nuevo flujo de guardado
+- “Guardar cambios” actualiza cantidades, costos y notas usando el submit normal del formulario principal.
+- “Agregar producto” usa un POST dedicado que siempre procesa el alta en un solo click.
+- “Quitar” usa un POST dedicado para eliminar un item del pedido.
+
+Edición solo en DRAFT
+- Si el pedido no está en DRAFT, la pantalla es solo lectura.
+- No se muestran formularios ni botones de agregar/quitar/guardar.
+
+Endpoints dedicados
+- POST /app/admin/purchase-orders/{id}/items/add
+- POST /app/admin/purchase-orders/{id}/items/{itemId}/remove
+
+Validación de decimales
+- qty y unitCost se normalizan y validan con regex antes de convertirse a float.
+- Si falla la validación se muestra un mensaje de error y no se guarda nada.
+
+Cómo probar paso a paso
+1) Abrir un pedido en estado DRAFT.
+2) Modificar qty o unitCost de un item y hacer click en “Guardar cambios”.
+3) Agregar un producto completando producto, qty y unitCost y hacer click en “Agregar producto”.
+4) Quitar un item usando el botón “✕”.
+5) Cambiar el estado del pedido a CONFIRMED y volver a /edit: la vista debe ser solo lectura y sin botones de edición.

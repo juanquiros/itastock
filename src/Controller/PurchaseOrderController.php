@@ -196,115 +196,54 @@ TWIG;
         $this->denyIfDifferentBusiness($purchaseOrder, $business);
 
         if ($request->isMethod('POST')) {
-            $isXmlHttpRequest = $request->isXmlHttpRequest();
+            if ($purchaseOrder->getStatus() !== PurchaseOrder::STATUS_DRAFT) {
+                $this->addFlash('warning', 'Solo se pueden editar pedidos en borrador.');
+
+                return $this->redirectToRoute('app_purchase_order_edit', ['id' => $purchaseOrder->getId()]);
+            }
+
             $purchaseOrder->setNotes($this->nullify($request->request->get('notes')));
-            $invalidNumberResponse = function () use ($isXmlHttpRequest, $purchaseOrder): Response {
-                if ($isXmlHttpRequest) {
-                    return new JsonResponse(['ok' => false, 'error' => 'invalid_number'], Response::HTTP_BAD_REQUEST);
-                }
+            $invalidNumberResponse = function () use ($purchaseOrder): Response {
                 $this->addFlash('danger', 'Cantidad o precio inválido.');
 
                 return $this->redirectToRoute('app_purchase_order_edit', ['id' => $purchaseOrder->getId()]);
             };
 
-            if ($purchaseOrder->getStatus() === PurchaseOrder::STATUS_DRAFT) {
-                $itemData = $request->request->all('items');
+            $itemData = $request->request->all('items');
 
-                foreach ($purchaseOrder->getItems()->toArray() as $item) {
-                    $row = $itemData[$item->getId()] ?? null;
-                    if (!is_array($row)) {
-                        continue;
-                    }
-                    if (!empty($row['remove'])) {
-                        $purchaseOrder->removeItem($item);
-                        $this->entityManager->remove($item);
-                        continue;
-                    }
-                    $qtyRaw = (string) ($row['qty'] ?? '');
-                    $qty = $this->normalizeDecimalString($qtyRaw);
-                    if ($qty === null || $qty === '' || !preg_match('/^\d+(\.\d+)?$/', $qty)) {
+            foreach ($purchaseOrder->getItems()->toArray() as $item) {
+                $row = $itemData[$item->getId()] ?? null;
+                if (!is_array($row)) {
+                    continue;
+                }
+                $qtyRaw = (string) ($row['qty'] ?? '');
+                $qty = $this->normalizeDecimalString($qtyRaw);
+                if ($qty === null || $qty === '' || !preg_match('/^\d+(\.\d+)?$/', $qty)) {
+                    return $invalidNumberResponse();
+                }
+                $qtyFloat = (float) $qty;
+                if ($qtyFloat <= 0) {
+                    return $invalidNumberResponse();
+                }
+                $unitCostRaw = (string) ($row['unitCost'] ?? '');
+                if (trim($unitCostRaw) === '') {
+                    $unitCost = '0.00';
+                } else {
+                    $unitCost = $this->normalizeDecimalString($unitCostRaw);
+                    if ($unitCost === null || $unitCost === '' || !preg_match('/^\d+(\.\d+)?$/', $unitCost)) {
                         return $invalidNumberResponse();
                     }
-                    if (bccomp($qty, '0', 3) <= 0) {
-                        $purchaseOrder->removeItem($item);
-                        $this->entityManager->remove($item);
-                        continue;
-                    }
-                    $unitCostRaw = (string) ($row['unitCost'] ?? '');
-                    if (trim($unitCostRaw) === '') {
-                        $unitCost = '0.00';
-                    } else {
-                        $unitCost = $this->normalizeDecimalString($unitCostRaw);
-                        if ($unitCost === null || $unitCost === '' || !preg_match('/^\d+(\.\d+)?$/', $unitCost)) {
-                            return $invalidNumberResponse();
-                        }
-                    }
-                    $item->setQuantity($qty);
-                    $item->setUnitCost($unitCost);
-                    $item->setSubtotal(bcmul($qty, $unitCost, 2));
                 }
-
-                $newItems = $request->request->all('new_items');
-                foreach ($newItems as $newItem) {
-                    if (!is_array($newItem)) {
-                        continue;
-                    }
-                    $newProductId = (int) ($newItem['product_id'] ?? 0);
-                    $newQtyRaw = (string) ($newItem['qty'] ?? '');
-                    $newQty = $this->normalizeDecimalString($newQtyRaw);
-                    if ($newProductId <= 0 || $newQty === null || $newQty === '' || !preg_match('/^\d+(\.\d+)?$/', $newQty)) {
-                        return $invalidNumberResponse();
-                    }
-                    if (bccomp($newQty, '0', 3) <= 0) {
-                        continue;
-                    }
-                    $product = $this->entityManager->getRepository(Product::class)->find($newProductId);
-                    if ($product instanceof Product
-                        && $product->getBusiness()?->getId() === $business->getId()
-                        && $product->getSupplier()?->getId() === $purchaseOrder->getSupplier()?->getId()) {
-                        $unitCostInput = (string) ($newItem['unitCost'] ?? '');
-                        $unitCostNormalized = null;
-                        if (trim($unitCostInput) !== '') {
-                            $unitCostNormalized = $this->normalizeDecimalString($unitCostInput);
-                            if ($unitCostNormalized === null || $unitCostNormalized === '' || !preg_match('/^\d+(\.\d+)?$/', $unitCostNormalized)) {
-                                return $invalidNumberResponse();
-                            }
-                        }
-                        $existingItem = null;
-                        foreach ($purchaseOrder->getItems() as $currentItem) {
-                            if ($currentItem->getProduct()?->getId() === $newProductId) {
-                                $existingItem = $currentItem;
-                                break;
-                            }
-                        }
-                        if ($existingItem instanceof PurchaseOrderItem) {
-                            $mergedQty = bcadd($existingItem->getQuantity(), $newQty, 3);
-                            $unitCost = $unitCostNormalized !== null ? $unitCostNormalized : $existingItem->getUnitCost();
-                            $existingItem->setQuantity($mergedQty);
-                            $existingItem->setUnitCost($unitCost);
-                            $existingItem->setSubtotal(bcmul($mergedQty, $unitCost, 2));
-                        } else {
-                            $item = new PurchaseOrderItem();
-                            $item->setProduct($product);
-                            $item->setQuantity($newQty);
-                            $unitCost = $unitCostNormalized !== null ? $unitCostNormalized : ($product->getPurchasePrice() ?? $product->getCost() ?? '0.00');
-                            $item->setUnitCost($unitCost);
-                            $item->setSubtotal(bcmul($newQty, $unitCost, 2));
-                            $purchaseOrder->addItem($item);
-                        }
-                    } else {
-                        if (!$isXmlHttpRequest) {
-                            $this->addFlash('danger', 'El producto no pertenece al proveedor o al comercio actual.');
-                        }
-                    }
+                $unitCostFloat = (float) $unitCost;
+                if ($unitCostFloat < 0) {
+                    return $invalidNumberResponse();
                 }
+                $item->setQuantity($qty);
+                $item->setUnitCost($unitCost);
+                $item->setSubtotal(bcmul($qty, $unitCost, 2));
             }
 
             $this->entityManager->flush();
-
-            if ($isXmlHttpRequest) {
-                return new JsonResponse(['ok' => true]);
-            }
 
             $this->addFlash('success', 'Pedido actualizado.');
             return $this->redirectToRoute('app_purchase_order_edit', ['id' => $purchaseOrder->getId()]);
@@ -365,11 +304,74 @@ TWIG;
     <div class="card shadow-sm mb-4">
         <div class="card-body">
             <h2 class="h6 fw-semibold">Detalle del pedido</h2>
-            <form method="post" class="vstack gap-3" id="purchase-order-form">
-                <div>
-                    <label class="form-label">Notas</label>
-                    <textarea class="form-control" name="notes" rows="2">{{ order.notes }}</textarea>
-                </div>
+            {% if order.status == 'DRAFT' %}
+                <form method="post" class="vstack gap-3" id="purchase-order-form">
+                    <div class="table-responsive">
+                        <table class="table table-sm align-middle">
+                            <thead>
+                                <tr>
+                                    <th>Producto</th>
+                                    <th class="text-end">Cantidad</th>
+                                    <th class="text-end">Costo unitario</th>
+                                    <th class="text-end">Subtotal</th>
+                                    <th class="text-center">Quitar</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in order.items %}
+                                    <tr>
+                                        <td>{{ item.product.name }}</td>
+                                        <td class="text-end">
+                                            <input class="form-control form-control-sm text-end" name="items[{{ item.id }}][qty]" value="{{ item.quantity }}">
+                                        </td>
+                                        <td class="text-end">
+                                            <input class="form-control form-control-sm text-end" name="items[{{ item.id }}][unitCost]" value="{{ item.unitCost }}">
+                                        </td>
+                                        <td class="text-end">{{ item.subtotal }}</td>
+                                        <td class="text-center">
+                                            <button class="btn btn-link text-danger p-0" type="submit" formmethod="post" formaction="{{ path('app_purchase_order_item_remove', {id: order.id, itemId: item.id}) }}">✕</button>
+                                        </td>
+                                    </tr>
+                                {% else %}
+                                    <tr>
+                                        <td colspan="5" class="text-muted">No hay items en este pedido.</td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    <div>
+                        <label class="form-label">Notas</label>
+                        <textarea class="form-control" name="notes" rows="2">{{ order.notes }}</textarea>
+                    </div>
+                    <div class="d-flex gap-2 align-items-center">
+                        <button class="btn btn-primary">Guardar cambios</button>
+                    </div>
+                </form>
+                <form method="post" action="{{ path('app_purchase_order_item_add', {id: order.id}) }}" class="border rounded p-3 mt-3" id="purchase-order-add-form">
+                    <h3 class="h6 fw-semibold">Agregar producto</h3>
+                    <div class="row g-2">
+                        <div class="col-md-6">
+                            <label class="form-label">Producto</label>
+                            <input class="form-control form-control-sm" name="product_search" list="supplier-products" autocomplete="off" placeholder="Nombre, SKU, código prov o barras">
+                            <datalist id="supplier-products"></datalist>
+                            <input type="hidden" name="product_id">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Cantidad</label>
+                            <input class="form-control form-control-sm" name="qty" type="text" inputmode="decimal" autocomplete="off">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Costo unitario</label>
+                            <input class="form-control form-control-sm" name="unitCost" type="text" inputmode="decimal" autocomplete="off">
+                        </div>
+                    </div>
+                    <p class="small text-muted mb-2 mt-2">Solo se permiten productos del mismo proveedor.</p>
+                    <div class="d-flex gap-2 align-items-center">
+                        <button class="btn btn-outline-primary" type="submit">Agregar producto</button>
+                    </div>
+                </form>
+            {% else %}
                 <div class="table-responsive">
                     <table class="table table-sm align-middle">
                         <thead>
@@ -378,406 +380,90 @@ TWIG;
                                 <th class="text-end">Cantidad</th>
                                 <th class="text-end">Costo unitario</th>
                                 <th class="text-end">Subtotal</th>
-                                <th class="text-center">Quitar</th>
                             </tr>
                         </thead>
                         <tbody>
                             {% for item in order.items %}
                                 <tr>
                                     <td>{{ item.product.name }}</td>
-                                    <td class="text-end">
-                                        {% if order.status == 'DRAFT' %}
-                                            <input class="form-control form-control-sm text-end" name="items[{{ item.id }}][qty]" value="{{ item.quantity }}">
-                                        {% else %}
-                                            {{ item.quantity }}
-                                        {% endif %}
-                                    </td>
-                                    <td class="text-end">
-                                        {% if order.status == 'DRAFT' %}
-                                            <input class="form-control form-control-sm text-end" name="items[{{ item.id }}][unitCost]" value="{{ item.unitCost }}">
-                                        {% else %}
-                                            {{ item.unitCost }}
-                                        {% endif %}
-                                    </td>
+                                    <td class="text-end">{{ item.quantity }}</td>
+                                    <td class="text-end">{{ item.unitCost }}</td>
                                     <td class="text-end">{{ item.subtotal }}</td>
-                                    <td class="text-center">
-                                        {% if order.status == 'DRAFT' %}
-                                            <input type="hidden" name="items[{{ item.id }}][remove]" value="0">
-                                            <button class="btn btn-link text-danger p-0" type="button" data-action="remove-existing" data-item-id="{{ item.id }}">✕</button>
-                                        {% else %}
-                                            -
-                                        {% endif %}
-                                    </td>
                                 </tr>
                             {% else %}
                                 <tr>
-                                    <td colspan="5" class="text-muted">No hay items en este pedido.</td>
+                                    <td colspan="4" class="text-muted">No hay items en este pedido.</td>
                                 </tr>
                             {% endfor %}
                         </tbody>
                     </table>
                 </div>
-                {% if order.status == 'DRAFT' %}
-                    <div class="border rounded p-3">
-                        <h3 class="h6 fw-semibold">Agregar producto</h3>
-                        <div class="row g-2">
-                            <div class="col-md-6">
-                                <label class="form-label">Producto</label>
-                                <input class="form-control form-control-sm" name="new_product_search" list="supplier-products" autocomplete="off" placeholder="Nombre, SKU, código prov o barras">
-                                <datalist id="supplier-products"></datalist>
-                                <input type="hidden" name="new_product_id">
-                            </div>
-                            <div class="col-md-3">
-                                <label class="form-label">Cantidad</label>
-                                <input class="form-control form-control-sm" name="new_qty" type="text" inputmode="decimal" autocomplete="off">
-                            </div>
-                            <div class="col-md-3">
-                                <label class="form-label">Costo unitario</label>
-                                <input class="form-control form-control-sm" name="new_unit_cost" type="text" inputmode="decimal" autocomplete="off">
-                            </div>
-                        </div>
-                        <p class="small text-muted mb-0 mt-2">Solo se permiten productos del mismo proveedor.</p>
-                    </div>
-                    <div class="d-flex gap-2 align-items-center">
-                        <button class="btn btn-primary">Guardar cambios</button>
-                        <button class="btn btn-outline-primary" type="button" data-action="add-item">Agregar producto</button>
-                        <span class="spinner-border spinner-border-sm text-secondary d-none" id="autosave-spinner" role="status" aria-hidden="true"></span>
-                    </div>
-                    <p class="small text-muted mb-0" id="autosave-status"></p>
-                {% else %}
-                    <div class="d-flex gap-2 align-items-center">
-                        <button class="btn btn-outline-primary">Guardar notas</button>
-                    </div>
-                {% endif %}
-            </form>
+                <div class="mt-3">
+                    <label class="form-label">Notas</label>
+                    <textarea class="form-control" rows="2" readonly>{{ order.notes }}</textarea>
+                </div>
+            {% endif %}
             <div class="mt-3 text-end">
                 <span class="text-muted">Total pedido: </span>
                 <span class="fw-semibold">{{ orderTotal }}</span>
             </div>
         </div>
     </div>
-    <script>
-        (function () {
-            const input = document.querySelector('[name=\"new_product_search\"]');
-            const hidden = document.querySelector('[name=\"new_product_id\"]');
-            const list = document.getElementById('supplier-products');
-            const searchUrl = "{{ path('app_purchase_order_products', {id: order.id}) }}";
-            const addButton = document.querySelector('[data-action=\"add-item\"]');
-            const tableBody = document.querySelector('table.table tbody');
-            const form = document.getElementById('purchase-order-form');
-            const autosaveStatus = document.getElementById('autosave-status');
-            const autosaveSpinner = document.getElementById('autosave-spinner');
-            const saveButton = form ? form.querySelector('button.btn.btn-primary') : null;
-            const addItemButton = document.querySelector('[data-action="add-item"]');
-            let newIndex = 0;
-            if (tableBody) {
-                const existingIndexes = Array.from(tableBody.querySelectorAll('input[name^="new_items["]'))
-                    .map((element) => {
-                        const match = element.name.match(/^new_items\[(\d+)\]/);
-                        return match ? Number.parseInt(match[1], 10) : null;
-                    })
-                    .filter((value) => Number.isInteger(value));
-                if (existingIndexes.length > 0) {
-                    newIndex = Math.max(...existingIndexes) + 1;
+    {% if order.status == 'DRAFT' %}
+        <script>
+            (function () {
+                const input = document.querySelector('[name="product_search"]');
+                const hidden = document.querySelector('[name="product_id"]');
+                const list = document.getElementById('supplier-products');
+                const searchUrl = "{{ path('app_purchase_order_products', {id: order.id}) }}";
+                const addForm = document.getElementById('purchase-order-add-form');
+                if (!input || !list || !hidden) {
+                    return;
                 }
-            }
-            if (!input || !list || !hidden) {
-                return;
-            }
-            const normalizeValue = (value) => value.trim().toLowerCase();
-            const setHiddenFromList = (value) => {
-                const currentValue = normalizeValue(value ?? input.value);
-                const option = Array.from(list.options).find((opt) => normalizeValue(opt.value) === currentValue);
-                hidden.value = option ? option.dataset.id : '';
-            };
-            const updateOptions = async (value) => {
-                const term = value.trim();
-                if (term.length < 3) {
-                    hidden.value = '';
+                const normalizeValue = (value) => value.trim().toLowerCase();
+                const setHiddenFromList = (value) => {
+                    const currentValue = normalizeValue(value ?? input.value);
+                    const option = Array.from(list.options).find((opt) => normalizeValue(opt.value) === currentValue);
+                    hidden.value = option ? option.dataset.id : '';
+                };
+                const updateOptions = async (value) => {
+                    const term = value.trim();
+                    if (term.length < 3) {
+                        hidden.value = '';
+                        list.innerHTML = '';
+                        return;
+                    }
+                    const response = await fetch(`${searchUrl}?term=${encodeURIComponent(term)}`);
+                    const data = await response.json();
                     list.innerHTML = '';
-                    return;
-                }
-                const response = await fetch(`${searchUrl}?term=${encodeURIComponent(term)}`);
-                const data = await response.json();
-                list.innerHTML = '';
-                data.items.forEach((product) => {
-                    const option = document.createElement('option');
-                    const label = `${product.name} · SKU ${product.sku}${product.supplierSku ? ' · Prov ' + product.supplierSku : ''}${product.barcode ? ' · Barras ' + product.barcode : ''}`;
-                    option.value = label;
-                    option.dataset.id = product.id;
-                    list.appendChild(option);
-                });
-                setHiddenFromList(term);
-            };
-            input.addEventListener('input', () => {
-                const currentValue = input.value;
-                const matchingOption = Array.from(list.options).find(
-                    (opt) => normalizeValue(opt.value) === normalizeValue(currentValue),
-                );
-                if (matchingOption) {
-                    hidden.value = matchingOption.dataset.id;
-                    return;
-                }
-                updateOptions(currentValue);
-            });
-            input.addEventListener('change', () => setHiddenFromList());
-            input.addEventListener('blur', () => setHiddenFromList());
-
-            let autosaveTimer;
-            let autosaveNeedsReload = false;
-            let autosaveDirty = false;
-            let autosaveInFlight = null;
-            let finalSubmitRequested = false;
-            const normalizeDecimal = (value) => {
-                const raw = value === null || value === undefined ? '' : String(value).trim();
-                if (!raw) {
-                    return '';
-                }
-                const compact = raw.replace(/\s+/g, '');
-                const lastComma = compact.lastIndexOf(',');
-                const lastDot = compact.lastIndexOf('.');
-                const lastSeparator = Math.max(lastComma, lastDot);
-                if (lastSeparator === -1) {
-                    return compact.replace(/[^\d]/g, '');
-                }
-                const integerPart = compact.slice(0, lastSeparator).replace(/[^\d]/g, '');
-                const decimalPart = compact.slice(lastSeparator + 1).replace(/[^\d]/g, '');
-                if (decimalPart === '') {
-                    return integerPart;
-                }
-                return `${integerPart}.${decimalPart}`;
-            };
-            const normalizeNewItemInputs = () => {
-                const qtyInput = document.querySelector('[name="new_qty"]');
-                const unitCostInput = document.querySelector('[name="new_unit_cost"]');
-                if (qtyInput) {
-                    qtyInput.value = normalizeDecimal(qtyInput.value);
-                }
-                if (unitCostInput) {
-                    unitCostInput.value = normalizeDecimal(unitCostInput.value);
-                }
-            };
-            const sanitizeNumericInput = (input) => {
-                const cleanValue = input.value.replace(/[^0-9.,\s]/g, '');
-                if (cleanValue !== input.value) {
-                    input.value = cleanValue;
-                }
-            };
-            const setControlsDisabled = (disabled) => {
-                if (saveButton) {
-                    saveButton.disabled = disabled;
-                }
-                if (addItemButton) {
-                    addItemButton.disabled = disabled;
-                }
-                if (!tableBody) {
-                    return;
-                }
-                tableBody.querySelectorAll('[data-action=\"remove-new\"], [data-action=\"remove-existing\"]').forEach((button) => {
-                    button.disabled = disabled;
-                });
-            };
-            const saveOrder = (force = false) => {
-                if (!form) {
-                    return Promise.resolve();
-                }
-                if (!force && !autosaveDirty) {
-                    return Promise.resolve();
-                }
-                autosaveDirty = false;
-                if (autosaveTimer) {
-                    clearTimeout(autosaveTimer);
-                    autosaveTimer = null;
-                }
-                if (autosaveStatus) {
-                    autosaveStatus.textContent = 'Guardando cambios...';
-                }
-                if (autosaveSpinner) {
-                    autosaveSpinner.classList.remove('d-none');
-                }
-                setControlsDisabled(true);
-                const formData = new FormData(form);
-                autosaveInFlight = fetch(form.action || window.location.href, {
-                    method: 'POST',
-                    body: formData,
-                    headers: {'X-Requested-With': 'XMLHttpRequest'},
-                })
-                    .then(() => {
-                        if (autosaveNeedsReload) {
-                            window.location.reload();
-                            return;
-                        }
-                        if (autosaveStatus) {
-                            autosaveStatus.textContent = 'Cambios guardados.';
-                        }
-                        if (autosaveSpinner) {
-                            autosaveSpinner.classList.add('d-none');
-                        }
-                        setControlsDisabled(false);
-                    })
-                    .catch(() => {
-                        if (autosaveStatus) {
-                            autosaveStatus.textContent = 'No se pudieron guardar los cambios.';
-                        }
-                        if (autosaveSpinner) {
-                            autosaveSpinner.classList.add('d-none');
-                        }
-                        setControlsDisabled(false);
-                    })
-                    .finally(() => {
-                        autosaveInFlight = null;
+                    data.items.forEach((product) => {
+                        const option = document.createElement('option');
+                        const label = `${product.name} · SKU ${product.sku}${product.supplierSku ? ' · Prov ' + product.supplierSku : ''}${product.barcode ? ' · Barras ' + product.barcode : ''}`;
+                        option.value = label;
+                        option.dataset.id = product.id;
+                        list.appendChild(option);
                     });
-
-                return autosaveInFlight;
-            };
-
-            const scheduleAutosave = (delayMs = 300) => {
-                if (!form) {
-                    return;
+                    setHiddenFromList(term);
+                };
+                input.addEventListener('input', () => {
+                    const currentValue = input.value;
+                    const matchingOption = Array.from(list.options).find(
+                        (opt) => normalizeValue(opt.value) === normalizeValue(currentValue),
+                    );
+                    if (matchingOption) {
+                        hidden.value = matchingOption.dataset.id;
+                        return;
+                    }
+                    updateOptions(currentValue);
+                });
+                input.addEventListener('change', () => setHiddenFromList());
+                input.addEventListener('blur', () => setHiddenFromList());
+                if (addForm) {
+                    addForm.addEventListener('submit', () => setHiddenFromList());
                 }
-                autosaveDirty = true;
-                if (autosaveTimer) {
-                    clearTimeout(autosaveTimer);
-                }
-                autosaveTimer = setTimeout(() => {
-                    saveOrder(false);
-                }, delayMs);
-            };
-
-            if (addButton && tableBody) {
-                addButton.addEventListener('click', async () => {
-                    setHiddenFromList();
-                    normalizeNewItemInputs();
-                    const productId = hidden.value;
-                    const label = input.value.trim();
-                    const qtyInput = document.querySelector('[name=\"new_qty\"]');
-                    const unitCostInput = document.querySelector('[name=\"new_unit_cost\"]');
-                    const qty = qtyInput ? qtyInput.value.trim() : '';
-                    const unitCost = unitCostInput ? unitCostInput.value.trim() : '';
-
-                    if (!productId) {
-                        alert('Seleccioná un producto de la lista sugerida.');
-                        return;
-                    }
-                    if (!qty || parseFloat(qty) <= 0) {
-                        alert('Ingresá una cantidad válida.');
-                        return;
-                    }
-                    await saveOrder(true);
-
-                    const emptyRow = tableBody.querySelector('tr td[colspan]');
-                    if (emptyRow) {
-                        emptyRow.closest('tr').remove();
-                    }
-                    const row = document.createElement('tr');
-                    row.dataset.newItem = 'true';
-                    row.innerHTML = `
-                        <td>${label}<input type="hidden" name="new_items[${newIndex}][product_id]" value="${productId}"></td>
-                        <td class="text-end"><input class="form-control form-control-sm text-end" name="new_items[${newIndex}][qty]" value="${qty}" type="text" inputmode="decimal" autocomplete="off"></td>
-                        <td class="text-end"><input class="form-control form-control-sm text-end" name="new_items[${newIndex}][unitCost]" value="${unitCost}" type="text" inputmode="decimal" autocomplete="off"></td>
-                        <td class="text-end">-</td>
-                        <td class="text-center"><button class="btn btn-link text-danger p-0" type="button" data-action="remove-new">Quitar</button></td>
-                    `;
-                    tableBody.appendChild(row);
-                    newIndex += 1;
-                    autosaveNeedsReload = true;
-
-                    input.value = '';
-                    hidden.value = '';
-                    if (qtyInput) qtyInput.value = '';
-                    if (unitCostInput) unitCostInput.value = '';
-                    autosaveDirty = true;
-                    saveOrder(true);
-                });
-
-                tableBody.addEventListener('click', (event) => {
-                    const target = event.target;
-                    if (target && target.matches('[data-action=\"remove-new\"]')) {
-                        event.preventDefault();
-                        const row = target.closest('tr');
-                        if (row) {
-                            row.remove();
-                        }
-                        autosaveNeedsReload = true;
-                        autosaveDirty = true;
-                        saveOrder(true);
-                    }
-                    if (target && target.matches('[data-action=\"remove-existing\"]')) {
-                        event.preventDefault();
-                        const row = target.closest('tr');
-                        if (row) {
-                            const itemId = target.getAttribute('data-item-id');
-                            const removeInput = row.querySelector(`input[name=\"items[${itemId}][remove]\"]`);
-                            if (removeInput) {
-                                removeInput.value = '1';
-                            }
-                            row.querySelectorAll('input').forEach((input) => {
-                                if (input !== removeInput) {
-                                    input.disabled = true;
-                                }
-                            });
-                            row.style.display = 'none';
-                        }
-                        autosaveDirty = true;
-                        saveOrder(true);
-                    }
-                });
-            }
-
-            if (form) {
-                form.addEventListener('submit', (event) => {
-                    if (finalSubmitRequested) {
-                        finalSubmitRequested = false;
-                        if (saveButton) {
-                            saveButton.disabled = true;
-                        }
-                        return;
-                    }
-                    if (autosaveTimer || autosaveNeedsReload || autosaveDirty || autosaveInFlight) {
-                        event.preventDefault();
-                        Promise.resolve(autosaveInFlight)
-                            .then(() => saveOrder(true))
-                            .then(() => {
-                                finalSubmitRequested = true;
-                                form.submit();
-                            });
-                        return;
-                    }
-                    if (saveButton) {
-                        saveButton.disabled = true;
-                    }
-                });
-                form.addEventListener('input', (event) => {
-                    if (event.target && event.target.closest('[data-action=\"add-item\"]')) {
-                        return;
-                    }
-                    if (event.target && event.target.matches('input[name=\"new_qty\"], input[name=\"new_unit_cost\"]')) {
-                        sanitizeNumericInput(event.target);
-                        scheduleAutosave(300);
-                        return;
-                    }
-                    scheduleAutosave(300);
-                });
-                form.addEventListener('change', (event) => {
-                    if (event.target && event.target.closest('[data-action=\"add-item\"]')) {
-                        return;
-                    }
-                    scheduleAutosave(300);
-                });
-                form.addEventListener('blur', (event) => {
-                    if (event.target && event.target.closest('[data-action=\"add-item\"]')) {
-                        return;
-                    }
-                    if (event.target && event.target.matches('input[name=\"new_qty\"], input[name=\"new_unit_cost\"]')) {
-                        normalizeNewItemInputs();
-                        saveOrder(false);
-                        return;
-                    }
-                    saveOrder(false);
-                }, true);
-            }
-        })();
-    </script>
+            })();
+        </script>
+    {% endif %}
 {% endblock %}
 TWIG;
 
@@ -785,6 +471,115 @@ TWIG;
             'order' => $purchaseOrder,
             'orderTotal' => $orderTotal,
         ]));
+    }
+
+    #[Route('/{id}/items/add', name: 'item_add', requirements: ['id' => '\\d+'], methods: ['POST'])]
+    public function addItem(Request $request, PurchaseOrder $purchaseOrder): Response
+    {
+        $business = $this->requireBusinessContext();
+        $this->denyIfDifferentBusiness($purchaseOrder, $business);
+
+        if ($purchaseOrder->getStatus() !== PurchaseOrder::STATUS_DRAFT) {
+            $this->addFlash('warning', 'Solo se pueden modificar items en borrador.');
+
+            return $this->redirectToRoute('app_purchase_order_edit', ['id' => $purchaseOrder->getId()]);
+        }
+
+        $productId = (int) $request->request->get('product_id');
+        $qtyRaw = (string) $request->request->get('qty');
+        $qty = $this->normalizeDecimalString($qtyRaw);
+        if ($productId <= 0 || $qty === null || $qty === '' || !preg_match('/^\d+(\.\d+)?$/', $qty)) {
+            $this->addFlash('danger', 'Cantidad o producto inválido.');
+
+            return $this->redirectToRoute('app_purchase_order_edit', ['id' => $purchaseOrder->getId()]);
+        }
+        $qtyFloat = (float) $qty;
+        if ($qtyFloat <= 0) {
+            $this->addFlash('danger', 'Cantidad inválida.');
+
+            return $this->redirectToRoute('app_purchase_order_edit', ['id' => $purchaseOrder->getId()]);
+        }
+        $unitCostRaw = (string) $request->request->get('unitCost');
+        $unitCost = null;
+        if (trim($unitCostRaw) !== '') {
+            $unitCost = $this->normalizeDecimalString($unitCostRaw);
+            if ($unitCost === null || $unitCost === '' || !preg_match('/^\d+(\.\d+)?$/', $unitCost)) {
+                $this->addFlash('danger', 'Costo unitario inválido.');
+
+                return $this->redirectToRoute('app_purchase_order_edit', ['id' => $purchaseOrder->getId()]);
+            }
+            $unitCostFloat = (float) $unitCost;
+            if ($unitCostFloat < 0) {
+                $this->addFlash('danger', 'Costo unitario inválido.');
+
+                return $this->redirectToRoute('app_purchase_order_edit', ['id' => $purchaseOrder->getId()]);
+            }
+        }
+
+        $product = $this->entityManager->getRepository(Product::class)->find($productId);
+        if (!$product instanceof Product
+            || $product->getBusiness()?->getId() !== $business->getId()
+            || $product->getSupplier()?->getId() !== $purchaseOrder->getSupplier()?->getId()) {
+            $this->addFlash('danger', 'El producto no pertenece al proveedor o al comercio actual.');
+
+            return $this->redirectToRoute('app_purchase_order_edit', ['id' => $purchaseOrder->getId()]);
+        }
+
+        $existingItem = null;
+        foreach ($purchaseOrder->getItems() as $currentItem) {
+            if ($currentItem->getProduct()?->getId() === $productId) {
+                $existingItem = $currentItem;
+                break;
+            }
+        }
+
+        if ($existingItem instanceof PurchaseOrderItem) {
+            $mergedQty = bcadd($existingItem->getQuantity(), $qty, 3);
+            $resolvedUnitCost = $unitCost ?? $existingItem->getUnitCost();
+            $existingItem->setQuantity($mergedQty);
+            $existingItem->setUnitCost($resolvedUnitCost);
+            $existingItem->setSubtotal(bcmul($mergedQty, $resolvedUnitCost, 2));
+        } else {
+            $item = new PurchaseOrderItem();
+            $item->setProduct($product);
+            $item->setQuantity($qty);
+            $resolvedUnitCost = $unitCost ?? ($product->getPurchasePrice() ?? $product->getCost() ?? '0.00');
+            $item->setUnitCost($resolvedUnitCost);
+            $item->setSubtotal(bcmul($qty, $resolvedUnitCost, 2));
+            $purchaseOrder->addItem($item);
+        }
+
+        $this->entityManager->flush();
+        $this->addFlash('success', 'Producto agregado al pedido.');
+
+        return $this->redirectToRoute('app_purchase_order_edit', ['id' => $purchaseOrder->getId()]);
+    }
+
+    #[Route('/{id}/items/{itemId}/remove', name: 'item_remove', requirements: ['id' => '\\d+', 'itemId' => '\\d+'], methods: ['POST'])]
+    public function removeItem(PurchaseOrder $purchaseOrder, int $itemId): Response
+    {
+        $business = $this->requireBusinessContext();
+        $this->denyIfDifferentBusiness($purchaseOrder, $business);
+
+        if ($purchaseOrder->getStatus() !== PurchaseOrder::STATUS_DRAFT) {
+            $this->addFlash('warning', 'Solo se pueden modificar items en borrador.');
+
+            return $this->redirectToRoute('app_purchase_order_edit', ['id' => $purchaseOrder->getId()]);
+        }
+
+        $item = $this->entityManager->getRepository(PurchaseOrderItem::class)->find($itemId);
+        if (!$item instanceof PurchaseOrderItem || $item->getPurchaseOrder()?->getId() !== $purchaseOrder->getId()) {
+            $this->addFlash('danger', 'El item no pertenece al pedido.');
+
+            return $this->redirectToRoute('app_purchase_order_edit', ['id' => $purchaseOrder->getId()]);
+        }
+
+        $purchaseOrder->removeItem($item);
+        $this->entityManager->remove($item);
+        $this->entityManager->flush();
+        $this->addFlash('success', 'Producto quitado del pedido.');
+
+        return $this->redirectToRoute('app_purchase_order_edit', ['id' => $purchaseOrder->getId()]);
     }
 
     #[Route('/{id}/products', name: 'products', requirements: ['id' => '\\d+'], methods: ['GET'])]
