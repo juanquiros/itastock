@@ -1,0 +1,22 @@
+Problema original
+- Agregar/eliminar productos en /app/admin/purchase-orders/{id}/edit era inestable.
+- Autosave hacía POST con redirect y flashes, generando UX confusa.
+- Se podían crear ítems duplicados para el mismo producto.
+
+Causa raíz
+- newIndex en el JS no se inicializaba con los índices existentes, generando colisiones.
+- Se removían ítems dentro de un foreach sobre la colección, causando inconsistencias.
+- Autosave XHR recibía redirect + flash.
+
+Cambios aplicados
+- JS: newIndex se inicializa usando los índices ya presentes y se incrementa al agregar filas.
+- Backend: iteración segura con toArray() al eliminar/modificar items.
+- Autosave XHR: responde JSON {ok:true} sin flashes ni redirect.
+- Merge de duplicados: si el producto ya existe, suma qty (bcadd), actualiza unitCost si se envió y recalcula subtotal.
+
+Cómo probar manualmente
+1) Abrir un pedido en borrador y agregar 3 productos distintos.
+2) Verificar que se creen 3 filas persistidas al guardar.
+3) Quitar un ítem existente con "✕" y confirmar que se elimina al guardar/autosave.
+4) Agregar un producto ya existente: verificar que suma la cantidad en la misma fila.
+5) Cambiar cantidad/costo y esperar autosave: no debe haber flashes ni redirect.

@@ -196,12 +196,13 @@ TWIG;
         $this->denyIfDifferentBusiness($purchaseOrder, $business);
 
         if ($request->isMethod('POST')) {
+            $isXmlHttpRequest = $request->isXmlHttpRequest();
             $purchaseOrder->setNotes($this->nullify($request->request->get('notes')));
 
             if ($purchaseOrder->getStatus() === PurchaseOrder::STATUS_DRAFT) {
                 $itemData = $request->request->all('items');
 
-                foreach ($purchaseOrder->getItems() as $item) {
+                foreach ($purchaseOrder->getItems()->toArray() as $item) {
                     $row = $itemData[$item->getId()] ?? null;
                     if (!is_array($row)) {
                         continue;
@@ -237,23 +238,44 @@ TWIG;
                     if ($product instanceof Product
                         && $product->getBusiness()?->getId() === $business->getId()
                         && $product->getSupplier()?->getId() === $purchaseOrder->getSupplier()?->getId()) {
-                        $item = new PurchaseOrderItem();
-                        $item->setProduct($product);
-                        $item->setQuantity($newQty);
                         $unitCostInput = (string) ($newItem['unitCost'] ?? '');
-                        $unitCost = $unitCostInput !== '' ? $unitCostInput : ($product->getPurchasePrice() ?? $product->getCost() ?? '0.00');
-                        $item->setUnitCost($unitCost);
-                        $item->setSubtotal(bcmul($newQty, $unitCost, 2));
-                        $purchaseOrder->addItem($item);
+                        $existingItem = null;
+                        foreach ($purchaseOrder->getItems() as $currentItem) {
+                            if ($currentItem->getProduct()?->getId() === $newProductId) {
+                                $existingItem = $currentItem;
+                                break;
+                            }
+                        }
+                        if ($existingItem instanceof PurchaseOrderItem) {
+                            $mergedQty = bcadd($existingItem->getQuantity(), $newQty, 3);
+                            $unitCost = $unitCostInput !== '' ? $unitCostInput : $existingItem->getUnitCost();
+                            $existingItem->setQuantity($mergedQty);
+                            $existingItem->setUnitCost($unitCost);
+                            $existingItem->setSubtotal(bcmul($mergedQty, $unitCost, 2));
+                        } else {
+                            $item = new PurchaseOrderItem();
+                            $item->setProduct($product);
+                            $item->setQuantity($newQty);
+                            $unitCost = $unitCostInput !== '' ? $unitCostInput : ($product->getPurchasePrice() ?? $product->getCost() ?? '0.00');
+                            $item->setUnitCost($unitCost);
+                            $item->setSubtotal(bcmul($newQty, $unitCost, 2));
+                            $purchaseOrder->addItem($item);
+                        }
                     } else {
-                        $this->addFlash('danger', 'El producto no pertenece al proveedor o al comercio actual.');
+                        if (!$isXmlHttpRequest) {
+                            $this->addFlash('danger', 'El producto no pertenece al proveedor o al comercio actual.');
+                        }
                     }
                 }
             }
 
             $this->entityManager->flush();
-            $this->addFlash('success', 'Pedido actualizado.');
 
+            if ($isXmlHttpRequest) {
+                return new JsonResponse(['ok' => true]);
+            }
+
+            $this->addFlash('success', 'Pedido actualizado.');
             return $this->redirectToRoute('app_purchase_order_edit', ['id' => $purchaseOrder->getId()]);
         }
 
@@ -417,6 +439,17 @@ TWIG;
             const saveButton = form ? form.querySelector('button.btn.btn-primary') : null;
             const addItemButton = document.querySelector('[data-action="add-item"]');
             let newIndex = 0;
+            if (tableBody) {
+                const existingIndexes = Array.from(tableBody.querySelectorAll('input[name^="new_items["]'))
+                    .map((element) => {
+                        const match = element.name.match(/^new_items\[(\d+)\]/);
+                        return match ? Number.parseInt(match[1], 10) : null;
+                    })
+                    .filter((value) => Number.isInteger(value));
+                if (existingIndexes.length > 0) {
+                    newIndex = Math.max(...existingIndexes) + 1;
+                }
+            }
             if (!input || !list || !hidden) {
                 return;
             }
