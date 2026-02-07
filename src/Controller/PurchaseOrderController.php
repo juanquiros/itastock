@@ -494,6 +494,8 @@ TWIG;
 
             let autosaveTimer;
             let autosaveNeedsReload = false;
+            let autosaveDirty = false;
+            let autosaveInFlight = null;
             const setControlsDisabled = (disabled) => {
                 if (saveButton) {
                     saveButton.disabled = disabled;
@@ -508,9 +510,17 @@ TWIG;
                     button.disabled = disabled;
                 });
             };
-            const scheduleAutosave = () => {
+            const saveOrder = (force = false) => {
                 if (!form) {
-                    return;
+                    return Promise.resolve();
+                }
+                if (!force && !autosaveDirty) {
+                    return Promise.resolve();
+                }
+                autosaveDirty = false;
+                if (autosaveTimer) {
+                    clearTimeout(autosaveTimer);
+                    autosaveTimer = null;
                 }
                 if (autosaveStatus) {
                     autosaveStatus.textContent = 'Guardando cambios...';
@@ -519,17 +529,13 @@ TWIG;
                     autosaveSpinner.classList.remove('d-none');
                 }
                 setControlsDisabled(true);
-                if (autosaveTimer) {
-                    clearTimeout(autosaveTimer);
-                }
-                autosaveTimer = setTimeout(async () => {
-                    const formData = new FormData(form);
-                    try {
-                        await fetch(form.action || window.location.href, {
-                            method: 'POST',
-                            body: formData,
-                            headers: {'X-Requested-With': 'XMLHttpRequest'},
-                        });
+                const formData = new FormData(form);
+                autosaveInFlight = fetch(form.action || window.location.href, {
+                    method: 'POST',
+                    body: formData,
+                    headers: {'X-Requested-With': 'XMLHttpRequest'},
+                })
+                    .then(() => {
                         if (autosaveNeedsReload) {
                             window.location.reload();
                             return;
@@ -541,7 +547,8 @@ TWIG;
                             autosaveSpinner.classList.add('d-none');
                         }
                         setControlsDisabled(false);
-                    } catch (error) {
+                    })
+                    .catch(() => {
                         if (autosaveStatus) {
                             autosaveStatus.textContent = 'No se pudieron guardar los cambios.';
                         }
@@ -549,13 +556,31 @@ TWIG;
                             autosaveSpinner.classList.add('d-none');
                         }
                         setControlsDisabled(false);
-                    }
-                }, 1200);
+                    })
+                    .finally(() => {
+                        autosaveInFlight = null;
+                    });
+
+                return autosaveInFlight;
+            };
+
+            const scheduleAutosave = (delayMs = 300) => {
+                if (!form) {
+                    return;
+                }
+                autosaveDirty = true;
+                if (autosaveTimer) {
+                    clearTimeout(autosaveTimer);
+                }
+                autosaveTimer = setTimeout(() => {
+                    saveOrder(false);
+                }, delayMs);
             };
 
             if (addButton && tableBody) {
-                addButton.addEventListener('click', () => {
+                addButton.addEventListener('click', async () => {
                     setHiddenFromList();
+                    await saveOrder(true);
                     const productId = hidden.value;
                     const label = input.value.trim();
                     const qtyInput = document.querySelector('[name=\"new_qty\"]');
@@ -593,7 +618,8 @@ TWIG;
                     hidden.value = '';
                     if (qtyInput) qtyInput.value = '';
                     if (unitCostInput) unitCostInput.value = '';
-                    scheduleAutosave();
+                    autosaveDirty = true;
+                    saveOrder(true);
                 });
 
                 tableBody.addEventListener('click', (event) => {
@@ -605,7 +631,8 @@ TWIG;
                             row.remove();
                         }
                         autosaveNeedsReload = true;
-                        scheduleAutosave();
+                        autosaveDirty = true;
+                        saveOrder(true);
                     }
                     if (target && target.matches('[data-action=\"remove-existing\"]')) {
                         event.preventDefault();
@@ -623,28 +650,45 @@ TWIG;
                             });
                             row.style.display = 'none';
                         }
-                        scheduleAutosave();
+                        autosaveDirty = true;
+                        saveOrder(true);
                     }
                 });
             }
 
             if (form) {
                 form.addEventListener('submit', (event) => {
-                    if (autosaveTimer || autosaveNeedsReload) {
+                    if (autosaveTimer || autosaveNeedsReload || autosaveDirty || autosaveInFlight) {
                         event.preventDefault();
-                        scheduleAutosave();
+                        saveOrder(true);
                         return;
                     }
                     if (saveButton) {
                         saveButton.disabled = true;
                     }
                 });
+                form.addEventListener('input', (event) => {
+                    if (event.target && event.target.closest('[data-action=\"add-item\"]')) {
+                        return;
+                    }
+                    if (event.target && event.target.matches('input[name$=\"[qty]\"], input[name$=\"[unitCost]\"], input[name=\"new_qty\"], input[name=\"new_unit_cost\"]')) {
+                        scheduleAutosave(300);
+                    }
+                });
                 form.addEventListener('change', (event) => {
                     if (event.target && event.target.closest('[data-action=\"add-item\"]')) {
                         return;
                     }
-                    scheduleAutosave();
+                    scheduleAutosave(300);
                 });
+                form.addEventListener('blur', (event) => {
+                    if (event.target && event.target.closest('[data-action=\"add-item\"]')) {
+                        return;
+                    }
+                    if (event.target && event.target.matches('input[name$=\"[qty]\"], input[name$=\"[unitCost]\"], input[name=\"new_qty\"], input[name=\"new_unit_cost\"]')) {
+                        saveOrder(false);
+                    }
+                }, true);
             }
         })();
     </script>

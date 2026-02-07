@@ -1,0 +1,13 @@
+Problema
+- Los inputs de cantidad/costo guardaban solo en blur.
+- Al hacer click en "Agregar producto" después de editar, el primer click solo disparaba el blur y el agregado ocurría en el segundo click.
+
+Solución aplicada
+- Autosave reactivo con evento input + debounce (300ms) y blur como respaldo.
+- saveOrder(force=false) retorna Promise y permite forzar guardado.
+- El botón "Agregar producto" espera a saveOrder(true) antes de crear la fila.
+
+Cómo probar manualmente
+1) Editar la cantidad de un ítem y hacer click inmediato en "Agregar producto".
+2) Verificar que el producto se agrega en el primer click.
+3) Confirmar que el autosave sigue guardando sin recargar la página.
