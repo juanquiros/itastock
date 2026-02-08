@@ -1,0 +1,37 @@
+Tracking de visitas públicas (SEO)
+
+Qué se registra
+- Solo rutas cuyo _route comienza con "public_" (ej: public_home, public_pricing, public_page).
+- Solo requests GET exitosos (2xx) y también 404 para SEO.
+- Se ignoran assets (css, js, png, jpg, jpeg, svg, webp, ico, map).
+- Se descarta todo lo que empiece con /platform o /app.
+
+Qué NO se registra
+- Rutas de /app (comercios).
+- Rutas de /platform (panel de la plataforma).
+- Requests no GET (POST, PUT, etc).
+
+Campos guardados
+- createdAt: fecha/hora del request.
+- ip: IP real del visitante.
+- ipHash: hash sha256(ip + APP_SECRET) para conteo de únicos sin depender de IP cruda.
+- method: método HTTP.
+- routeName: nombre de la ruta (_route).
+- path: path de la URL.
+- queryString: querystring completo.
+- referer: header Referer.
+- userAgent: header User-Agent.
+- statusCode: status HTTP.
+- utm_source, utm_medium, utm_campaign, utm_content, utm_term: parámetros UTM.
+
+Uso del panel /platform/reports/traffic
+- Acceso solo para ROLE_PLATFORM_ADMIN.
+- Permite filtrar por rango (7d, 30d, 90d o personalizado).
+- Muestra KPIs (visitas totales, IPs únicas y top página), tops (páginas, referers, UTM) y un log de las últimas visitas.
+
+Performance
+- Inserción liviana (un insert por visita).
+- Índices dedicados en created_at, route_name, ip_hash, utm_source y status_code.
+
+Privacidad
+- Se guarda IP completa y su hash. El hash se usa para contar únicos por IP sin exponerla en métricas agregadas.

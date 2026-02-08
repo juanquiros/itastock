@@ -1,0 +1,195 @@
+{% extends 'platform/base_platform.html.twig' %}
+
+{% block header_title %}Tráfico (SEO){% endblock %}
+{% block header_subtitle %}
+    <div class="text-muted">Visitas en páginas públicas</div>
+{% endblock %}
+
+{% block body %}
+    <form method="get" class="row g-2 align-items-end mb-3">
+        <div class="col-md-3">
+            <label class="form-label">Rango</label>
+            <select name="range" class="form-select">
+                <option value="7d" {{ range == '7d' ? 'selected' : '' }}>Últimos 7 días</option>
+                <option value="30d" {{ range == '30d' ? 'selected' : '' }}>Últimos 30 días</option>
+                <option value="90d" {{ range == '90d' ? 'selected' : '' }}>Últimos 90 días</option>
+                <option value="custom" {{ range == 'custom' ? 'selected' : '' }}>Personalizado</option>
+            </select>
+        </div>
+        <div class="col-md-3">
+            <label class="form-label">Desde</label>
+            <input type="date" name="from" value="{{ from }}" class="form-control">
+        </div>
+        <div class="col-md-3">
+            <label class="form-label">Hasta</label>
+            <input type="date" name="to" value="{{ to }}" class="form-control">
+        </div>
+        <div class="col-md-3">
+            <button type="submit" class="btn btn-primary w-100">Actualizar</button>
+        </div>
+    </form>
+
+    <div class="row g-3">
+        <div class="col-md-4">
+            <div class="card shadow-sm">
+                <div class="card-body">
+                    <div class="text-muted">Visitas totales</div>
+                    <div class="h4 mb-0">{{ totalVisits }}</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card shadow-sm">
+                <div class="card-body">
+                    <div class="text-muted">IPs únicas</div>
+                    <div class="h4 mb-0">{{ uniqueIps }}</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card shadow-sm">
+                <div class="card-body">
+                    <div class="text-muted">Top página</div>
+                    <div class="fw-semibold">
+                        {% if topPage %}
+                            {{ topPage.routeName }} · {{ topPage.path }}
+                        {% else %}
+                            Sin datos
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-3 mt-1">
+        <div class="col-lg-6">
+            <div class="card shadow-sm h-100">
+                <div class="card-body">
+                    <h2 class="h6">Top páginas</h2>
+                    <div class="table-responsive">
+                        <table class="table table-sm mb-0">
+                            <thead>
+                                <tr>
+                                    <th>Ruta</th>
+                                    <th>Path</th>
+                                    <th class="text-end">Visitas</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for row in topPages %}
+                                    <tr>
+                                        <td>{{ row.routeName }}</td>
+                                        <td>{{ row.path }}</td>
+                                        <td class="text-end">{{ row.total }}</td>
+                                    </tr>
+                                {% else %}
+                                    <tr><td colspan="3">Sin datos.</td></tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-6">
+            <div class="card shadow-sm h-100">
+                <div class="card-body">
+                    <h2 class="h6">Top referers</h2>
+                    <div class="table-responsive">
+                        <table class="table table-sm mb-0">
+                            <thead>
+                                <tr>
+                                    <th>Referer</th>
+                                    <th class="text-end">Visitas</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for row in topReferrers %}
+                                    <tr>
+                                        <td>{{ row.referer }}</td>
+                                        <td class="text-end">{{ row.total }}</td>
+                                    </tr>
+                                {% else %}
+                                    <tr><td colspan="2">Sin datos.</td></tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-3 mt-1">
+        <div class="col-lg-6">
+            <div class="card shadow-sm h-100">
+                <div class="card-body">
+                    <h2 class="h6">Top UTM source</h2>
+                    <div class="table-responsive">
+                        <table class="table table-sm mb-0">
+                            <thead>
+                                <tr>
+                                    <th>Source</th>
+                                    <th class="text-end">Visitas</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for row in topUtmSources %}
+                                    <tr>
+                                        <td>{{ row.utmSource }}</td>
+                                        <td class="text-end">{{ row.total }}</td>
+                                    </tr>
+                                {% else %}
+                                    <tr><td colspan="2">Sin datos.</td></tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card shadow-sm mt-3">
+        <div class="card-body">
+            <h2 class="h6">Últimas visitas</h2>
+            <div class="table-responsive">
+                <table class="table table-sm">
+                    <thead>
+                        <tr>
+                            <th>Fecha</th>
+                            <th>Route</th>
+                            <th>Path</th>
+                            <th>IP</th>
+                            <th>Referer</th>
+                            <th>UTM source</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for visit in latestVisits %}
+                            <tr>
+                                <td>{{ visit.createdAt ? visit.createdAt|date('Y-m-d H:i') : '' }}</td>
+                                <td>{{ visit.routeName }}</td>
+                                <td>{{ visit.path }}</td>
+                                <td>{{ visit.ip }}</td>
+                                <td>
+                                    {% if visit.referer is empty %}
+                                        Directo / Sin referer
+                                    {% else %}
+                                        {{ visit.referer|length > 60 ? visit.referer|slice(0, 60) ~ '…' : visit.referer }}
+                                    {% endif %}
+                                </td>
+                                <td>{{ visit.utmSource ?? 'Sin UTM' }}</td>
+                                <td>{{ visit.statusCode }}</td>
+                            </tr>
+                        {% else %}
+                            <tr><td colspan="7">Sin datos.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+{% endblock %}
