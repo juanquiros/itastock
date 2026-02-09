@@ -1,0 +1,16 @@
+ARCA - Firma WSAA en Windows (sin file://)
+
+En Windows, el uso de rutas file:// en openssl_pkcs7_sign puede fallar aun con PEM válidos.
+Para evitarlo, la firma se realiza directamente con recursos OpenSSL creados desde el PEM
+almacenado en la base de datos, sin escribir certificado/clave en disco.
+
+Qué hace el flujo actual:
+- Lee cert/key desde DB (PEM).
+- Normaliza saltos de línea y valida con OpenSSL.
+- Firma usando recursos OpenSSL en memoria (x509/pkey).
+- Solo usa archivos temporales para el input/output del CMS.
+
+Troubleshooting
+- Passphrase incorrecta: la validación de la clave privada falla.
+- Cert/key mismatch: OpenSSL no puede usar la clave para firmar.
+- Errores de WSAA: revisar conectividad y estado del servicio ARCA.

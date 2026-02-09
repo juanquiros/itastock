@@ -116,29 +116,35 @@ class ArcaWsaaService
             throw new \RuntimeException('Certificado y key privada son requeridos para firmar el TRA.');
         }
 
-        $cert = $this->pemNormalizer->normalizeCert($cert);
-        $key = $this->pemNormalizer->normalizeKey($key);
+        $cert = str_replace(["\\n", "\r\n", "\r"], ["\n", "\n", "\n"], trim($cert));
+        $key = str_replace(["\\n", "\r\n", "\r"], ["\n", "\n", "\n"], trim($key));
         $passphrase = $config->getPassphrase() ?? '';
-        $this->pemNormalizer->validate($cert, $key, $passphrase);
+
+        $x509 = openssl_x509_read($cert);
+        if ($x509 === false) {
+            throw new \RuntimeException('Certificado PEM inválido (OpenSSL no puede leerlo).');
+        }
+
+        $pkey = openssl_pkey_get_private($key, $passphrase);
+        if ($pkey === false) {
+            throw new \RuntimeException('Clave privada PEM inválida o passphrase incorrecta.');
+        }
 
         $input = tempnam(sys_get_temp_dir(), 'arca_tra_');
         $output = tempnam(sys_get_temp_dir(), 'arca_cms_');
-        $certFile = tempnam(sys_get_temp_dir(), 'arca_cert_');
-        $keyFile = tempnam(sys_get_temp_dir(), 'arca_key_');
 
-        if (!$input || !$output || !$certFile || !$keyFile) {
+        if (!$input || !$output) {
             throw new \RuntimeException('No se pudieron crear archivos temporales para firmar.');
         }
 
         file_put_contents($input, $tra);
-        file_put_contents($certFile, $cert);
-        file_put_contents($keyFile, $key);
 
+        $privArg = $passphrase !== '' ? [$pkey, $passphrase] : $pkey;
         $signed = openssl_pkcs7_sign(
             $input,
             $output,
-            'file://' . $certFile,
-            ['file://' . $keyFile, $passphrase],
+            $x509,
+            $privArg,
             [],
             PKCS7_BINARY | PKCS7_NOATTR
         );
@@ -148,11 +154,8 @@ class ArcaWsaaService
             while ($error = openssl_error_string()) {
                 $errors[] = $error;
             }
-            $detail = $errors ? implode(' | ', $errors) : 'Sin detalle de OpenSSL.';
-            $detail = mb_substr($detail, 0, 500);
-            throw new \RuntimeException(
-                'No se pudo firmar el TRA con OpenSSL. Verificá certificado/key PEM. Detalle: ' . $detail
-            );
+            $detail = implode(' | ', array_slice($errors, 0, 5));
+            throw new \RuntimeException('No se pudo firmar el TRA con OpenSSL. ' . $detail);
         }
 
         $cms = file_get_contents($output) ?: '';
@@ -160,8 +163,6 @@ class ArcaWsaaService
 
         @unlink($input);
         @unlink($output);
-        @unlink($certFile);
-        @unlink($keyFile);
 
         if ($cms === '') {
             throw new \RuntimeException('No se pudo generar el CMS para WSAA.');
