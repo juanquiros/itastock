@@ -78,7 +78,7 @@ class ArcaWsfeService
             'ImpTrib' => 0,
             'MonId' => 'PES',
             'MonCotiz' => 1,
-            'CondicionIvaReceptorId' => $receiverIvaConditionId,
+            'CondicionIVAReceptorId' => $receiverIvaConditionId,
         ];
 
         $ivaItems = $this->buildIvaItems($invoice);

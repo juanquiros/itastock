@@ -1,0 +1,11 @@
+ARCA WSFE - CondicionIVAReceptorId
+
+Nombre exacto del campo
+- CondicionIVAReceptorId (IVA en mayúsculas).
+
+Motivo del rechazo previo
+- ARCA ignora CondicionIvaReceptorId por no coincidir exactamente con el nombre esperado.
+- Esto dispara el rechazo 10246 aunque el valor sea válido.
+
+Referencia
+- El valor se obtiene desde FEParamGetCondicionIvaReceptor y se envía en FECAESolicitar.
