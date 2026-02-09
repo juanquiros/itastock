@@ -54,11 +54,52 @@
         .card-min-h {
             min-height: 340px;
         }
+
+        .dashboard-header {
+            gap: 1rem;
+        }
+
+        .dashboard-table {
+            max-height: 320px;
+            overflow-y: auto;
+        }
+
+        @media (max-width: 991.98px) {
+            .dashboard-header {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            .dashboard-status {
+                text-align: left;
+                width: 100%;
+            }
+
+            .kpi-card {
+                padding: 12px;
+            }
+
+            .kpi-value {
+                font-size: 1.35rem;
+            }
+
+            .card-min-h {
+                min-height: auto;
+            }
+
+            .chart-card canvas {
+                min-height: 220px;
+            }
+
+            .dashboard-table {
+                max-height: 240px;
+            }
+        }
     </style>
 {% endblock %}
 
 {% block body %}
-    <div class="d-flex justify-content-between align-items-start flex-wrap gap-3 mb-3">
+    <div class="d-flex justify-content-between align-items-start flex-wrap gap-3 mb-3 dashboard-header">
         <div>
             {% if is_granted('BUSINESS_ADMIN') %}
                 <h1 class="h4 mb-1">Dashboard del comercio</h1>
@@ -69,7 +110,7 @@
                 <p class="text-muted mb-0">KPIs actualizadas de la caja n° {{ cashPosNumber }}.</p>
             {% endif %}
         </div>
-        <div class="text-end">
+        <div class="text-end dashboard-status">
             <div class="small text-muted">Estado de actualización</div>
             <div class="fw-semibold" id="sync-status">Actualizado</div>
         </div>
@@ -151,7 +192,7 @@
 
     <div class="row g-3 mb-4">
         <div class="col-12 {% if is_granted('BUSINESS_ADMIN') %}col-lg-6{% endif %}">
-            <div class="card shadow-sm card-min-h">
+            <div class="card shadow-sm card-min-h chart-card">
                 <div class="card-body">
                     <div class="d-flex justify-content-between align-items-center mb-2">
                         <span class="section-title">Ventas por hora (hoy)</span>
@@ -162,7 +203,7 @@
             </div>
         </div>
         <div class="col-12 col-lg-3">
-            <div class="card shadow-sm card-min-h">
+            <div class="card shadow-sm card-min-h chart-card">
                 <div class="card-body">
                     <div class="d-flex justify-content-between align-items-center mb-2">
                         <span class="section-title">Medios de pago (hoy)</span>
@@ -174,7 +215,7 @@
         </div>
         {% if is_granted('BUSINESS_ADMIN') %}
             <div class="col-12 col-lg-3">
-                <div class="card shadow-sm card-min-h">
+                <div class="card shadow-sm card-min-h chart-card">
                     <div class="card-body">
                         <div class="d-flex justify-content-between align-items-center mb-2">
                             <span class="section-title">Ventas últimos 7 días</span>
@@ -196,7 +237,7 @@
                             <span class="section-title">Stock bajo (top 5)</span>
                             <a class="small" href="{{ path('app_product_index') }}">Ir a stock</a>
                         </div>
-                        <div id="low-stock-list" class="table-responsive">
+                        <div id="low-stock-list" class="table-responsive dashboard-table">
                             <table class="table table-sm align-middle mb-0">
                                 <thead class="table-light">
                                     <tr>
@@ -219,7 +260,7 @@
                         <span class="section-title">Deudores (top 5)</span>
                         <a class="small" href="{{ path('app_reports_debtors') }}">Ver reporte</a>
                     </div>
-                    <div id="debtors-list" class="table-responsive">
+                    <div id="debtors-list" class="table-responsive dashboard-table">
                         <table class="table table-sm align-middle mb-0">
                             <thead class="table-light">
                                 <tr>

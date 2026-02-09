@@ -11,6 +11,18 @@
             .sidebar { min-height: 100vh; background: #0f172a; color: #fff; }
             .sidebar a { color: #cbd5e1; text-decoration: none; display: block; padding: 0.75rem 1rem; border-radius: 8px; }
             .sidebar a:hover, .sidebar a.active { background: rgba(255,255,255,0.08); color: #fff; }
+            .platform-layout { min-height: 100vh; }
+            .platform-header { gap: 1rem; }
+
+            @media (max-width: 991.98px) {
+                .platform-layout { flex-direction: column; }
+                .sidebar { min-height: auto; width: 100%; }
+                .platform-nav { flex-direction: row; flex-wrap: nowrap; overflow-x: auto; padding-bottom: 0.5rem; }
+                .platform-nav a { white-space: nowrap; }
+                main { padding: 1.25rem; }
+                .platform-header { flex-direction: column; align-items: flex-start; }
+                .platform-header .text-end { text-align: left !important; }
+            }
         </style>
         {% block stylesheets %}{% endblock %}
         <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous" defer></script>
@@ -19,7 +31,7 @@
         {% block javascripts %}{% endblock %}
     </head>
     <body>
-        <div class="d-flex">
+        <div class="d-flex platform-layout">
             <aside class="sidebar p-3">
                 <div class="d-flex align-items-center gap-2 mb-4">
                     <img src="{{ asset('brand/itastock-logo.svg') }}" alt="ItaStock" width="32" height="32">
@@ -29,7 +41,7 @@
                     </div>
                 </div>
                 {% set current = app.request.attributes.get('_route') %}
-                <nav class="d-flex flex-column gap-1">
+                <nav class="d-flex flex-column gap-1 platform-nav">
                     <a href="{{ path('platform_dashboard') }}" class="{{ current == 'platform_dashboard' ? 'active' : '' }}">Dashboard</a>
                     <a href="{{ path('platform_pages_index') }}" class="{{ current starts with 'platform_pages' ? 'active' : '' }}">Páginas públicas</a>
                     <a href="{{ path('platform_plans_index') }}" class="{{ current starts with 'platform_plans' ? 'active' : '' }}">Planes</a>
@@ -49,7 +61,7 @@
                 </nav>
             </aside>
             <main class="flex-grow-1 p-4">
-                <div class="d-flex justify-content-between align-items-center mb-4">
+                <div class="d-flex justify-content-between align-items-center mb-4 platform-header">
                     <div>
                         <h1 class="h4 mb-0">{% block header_title %}Panel{% endblock %}</h1>
                         {% block header_subtitle %}{% endblock %}

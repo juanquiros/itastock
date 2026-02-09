@@ -2,34 +2,49 @@
 
 {% block header_title %}Dashboard{% endblock %}
 
+{% block stylesheets %}
+    {{ parent() }}
+    <style>
+        .platform-metric-card {
+            height: 100%;
+        }
+
+        @media (max-width: 991.98px) {
+            .platform-metric-card .card-body {
+                padding: 0.9rem;
+            }
+        }
+    </style>
+{% endblock %}
+
 {% block body %}
     <div class="row g-3">
-        <div class="col-md-3">
-            <div class="card shadow-sm">
+        <div class="col-6 col-lg-3">
+            <div class="card shadow-sm platform-metric-card">
                 <div class="card-body">
                     <div class="text-muted">Suscripciones totales</div>
                     <div class="h4 mb-0">{{ counts.total }}</div>
                 </div>
             </div>
         </div>
-        <div class="col-md-3">
-            <div class="card shadow-sm">
+        <div class="col-6 col-lg-3">
+            <div class="card shadow-sm platform-metric-card">
                 <div class="card-body">
                     <div class="text-muted">Activas</div>
                     <div class="h4 mb-0">{{ counts.ACTIVE }}</div>
                 </div>
             </div>
         </div>
-        <div class="col-md-3">
-            <div class="card shadow-sm">
+        <div class="col-6 col-lg-3">
+            <div class="card shadow-sm platform-metric-card">
                 <div class="card-body">
                     <div class="text-muted">Pendientes</div>
                     <div class="h4 mb-0">{{ counts.PENDING }}</div>
                 </div>
             </div>
         </div>
-        <div class="col-md-3">
-            <div class="card shadow-sm">
+        <div class="col-6 col-lg-3">
+            <div class="card shadow-sm platform-metric-card">
                 <div class="card-body">
                     <div class="text-muted">Planes de billing</div>
                     <div class="h4 mb-0">{{ plansTotal }}</div>
@@ -39,32 +54,32 @@
     </div>
 
     <div class="row g-3 mt-2">
-        <div class="col-md-3">
-            <div class="card shadow-sm">
+        <div class="col-6 col-lg-3">
+            <div class="card shadow-sm platform-metric-card">
                 <div class="card-body">
                     <div class="text-muted">Trials</div>
                     <div class="h4 mb-0">{{ counts.TRIAL }}</div>
                 </div>
             </div>
         </div>
-        <div class="col-md-3">
-            <div class="card shadow-sm">
+        <div class="col-6 col-lg-3">
+            <div class="card shadow-sm platform-metric-card">
                 <div class="card-body">
                     <div class="text-muted">Past due</div>
                     <div class="h4 mb-0">{{ counts.PAST_DUE }}</div>
                 </div>
             </div>
         </div>
-        <div class="col-md-3">
-            <div class="card shadow-sm">
+        <div class="col-6 col-lg-3">
+            <div class="card shadow-sm platform-metric-card">
                 <div class="card-body">
                     <div class="text-muted">Suspendidas</div>
                     <div class="h4 mb-0">{{ counts.SUSPENDED }}</div>
                 </div>
             </div>
         </div>
-        <div class="col-md-3">
-            <div class="card shadow-sm">
+        <div class="col-6 col-lg-3">
+            <div class="card shadow-sm platform-metric-card">
                 <div class="card-body">
                     <div class="text-muted">Eventos webhook</div>
                     <div class="h4 mb-0">{{ webhookEventsTotal }}</div>
