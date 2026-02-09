@@ -83,7 +83,11 @@ class ArcaSettingsController extends AbstractController
             $this->arcaWsaaService->getTokenSign($business, $config, 'wsfe');
             $this->addFlash('success', 'Conexión ARCA exitosa.');
         } catch (\Throwable $exception) {
-            $this->addFlash('danger', sprintf('Error al conectar con ARCA: %s', $exception->getMessage()));
+            $detail = substr($exception->getMessage(), 0, 500);
+            $this->addFlash(
+                'danger',
+                "Error al conectar con ARCA: certificado o key inválidos.\nDetalle: {$detail}"
+            );
         }
 
         return $this->redirectToRoute('app_settings_arca');

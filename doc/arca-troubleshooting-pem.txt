@@ -1,0 +1,26 @@
+ARCA - Troubleshooting de PEM (certificado y clave privada)
+
+FORMATO ESPERADO
+Certificado (PEM completo):
+-----BEGIN CERTIFICATE-----
+MIIF...base64...
+-----END CERTIFICATE-----
+
+Clave privada (PEM completo):
+-----BEGIN PRIVATE KEY-----
+MIIE...base64...
+-----END PRIVATE KEY-----
+
+QUÉ PEGAR EN EL FORM
+- Recomendado: pegar el PEM completo con headers BEGIN/END.
+- Si pegás solo base64 sin headers, el sistema lo reconstruye automáticamente.
+
+ERRORES COMUNES
+- BEGIN/END mal escritos (por ejemplo, CERTIFICADO en lugar de CERTIFICATE).
+- Copiar desde PDF con espacios o líneas cortadas.
+- Certificado incompleto (faltan líneas).
+- Clave privada que no corresponde al certificado.
+- Pegar solo parte del contenido base64.
+
+TIP
+Si falla, exportá nuevamente el PEM desde tu herramienta (OpenSSL, panel AFIP/ARCA) y pegalo completo.
