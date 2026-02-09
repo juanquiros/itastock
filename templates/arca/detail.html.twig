@@ -8,7 +8,7 @@
             <h1 class="h4 mb-1">Detalle ARCA</h1>
             <p class="text-muted mb-0">Venta #{{ invoice.sale.id }} · Estado {{ invoice.status }}</p>
         </div>
-        <a class="btn btn-outline-secondary" href="{{ path('app_admin_arca_index') }}">Volver</a>
+        <a class="btn btn-outline-secondary" href="{{ path('app_reports_arca_index') }}">Volver</a>
     </div>
 
     <div class="row">
@@ -43,15 +43,29 @@
 
     <div class="card shadow-sm mb-3">
         <div class="card-body">
-            <div class="fw-semibold mb-2">Request ARCA</div>
-            <pre class="small bg-light p-3 rounded mb-0">{{ invoice.arcaRawRequest ? invoice.arcaRawRequest|json_encode(constant('JSON_PRETTY_PRINT')) : 'Sin request' }}</pre>
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <div class="fw-semibold">Request ARCA</div>
+                <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#arca-request" aria-expanded="false" aria-controls="arca-request">
+                    Ver
+                </button>
+            </div>
+            <div class="collapse" id="arca-request">
+                <pre class="small bg-light p-3 rounded mb-0">{{ invoice.arcaRawRequest ? invoice.arcaRawRequest|json_encode(constant('JSON_PRETTY_PRINT')) : 'Sin request' }}</pre>
+            </div>
         </div>
     </div>
 
     <div class="card shadow-sm">
         <div class="card-body">
-            <div class="fw-semibold mb-2">Response ARCA</div>
-            <pre class="small bg-light p-3 rounded mb-0">{{ invoice.arcaRawResponse ? invoice.arcaRawResponse|json_encode(constant('JSON_PRETTY_PRINT')) : 'Sin response' }}</pre>
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <div class="fw-semibold">Response ARCA</div>
+                <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#arca-response" aria-expanded="false" aria-controls="arca-response">
+                    Ver
+                </button>
+            </div>
+            <div class="collapse" id="arca-response">
+                <pre class="small bg-light p-3 rounded mb-0">{{ invoice.arcaRawResponse ? invoice.arcaRawResponse|json_encode(constant('JSON_PRETTY_PRINT')) : 'Sin response' }}</pre>
+            </div>
         </div>
     </div>
 {% endblock %}

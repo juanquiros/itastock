@@ -12,22 +12,35 @@
 
     <div class="card shadow-sm mb-4">
         <div class="card-body">
-            <form method="post" action="{{ path('app_settings_arca') }}">
-                <div class="row">
-                    <div class="col-lg-6">
-                        <label class="form-label" for="arca-cuit">CUIT</label>
-                        <input class="form-control" id="arca-cuit" name="arca_cuit" placeholder="Ingresá el CUIT" />
+            {{ form_start(form) }}
+                <div class="row g-3">
+                    <div class="col-lg-4">
+                        {{ form_row(form.arcaEnabled) }}
+                    </div>
+                    <div class="col-lg-4">
+                        {{ form_row(form.arcaEnvironment) }}
+                    </div>
+                    <div class="col-lg-4">
+                        {{ form_row(form.taxPayerType) }}
                     </div>
                     <div class="col-lg-6">
-                        <label class="form-label" for="arca-punto-venta">Punto de venta</label>
-                        <input class="form-control" id="arca-punto-venta" name="arca_pos" placeholder="Ej: 0001" />
+                        {{ form_row(form.cuitEmisor) }}
+                    </div>
+                    <div class="col-lg-6">
+                        {{ form_row(form.passphrase) }}
+                    </div>
+                    <div class="col-lg-6">
+                        {{ form_row(form.certPem) }}
+                    </div>
+                    <div class="col-lg-6">
+                        {{ form_row(form.privateKeyPem) }}
                     </div>
                 </div>
 
                 <div class="d-flex justify-content-end gap-2 mt-4">
                     <button class="btn btn-primary">Guardar</button>
                 </div>
-            </form>
+            {{ form_end(form) }}
         </div>
     </div>
 
@@ -36,6 +49,7 @@
             <h2 class="h6">Probar conexión</h2>
             <p class="text-muted">Verificá que la comunicación con ARCA esté funcionando correctamente.</p>
             <form method="post" action="{{ path('app_settings_arca_test') }}">
+                <input type="hidden" name="_token" value="{{ csrf_token('arca_test') }}">
                 <button class="btn btn-outline-primary">Probar conexión</button>
             </form>
         </div>

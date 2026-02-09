@@ -4,6 +4,12 @@
         {{ form_widget(form.name, {'attr': {'class': 'form-control'}}) }}
         {{ form_errors(form.name) }}
     </div>
+    <div class="mb-3">
+        {{ form_label(form.ivaRate, null, {'label_attr': {'class': 'form-label fw-semibold'}}) }}
+        {{ form_widget(form.ivaRate, {'attr': {'class': 'form-control'}}) }}
+        {{ form_errors(form.ivaRate) }}
+        {{ form_help(form.ivaRate) }}
+    </div>
 
     <div class="d-flex justify-content-end gap-2">
         <a class="btn btn-outline-secondary" href="{{ path('app_category_index') }}">Cancelar</a>

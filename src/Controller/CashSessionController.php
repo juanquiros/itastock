@@ -4,6 +4,7 @@ namespace App\Controller;
 
 use App\Entity\Business;
 use App\Entity\CashSession;
+use App\Repository\BusinessArcaConfigRepository;
 use App\Repository\CashSessionRepository;
 use App\Repository\PaymentRepository;
 use App\Security\BusinessContext;
@@ -26,6 +27,7 @@ class CashSessionController extends AbstractController
         private readonly CashSessionRepository $cashSessionRepository,
         private readonly PaymentRepository $paymentRepository,
         private readonly ReportService $reportService,
+        private readonly BusinessArcaConfigRepository $arcaConfigRepository,
         private readonly BusinessContext $businessContext,
     ) {
     }
@@ -140,11 +142,13 @@ class CashSessionController extends AbstractController
 
         $summary = $this->reportService->getCashSessionSummary($cashSession, true);
         $totals = $summary['totals'] ?? [];
+        $arcaConfig = $this->arcaConfigRepository->findOneBy(['business' => $business]);
 
         return $this->render('cash/report.html.twig', [
             'cashSession' => $cashSession,
             'totals' => $totals,
             'summary' => $summary,
+            'arcaEnabled' => $arcaConfig?->isArcaEnabled() ?? false,
         ]);
     }
 

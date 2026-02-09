@@ -1,0 +1,31 @@
+ARCA paquete completo - configuración y operación
+
+CONFIGURACIÓN POR COMERCIO
+- Ir a Configuración > ARCA en /app.
+- Completar CUIT, ambiente (Homo/Prod), tipo de contribuyente y cargar certificado/clave privada PEM.
+- Si “Habilitar ARCA” está activo, el CUIT, certificado y key son obligatorios.
+- Usar el botón “Probar conexión” para validar credenciales (WSAA).
+
+CONFIGURACIÓN POR CAJA (USUARIOS)
+- En Administración > Usuarios, editar cada usuario:
+  - Habilitar facturación ARCA para esta caja.
+  - Modo ARCA: Solo remito o Factura.
+  - Punto de venta ARCA (entero >= 1).
+- Solo los usuarios con modo “Factura” y PV definido pueden emitir comprobantes.
+
+FLUJO OPERATIVO
+1) Venta confirmada -> Remito (ticket).
+2) Si la caja permite facturar, aparece el botón “Facturar”.
+3) Se genera CAE y queda disponible el PDF de la factura.
+4) Reportes ARCA permiten ver listado, detalle, export CSV y PDF.
+
+CONSIDERACIONES DE SEGURIDAD
+- Certificado y clave privada PEM son sensibles: limitar el acceso solo a administradores.
+- Usar passphrase si la clave privada la requiere.
+- No compartir los archivos PEM fuera de los responsables del comercio.
+
+TROUBLESHOOTING BÁSICO
+- “ARCA no está habilitado”: activar el checkbox en configuración y guardar.
+- “Falta CUIT/certificado/key”: completar los datos obligatorios en Configuración > ARCA.
+- “Caja no habilitada”: verificar en Usuarios que el modo sea Factura y PV definido.
+- “Factura rechazada”: revisar el detalle en Reportes > ARCA (request/response).

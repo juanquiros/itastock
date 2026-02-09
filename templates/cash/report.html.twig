@@ -121,11 +121,18 @@
                                 <th>Método</th>
                                 <th class="text-end">Total</th>
                                 <th class="text-end">Detalle</th>
+                                <th>Comprobantes</th>
                             </tr>
                         </thead>
                         <tbody>
                             {% for sale in sales %}
                                 {% set detailId = 'sale-detail-' ~ sale.saleId %}
+                                {% set canIssueArca = arcaEnabled
+                                    and is_granted('BUSINESS_ADMIN')
+                                    and not sale.arcaInvoiceId
+                                    and sale.arcaEnabledForThisCashier
+                                    and sale.arcaMode == 'INVOICE'
+                                    and sale.arcaPosNumber %}
                                 <tr>
                                     <td>{{ sale.saleId }}</td>
                                     <td>{{ sale.createdAt ? sale.createdAt|date('d/m/Y H:i') : '' }}</td>
@@ -141,10 +148,26 @@
                                             <span class="text-muted">Sin detalle</span>
                                         {% endif %}
                                     </td>
+                                    <td>
+                                        <div class="d-flex flex-column gap-1">
+                                            <a class="btn btn-sm btn-outline-secondary" href="{{ path('app_sale_ticket_pdf', { id: sale.saleId }) }}">Remito PDF</a>
+                                            {% if sale.arcaInvoiceStatus == 'AUTHORIZED' %}
+                                                <a class="btn btn-sm btn-outline-success" href="{{ path('app_sale_arca_pdf', { id: sale.saleId }) }}">Factura PDF</a>
+                                            {% elseif sale.arcaInvoiceId %}
+                                                <span class="small text-muted">Factura {{ sale.arcaInvoiceStatus|lower }}</span>
+                                            {% elseif canIssueArca %}
+                                                <button class="btn btn-sm btn-outline-success" data-bs-toggle="modal" data-bs-target="#arcaInvoiceModal-{{ sale.saleId }}">
+                                                    Facturar
+                                                </button>
+                                            {% else %}
+                                                <span class="small text-muted">Solo remito</span>
+                                            {% endif %}
+                                        </div>
+                                    </td>
                                 </tr>
                                 {% if (summary.saleDetails[sale.saleId] ?? []) is not empty %}
                                     <tr class="collapse" id="{{ detailId }}">
-                                        <td colspan="6" class="bg-light">
+                                        <td colspan="7" class="bg-light">
                                             <div class="table-responsive mb-0">
                                                 <table class="table table-sm mb-0">
                                                     <thead>
@@ -174,6 +197,45 @@
                         </tbody>
                     </table>
                 </div>
+                {% for sale in sales %}
+                    {% set canIssueArca = arcaEnabled
+                        and is_granted('BUSINESS_ADMIN')
+                        and not sale.arcaInvoiceId
+                        and sale.arcaEnabledForThisCashier
+                        and sale.arcaMode == 'INVOICE'
+                        and sale.arcaPosNumber %}
+                    {% if canIssueArca %}
+                        <div class="modal fade" id="arcaInvoiceModal-{{ sale.saleId }}" tabindex="-1" aria-hidden="true">
+                            <div class="modal-dialog">
+                                <div class="modal-content">
+                                    <form method="post" action="{{ path('app_admin_cash_issue_arca', { saleId: sale.saleId }) }}">
+                                        <div class="modal-header">
+                                            <h5 class="modal-title">Confirmar facturación</h5>
+                                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                        </div>
+                                        <div class="modal-body">
+                                            <p class="text-muted mb-3">Seleccioná el origen del precio para emitir la factura.</p>
+                                            <div class="form-check mb-2">
+                                                <input class="form-check-input" type="radio" name="price_mode" id="priceHistoric-{{ sale.saleId }}" value="historic" checked>
+                                                <label class="form-check-label" for="priceHistoric-{{ sale.saleId }}">Usar precio histórico de la venta</label>
+                                            </div>
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="radio" name="price_mode" id="priceCurrent-{{ sale.saleId }}" value="current">
+                                                <label class="form-check-label" for="priceCurrent-{{ sale.saleId }}">Usar precio actual</label>
+                                            </div>
+                                            <input type="hidden" name="_token" value="{{ csrf_token('arca_invoice_cash_' ~ sale.saleId) }}">
+                                            <input type="hidden" name="cash_session_id" value="{{ cashSession.id }}">
+                                        </div>
+                                        <div class="modal-footer">
+                                            <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                                            <button class="btn btn-success">Facturar</button>
+                                        </div>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                    {% endif %}
+                {% endfor %}
             {% else %}
                 <div class="text-muted">No hay ventas registradas para esta sesión.</div>
             {% endif %}

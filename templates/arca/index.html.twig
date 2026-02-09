@@ -8,7 +8,7 @@
             <h1 class="h4 mb-1">Facturación ARCA</h1>
             <p class="text-muted mb-0">Seguimiento de facturas electrónicas emitidas.</p>
         </div>
-        <a class="btn btn-outline-secondary" href="{{ path('app_admin_arca_index', exportParams) }}">Exportar CSV</a>
+        <a class="btn btn-outline-secondary" href="{{ path('app_reports_arca_index', exportParams) }}">Exportar CSV</a>
     </div>
 
     <div class="card shadow-sm mb-3">
@@ -47,7 +47,7 @@
                     </select>
                 </div>
                 <div class="col-12 d-flex justify-content-end gap-2">
-                    <a href="{{ path('app_admin_arca_index') }}" class="btn btn-outline-secondary">Limpiar</a>
+                    <a href="{{ path('app_reports_arca_index') }}" class="btn btn-outline-secondary">Limpiar</a>
                     <button class="btn btn-primary">Filtrar</button>
                 </div>
             </form>
@@ -86,9 +86,9 @@
                         <td>
                             <div class="btn-group btn-group-sm">
                                 {% if invoice.status == 'AUTHORIZED' %}
-                                    <a class="btn btn-outline-primary" href="{{ path('app_admin_arca_pdf', { id: invoice.id }) }}">Factura</a>
+                                    <a class="btn btn-outline-primary" href="{{ path('app_reports_arca_pdf', { id: invoice.id }) }}">Factura</a>
                                 {% endif %}
-                                <a class="btn btn-outline-secondary" href="{{ path('app_admin_arca_detail', { id: invoice.id }) }}">Detalle</a>
+                                <a class="btn btn-outline-secondary" href="{{ path('app_reports_arca_detail', { id: invoice.id }) }}">Detalle</a>
                             </div>
                         </td>
                     </tr>

@@ -17,7 +17,7 @@ use Symfony\Component\Routing\Annotation\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 
 #[IsGranted('BUSINESS_ADMIN')]
-#[Route('/app/admin/arca', name: 'app_admin_arca_')]
+#[Route('/app/admin/reports/arca', name: 'app_reports_arca_')]
 class ArcaInvoiceController extends AbstractController
 {
     public function __construct(

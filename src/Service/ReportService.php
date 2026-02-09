@@ -2,7 +2,9 @@
 
 namespace App\Service;
 
+use App\Entity\ArcaInvoice;
 use App\Entity\Business;
+use App\Entity\BusinessUser;
 use App\Entity\CashSession;
 use App\Entity\Customer;
 use App\Repository\CustomerAccountMovementRepository;
@@ -33,13 +35,24 @@ class ReportService
             ->addSelect('s.createdAt AS createdAt')
             ->addSelect('s.total AS total')
             ->addSelect('u.email AS sellerEmail')
+            ->addSelect('u.id AS sellerId')
             ->addSelect('COALESCE(c.name, :defaultCustomer) AS customerName')
             ->addSelect('MIN(p.method) AS paymentMethod')
             ->addSelect('COUNT(DISTINCT items.id) AS itemsCount')
+            ->addSelect('MAX(ai.id) AS arcaInvoiceId')
+            ->addSelect('MAX(ai.status) AS arcaInvoiceStatus')
+            ->addSelect('MAX(ai.arcaPosNumber) AS arcaInvoicePosNumber')
+            ->addSelect('MAX(ai.cae) AS arcaInvoiceCae')
+            ->addSelect('MAX(ai.cbteNumero) AS arcaInvoiceNumber')
+            ->addSelect('MAX(bu.arcaEnabledForThisCashier) AS arcaEnabledForThisCashier')
+            ->addSelect('MAX(bu.arcaMode) AS arcaMode')
+            ->addSelect('MAX(bu.arcaPosNumber) AS arcaPosNumber')
             ->leftJoin('s.createdBy', 'u')
             ->leftJoin('s.customer', 'c')
             ->leftJoin('s.payments', 'p')
             ->leftJoin('s.items', 'items')
+            ->leftJoin(ArcaInvoice::class, 'ai', 'WITH', 'ai.sale = s AND ai.business = :business')
+            ->leftJoin(BusinessUser::class, 'bu', 'WITH', 'bu.user = u AND bu.business = :business AND bu.isActive = true')
             ->andWhere('s.business = :business')
             ->andWhere('s.createdAt >= :from')
             ->andWhere('s.createdAt <= :to')

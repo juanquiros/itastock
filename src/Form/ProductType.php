@@ -67,6 +67,11 @@ class ProductType extends AbstractType
                 'attr' => ['step' => '0.01'],
                 'help' => 'Costo',
             ])
+            ->add('ivaRate', TextType::class, [
+                'label' => 'IVA (%)',
+                'required' => false,
+                'help' => 'Si se define, pisa el de la categoría. Ej: 21, 10.5, 0',
+            ])
             ->add('supplier', EntityType::class, [
                 'label' => 'Proveedor',
                 'class' => Supplier::class,
@@ -188,6 +193,14 @@ class ProductType extends AbstractType
                 return;
             }
 
+            if (array_key_exists('ivaRate', $data)) {
+                $normalized = $this->normalizeRate($data['ivaRate']);
+                if ($normalized === null && $data['ivaRate'] !== null && $data['ivaRate'] !== '') {
+                    $event->getForm()->get('ivaRate')->addError(new FormError('Ingresá un IVA válido (solo números y coma/punto).'));
+                }
+                $data['ivaRate'] = $normalized;
+            }
+
             $uom = $data['uomBase'] ?? Product::UOM_UNIT;
             if ($uom === Product::UOM_UNIT) {
                 $data['allowsFractionalQty'] = false;
@@ -229,5 +242,23 @@ class ProductType extends AbstractType
             'current_stock' => '0.000',
             'catalog_product_id' => null,
         ]);
+    }
+
+    private function normalizeRate(mixed $value): ?string
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        $raw = str_replace(',', '.', trim((string) $value));
+        if ($raw === '' || !is_numeric($raw)) {
+            return null;
+        }
+
+        if ((float) $raw < 0) {
+            return null;
+        }
+
+        return bcadd($raw, '0', 2);
     }
 }
