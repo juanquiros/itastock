@@ -13,6 +13,9 @@
     <div class="card shadow-sm mb-4">
         <div class="card-body">
             {{ form_start(form) }}
+                <div class="alert alert-info small mb-3">
+                    No se guardan archivos: se leen y se guardan como texto PEM en la configuración del comercio.
+                </div>
                 <div class="row g-3">
                     <div class="col-lg-4">
                         {{ form_row(form.arcaEnabled) }}
@@ -30,9 +33,24 @@
                         {{ form_row(form.passphrase) }}
                     </div>
                     <div class="col-lg-6">
+                        {{ form_row(form.certFile, {
+                            help: 'Subí el archivo .crt/.pem'
+                        }) }}
+                    </div>
+                    <div class="col-lg-6">
+                        {{ form_row(form.keyFile, {
+                            help: 'Subí el archivo .key/.pem'
+                        }) }}
+                    </div>
+                    <div class="col-12">
+                        <div class="text-muted small">Si subís archivos, no hace falta pegar el contenido.</div>
+                    </div>
+                    <div class="col-lg-6">
+                        <div class="text-muted small mb-1">Alternativa manual: pegá el PEM completo.</div>
                         {{ form_row(form.certPem) }}
                     </div>
                     <div class="col-lg-6">
+                        <div class="text-muted small mb-1">Alternativa manual: pegá el PEM completo.</div>
                         {{ form_row(form.privateKeyPem) }}
                     </div>
                 </div>

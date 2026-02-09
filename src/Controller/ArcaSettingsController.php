@@ -6,6 +6,7 @@ use App\Entity\Business;
 use App\Form\BusinessArcaConfigType;
 use App\Repository\BusinessArcaConfigRepository;
 use App\Security\BusinessContext;
+use App\Service\ArcaPemNormalizer;
 use App\Service\ArcaWsaaService;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -24,6 +25,7 @@ class ArcaSettingsController extends AbstractController
         private readonly BusinessContext $businessContext,
         private readonly BusinessArcaConfigRepository $configRepository,
         private readonly EntityManagerInterface $entityManager,
+        private readonly ArcaPemNormalizer $pemNormalizer,
         private readonly ArcaWsaaService $arcaWsaaService,
     ) {
     }
@@ -39,6 +41,9 @@ class ArcaSettingsController extends AbstractController
         $form->handleRequest($request);
 
         if ($form->isSubmitted()) {
+            $this->applyUploadedPemFiles($form, $config);
+            $this->normalizePemFields($config);
+
             foreach ($this->validateConfig($config) as $message) {
                 $form->addError(new FormError($message));
             }
@@ -80,16 +85,18 @@ class ArcaSettingsController extends AbstractController
             if ($errors !== []) {
                 throw new \RuntimeException($errors[0]);
             }
+            $this->pemNormalizer->validate(
+                (string) $config->getCertPem(),
+                (string) $config->getPrivateKeyPem(),
+                $config->getPassphrase()
+            );
             $this->arcaWsaaService->getTokenSign($business, $config, 'wsfe');
             $this->addFlash('success', 'Conexión ARCA exitosa.');
         } catch (\Throwable $exception) {
             $detail = substr($exception->getMessage(), 0, 500);
-            if (str_contains(mb_strtolower($detail), 'base64')) {
-                $detail = 'Formato PEM inválido. Revisá headers BEGIN/END y que el contenido esté completo.';
-            }
             $this->addFlash(
                 'danger',
-                "Error al conectar con ARCA: certificado o key inválidos.\nDetalle: {$detail}"
+                "Certificado o clave inválidos. Subí los archivos .crt/.key o pegá el PEM completo.\nDetalle: {$detail}"
             );
         }
 
@@ -120,6 +127,48 @@ class ArcaSettingsController extends AbstractController
             $errors[] = 'Certificado y key privada son obligatorios cuando ARCA está habilitado.';
         }
 
+        if ($errors === []) {
+            try {
+                $this->pemNormalizer->validate(
+                    (string) $config->getCertPem(),
+                    (string) $config->getPrivateKeyPem(),
+                    $config->getPassphrase()
+                );
+            } catch (\Throwable $exception) {
+                $errors[] = substr($exception->getMessage(), 0, 500);
+            }
+        }
+
         return $errors;
+    }
+
+    private function applyUploadedPemFiles(\Symfony\Component\Form\FormInterface $form, \App\Entity\BusinessArcaConfig $config): void
+    {
+        $certFile = $form->get('certFile')->getData();
+        if ($certFile) {
+            $certContent = file_get_contents($certFile->getPathname());
+            if ($certContent !== false) {
+                $config->setCertPem($certContent);
+            }
+        }
+
+        $keyFile = $form->get('keyFile')->getData();
+        if ($keyFile) {
+            $keyContent = file_get_contents($keyFile->getPathname());
+            if ($keyContent !== false) {
+                $config->setPrivateKeyPem($keyContent);
+            }
+        }
+    }
+
+    private function normalizePemFields(\App\Entity\BusinessArcaConfig $config): void
+    {
+        if ($config->getCertPem()) {
+            $config->setCertPem($this->pemNormalizer->normalizeCert($config->getCertPem()));
+        }
+
+        if ($config->getPrivateKeyPem()) {
+            $config->setPrivateKeyPem($this->pemNormalizer->normalizeKey($config->getPrivateKeyPem()));
+        }
     }
 }

@@ -1,0 +1,17 @@
+ARCA - Carga por archivo (certificado y clave)
+
+FORMATOS ACEPTADOS
+- Certificado: .crt o .pem
+- Clave privada: .key o .pem
+
+RECOMENDACIÓN
+Subí los archivos para evitar errores de copiado/pegado. El sistema lee el archivo del request,
+normaliza el PEM y guarda el texto en la configuración del comercio.
+
+NO SE GUARDAN ARCHIVOS
+Los archivos NO se persisten en disco (ni en public/ ni en var/). Solo se guarda el contenido PEM en DB.
+
+TROUBLESHOOTING
+- Si la clave tiene passphrase, ingresala exactamente.
+- Si la clave está encriptada y no recordás la passphrase, regenerá la clave.
+- Si el certificado y la clave no corresponden (MATCH: NO), la validación fallará.

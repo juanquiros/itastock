@@ -15,6 +15,7 @@ class ArcaWsaaService
     public function __construct(
         private readonly ArcaTokenCacheRepository $tokenCacheRepository,
         private readonly EntityManagerInterface $entityManager,
+        private readonly ArcaPemNormalizer $pemNormalizer,
         private readonly string $arcaWsaaWsdlHomo,
         private readonly string $arcaWsaaWsdlProd,
     ) {
@@ -115,19 +116,10 @@ class ArcaWsaaService
             throw new \RuntimeException('Certificado y key privada son requeridos para firmar el TRA.');
         }
 
-        $cert = $this->normalizePemCertificate($cert);
-        $key = $this->normalizePemPrivateKey($key);
+        $cert = $this->pemNormalizer->normalizeCert($cert);
+        $key = $this->pemNormalizer->normalizeKey($key);
         $passphrase = $config->getPassphrase() ?? '';
-
-        $x509 = openssl_x509_read($cert);
-        if ($x509 === false) {
-            throw new \RuntimeException('Certificado inválido (PEM).');
-        }
-
-        $pkey = openssl_pkey_get_private($key, $passphrase);
-        if ($pkey === false) {
-            throw new \RuntimeException('Clave privada inválida (PEM o passphrase).');
-        }
+        $this->pemNormalizer->validate($cert, $key, $passphrase);
 
         $input = tempnam(sys_get_temp_dir(), 'arca_tra_');
         $output = tempnam(sys_get_temp_dir(), 'arca_cms_');
@@ -176,38 +168,5 @@ class ArcaWsaaService
         }
 
         return $cms;
-    }
-
-    private function normalizePemCertificate(string $input): string
-    {
-        $trimmed = trim($input);
-        if (str_contains($trimmed, '-----BEGIN') && str_contains($trimmed, '-----END')) {
-            return $this->normalizeNewlines($trimmed);
-        }
-
-        $compact = preg_replace('/\s+/', '', $trimmed) ?? '';
-
-        return "-----BEGIN CERTIFICATE-----\n"
-            . chunk_split($compact, 64, "\n")
-            . "-----END CERTIFICATE-----\n";
-    }
-
-    private function normalizePemPrivateKey(string $input): string
-    {
-        $trimmed = trim($input);
-        if (str_contains($trimmed, '-----BEGIN') && str_contains($trimmed, '-----END')) {
-            return $this->normalizeNewlines($trimmed);
-        }
-
-        $compact = preg_replace('/\s+/', '', $trimmed) ?? '';
-
-        return "-----BEGIN PRIVATE KEY-----\n"
-            . chunk_split($compact, 64, "\n")
-            . "-----END PRIVATE KEY-----\n";
-    }
-
-    private function normalizeNewlines(string $value): string
-    {
-        return str_replace(["\r\n", "\r"], "\n", $value);
     }
 }
