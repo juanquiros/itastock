@@ -14,12 +14,25 @@
             overflow-y: auto;
         }
 
+        .pos-new .sale-items-table table {
+            min-width: 520px;
+        }
+
         .pos-new .pos-search-results {
             max-height: 360px;
             overflow-y: auto;
         }
 
+        .pos-new-container {
+            max-width: 100%;
+        }
+
         @media (max-width: 991.98px) {
+            .pos-new-container {
+                padding-left: 0.75rem;
+                padding-right: 0.75rem;
+            }
+
             .pos-new .pos-header {
                 flex-direction: column;
                 align-items: flex-start;
@@ -209,6 +222,11 @@
             const saleForm = document.getElementById('sale-form');
             if (!saleForm || saleForm.dataset.saleInitialized === 'true') {
                 return;
+            }
+
+            const mainContainer = document.querySelector('main.container');
+            if (mainContainer) {
+                mainContainer.classList.add('pos-new-container');
             }
 
             saleForm.dataset.saleInitialized = 'true';
