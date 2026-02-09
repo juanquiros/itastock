@@ -117,6 +117,17 @@ class ArcaWsaaService
 
         $cert = $this->normalizePemCertificate($cert);
         $key = $this->normalizePemPrivateKey($key);
+        $passphrase = $config->getPassphrase() ?? '';
+
+        $x509 = openssl_x509_read($cert);
+        if ($x509 === false) {
+            throw new \RuntimeException('Certificado inválido (PEM).');
+        }
+
+        $pkey = openssl_pkey_get_private($key, $passphrase);
+        if ($pkey === false) {
+            throw new \RuntimeException('Clave privada inválida (PEM o passphrase).');
+        }
 
         $input = tempnam(sys_get_temp_dir(), 'arca_tra_');
         $output = tempnam(sys_get_temp_dir(), 'arca_cms_');
@@ -131,7 +142,6 @@ class ArcaWsaaService
         file_put_contents($certFile, $cert);
         file_put_contents($keyFile, $key);
 
-        $passphrase = $config->getPassphrase() ?? '';
         $signed = openssl_pkcs7_sign(
             $input,
             $output,
@@ -146,8 +156,11 @@ class ArcaWsaaService
             while ($error = openssl_error_string()) {
                 $errors[] = $error;
             }
-            $detail = $errors ? ' Detalle: ' . implode(' | ', $errors) : '';
-            throw new \RuntimeException('No se pudo firmar el TRA con OpenSSL. Verificá certificado/key PEM.' . $detail);
+            $detail = $errors ? implode(' | ', $errors) : 'Sin detalle de OpenSSL.';
+            $detail = mb_substr($detail, 0, 500);
+            throw new \RuntimeException(
+                'No se pudo firmar el TRA con OpenSSL. Verificá certificado/key PEM. Detalle: ' . $detail
+            );
         }
 
         $cms = file_get_contents($output) ?: '';
@@ -168,14 +181,11 @@ class ArcaWsaaService
     private function normalizePemCertificate(string $input): string
     {
         $trimmed = trim($input);
-        if (str_contains($trimmed, 'BEGIN CERTIFICATE')) {
+        if (str_contains($trimmed, '-----BEGIN') && str_contains($trimmed, '-----END')) {
             return $this->normalizeNewlines($trimmed);
         }
 
         $compact = preg_replace('/\s+/', '', $trimmed) ?? '';
-        if ($compact === '' || !preg_match('/^[A-Za-z0-9+\\/]+=*$/', $compact)) {
-            return $this->normalizeNewlines($trimmed);
-        }
 
         return "-----BEGIN CERTIFICATE-----\n"
             . chunk_split($compact, 64, "\n")
@@ -185,14 +195,11 @@ class ArcaWsaaService
     private function normalizePemPrivateKey(string $input): string
     {
         $trimmed = trim($input);
-        if (str_contains($trimmed, 'BEGIN') && str_contains($trimmed, 'PRIVATE KEY')) {
+        if (str_contains($trimmed, '-----BEGIN') && str_contains($trimmed, '-----END')) {
             return $this->normalizeNewlines($trimmed);
         }
 
         $compact = preg_replace('/\s+/', '', $trimmed) ?? '';
-        if ($compact === '' || !preg_match('/^[A-Za-z0-9+\\/]+=*$/', $compact)) {
-            return $this->normalizeNewlines($trimmed);
-        }
 
         return "-----BEGIN PRIVATE KEY-----\n"
             . chunk_split($compact, 64, "\n")

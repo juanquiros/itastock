@@ -1,0 +1,24 @@
+ARCA - Formato PEM esperado (certificado y clave privada)
+
+RECOMENDADO
+Pegá el PEM completo con headers BEGIN/END.
+
+Ejemplos válidos:
+-----BEGIN CERTIFICATE-----
+MIIF...base64...
+-----END CERTIFICATE-----
+
+-----BEGIN PRIVATE KEY-----
+MIIE...base64...
+-----END PRIVATE KEY-----
+
+-----BEGIN RSA PRIVATE KEY-----
+MIIE...base64...
+-----END RSA PRIVATE KEY-----
+
+PASSHPRASE
+- Si el header es "BEGIN PRIVATE KEY", generalmente el passphrase es vacío.
+- Si tu clave tiene passphrase, completalo tal como fue generado.
+
+SIN HEADERS
+Si pegás solo base64 sin headers, el sistema lo reconstruye automáticamente.
