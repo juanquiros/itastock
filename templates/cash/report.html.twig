@@ -79,7 +79,7 @@
                         <div class="d-flex justify-content-between">
                             <span class="text-muted">Diferencia en efectivo</span>
                             {% if summary.difference is not null %}
-                                {% set diff = summary.difference|float %}
+                                {% set diff = summary.difference + 0 %}
                                 <span class="fw-semibold {{ diff == 0 ? 'text-success' : 'text-danger' }}">${{ diff|number_format(2, '.', ',') }}</span>
                             {% else %}
                                 <span class="text-muted">Pendiente</span>
