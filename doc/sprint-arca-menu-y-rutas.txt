@@ -1,0 +1,13 @@
+Sprint: ARCA visible en panel Admin Comercio (menú + rutas consistentes)
+
+Rutas finales
+- app_settings_arca: /app/settings/arca (GET, POST)
+- app_settings_arca_test: /app/settings/arca/test (POST)
+
+Puntos tocados (archivos + líneas aproximadas)
+- src/Controller/ArcaSettingsController.php (clase nueva, rutas /app/settings/arca y /app/settings/arca/test)
+- templates/settings/arca.html.twig (template nueva, form de configuración y test apuntando a app_settings_arca_test)
+- templates/base.html.twig (navbar > Configuración > "Facturación ARCA")
+
+Notas
+- No se agregó link a comprobantes ARCA en Reportes porque no existe controlador/listado en este repo.
