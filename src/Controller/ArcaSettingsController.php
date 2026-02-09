@@ -84,6 +84,9 @@ class ArcaSettingsController extends AbstractController
             $this->addFlash('success', 'Conexión ARCA exitosa.');
         } catch (\Throwable $exception) {
             $detail = substr($exception->getMessage(), 0, 500);
+            if (str_contains(mb_strtolower($detail), 'base64')) {
+                $detail = 'Formato PEM inválido. Revisá headers BEGIN/END y que el contenido esté completo.';
+            }
             $this->addFlash(
                 'danger',
                 "Error al conectar con ARCA: certificado o key inválidos.\nDetalle: {$detail}"
