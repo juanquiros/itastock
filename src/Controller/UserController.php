@@ -88,6 +88,7 @@ class UserController extends AbstractController
                 $form->get('arcaEnabledForThisCashier')->getData(),
                 (string) $form->get('arcaMode')->getData(),
                 $form->get('arcaPosNumber')->getData(),
+                $form->get('arcaAutoIssueInvoice')->getData(),
             );
 
             $this->addFlash('success', 'Usuario creado correctamente.');
@@ -125,6 +126,7 @@ class UserController extends AbstractController
                 $form->get('arcaEnabledForThisCashier')->getData(),
                 (string) $form->get('arcaMode')->getData(),
                 $form->get('arcaPosNumber')->getData(),
+                $form->get('arcaAutoIssueInvoice')->getData(),
             );
 
             $this->addFlash('success', 'Usuario actualizado.');
@@ -180,7 +182,8 @@ class UserController extends AbstractController
         string $selectedRole,
         mixed $arcaEnabledForThisCashier,
         string $arcaMode,
-        mixed $arcaPosNumber
+        mixed $arcaPosNumber,
+        mixed $arcaAutoIssueInvoice
     ): void {
         $selectedRole = match ($selectedRole) {
             BusinessUser::ROLE_OWNER, BusinessUser::ROLE_ADMIN, BusinessUser::ROLE_SELLER, BusinessUser::ROLE_READONLY => $selectedRole,
@@ -217,6 +220,7 @@ class UserController extends AbstractController
         $membership->setArcaEnabledForThisCashier((bool) $arcaEnabledForThisCashier);
         $membership->setArcaMode($arcaMode ?: 'REMITO_ONLY');
         $membership->setArcaPosNumber($arcaPosNumber !== null ? (int) $arcaPosNumber : null);
+        $membership->setArcaAutoIssueInvoice($arcaMode === 'INVOICE' && (bool) $arcaAutoIssueInvoice);
 
         $this->entityManager->persist($user);
         $this->entityManager->flush();

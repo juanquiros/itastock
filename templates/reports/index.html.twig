@@ -82,6 +82,24 @@
         <div class="col-md-6 col-lg-4">
             <div class="card shadow-sm h-100">
                 <div class="card-body">
+                    <h2 class="h6 fw-semibold">IVA ventas</h2>
+                    <p class="text-muted small mb-3">Facturas y notas de crédito autorizadas.</p>
+                    <a class="btn btn-primary btn-sm" href="{{ path('app_reports_sales_vat') }}">Ver reporte</a>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6 col-lg-4">
+            <div class="card shadow-sm h-100">
+                <div class="card-body">
+                    <h2 class="h6 fw-semibold">Libro maestro</h2>
+                    <p class="text-muted small mb-3">Movimientos contables básicos por período.</p>
+                    <a class="btn btn-primary btn-sm" href="{{ path('app_reports_ledger') }}">Ver reporte</a>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6 col-lg-4">
+            <div class="card shadow-sm h-100">
+                <div class="card-body">
                     <h2 class="h6 fw-semibold">Compras por proveedor</h2>
                     <p class="text-muted small mb-3">Totales confirmados agrupados por proveedor.</p>
                     <a class="btn btn-primary btn-sm" href="{{ path('app_reports_purchase_suppliers') }}">Ver reporte</a>

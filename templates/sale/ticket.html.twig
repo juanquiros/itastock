@@ -55,9 +55,22 @@
                                 <a class="btn btn-outline-success" href="{{ path('app_sale_arca_pdf', { id: sale.id }) }}">
                                     Ver factura
                                 </a>
+                            {% elseif arcaInvoice %}
+                                <button class="btn btn-outline-warning" disabled>
+                                    Factura {{ arcaInvoice.status|lower }}
+                                </button>
                             {% elseif canInvoice %}
                                 <button class="btn btn-outline-success" data-bs-toggle="modal" data-bs-target="#arcaInvoiceModal">
                                     Facturar
+                                </button>
+                            {% endif %}
+                            {% if arcaCreditNote and arcaCreditNote.status == 'AUTHORIZED' %}
+                                <a class="btn btn-outline-danger" href="{{ path('app_sale_arca_credit_note_pdf', { id: sale.id }) }}">
+                                    Ver NC
+                                </a>
+                            {% elseif arcaCreditNote %}
+                                <button class="btn btn-outline-warning" disabled>
+                                    NC {{ arcaCreditNote.status|lower }}
                                 </button>
                             {% endif %}
                             <a class="btn btn-outline-secondary" href="{{ path('app_sale_new') }}">
@@ -179,9 +192,15 @@
                         <div class="h4 mb-0 fw-bold">${{ sale.total }}</div>
                     </div>
 
-                    {% if sale.status == 'CONFIRMED' and is_granted('BUSINESS_ADMIN') %}
+                    {% if sale.status == 'CONFIRMED' and is_granted('BUSINESS_ADMIN') and (arcaInvoice is empty or arcaInvoice.status != 'AUTHORIZED') %}
                         <div class="mt-3 text-end">
                             <button class="btn btn-outline-danger" data-bs-toggle="modal" data-bs-target="#voidSaleModal">Anular venta</button>
+                        </div>
+                    {% endif %}
+
+                    {% if sale.status == 'CONFIRMED' and is_granted('BUSINESS_ADMIN') and canCreditNote %}
+                        <div class="mt-3 text-end">
+                            <button class="btn btn-outline-danger" data-bs-toggle="modal" data-bs-target="#creditNoteModal">Emitir nota de crédito</button>
                         </div>
                     {% endif %}
 
@@ -301,6 +320,33 @@
                         <div class="modal-footer">
                             <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
                             <button type="submit" class="btn btn-danger">Anular venta</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    {% endif %}
+
+    {% if sale.status == 'CONFIRMED' and is_granted('BUSINESS_ADMIN') and canCreditNote %}
+        <div class="modal fade" id="creditNoteModal" tabindex="-1" aria-labelledby="creditNoteModalLabel" aria-hidden="true">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="creditNoteModalLabel">Emitir nota de crédito</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <form method="post" action="{{ path('app_admin_sales_credit_note_issue', { id: sale.id }) }}">
+                        <input type="hidden" name="_token" value="{{ csrf_token('credit_note_' ~ sale.id) }}">
+                        <div class="modal-body">
+                            <p class="text-danger mb-3">Esta acción revierte stock, caja y cuenta corriente cuando se autoriza la NC.</p>
+                            <div class="mb-3">
+                                <label class="form-label" for="credit_note_reason">Motivo (opcional)</label>
+                                <textarea class="form-control" id="credit_note_reason" name="reason" rows="3"></textarea>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                            <button type="submit" class="btn btn-danger">Emitir nota de crédito</button>
                         </div>
                     </form>
                 </div>

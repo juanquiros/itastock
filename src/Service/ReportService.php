@@ -435,4 +435,295 @@ class ReportService
             'invoicesCount' => (int) $row['invoicesCount'],
         ], $rows);
     }
+
+    /**
+     * @return array{summary: array{net: float, iva: float, total: float}, invoices: array<int, array<string, mixed>>}
+     */
+    public function getSalesVatReport(Business $business, \DateTimeImmutable $from, \DateTimeImmutable $to): array
+    {
+        $connection = $this->saleRepository->getEntityManager()->getConnection();
+        $params = [
+            'businessId' => $business->getId(),
+            'from' => $from->format('Y-m-d 00:00:00'),
+            'to' => $to->format('Y-m-d 23:59:59'),
+        ];
+
+        $invoiceRows = $connection->fetchAllAssociative(
+            <<<SQL
+                SELECT ai.id,
+                       COALESCE(ai.issued_at, ai.created_at) AS issuedAt,
+                       ai.cbte_tipo AS cbteTipo,
+                       ai.arca_pos_number AS posNumber,
+                       ai.cbte_numero AS cbteNumero,
+                       ai.cae AS cae,
+                       COALESCE(rc.name, c.name, 'Consumidor final') AS customerName,
+                       COALESCE(rc.document_number, c.document_number, '') AS customerDocument,
+                       ai.net_amount AS netAmount,
+                       ai.vat_amount AS vatAmount,
+                       ai.total_amount AS totalAmount
+                FROM arca_invoices ai
+                LEFT JOIN sales s ON s.id = ai.sale_id
+                LEFT JOIN customers c ON c.id = s.customer_id
+                LEFT JOIN customers rc ON rc.id = ai.receiver_customer_id
+                WHERE ai.business_id = :businessId
+                  AND ai.status = 'AUTHORIZED'
+                  AND COALESCE(ai.issued_at, ai.created_at) >= :from
+                  AND COALESCE(ai.issued_at, ai.created_at) <= :to
+                ORDER BY issuedAt ASC, ai.id ASC
+            SQL,
+            $params
+        );
+
+        $creditNoteRows = $connection->fetchAllAssociative(
+            <<<SQL
+                SELECT acn.id,
+                       COALESCE(acn.issued_at, acn.created_at) AS issuedAt,
+                       acn.cbte_tipo AS cbteTipo,
+                       acn.arca_pos_number AS posNumber,
+                       acn.cbte_numero AS cbteNumero,
+                       acn.cae AS cae,
+                       COALESCE(rc.name, c.name, 'Consumidor final') AS customerName,
+                       COALESCE(rc.document_number, c.document_number, '') AS customerDocument,
+                       acn.net_amount AS netAmount,
+                       acn.vat_amount AS vatAmount,
+                       acn.total_amount AS totalAmount
+                FROM arca_credit_notes acn
+                LEFT JOIN arca_invoices ai ON ai.id = acn.related_invoice_id
+                LEFT JOIN sales s ON s.id = acn.sale_id
+                LEFT JOIN customers c ON c.id = s.customer_id
+                LEFT JOIN customers rc ON rc.id = ai.receiver_customer_id
+                WHERE acn.business_id = :businessId
+                  AND acn.status = 'AUTHORIZED'
+                  AND COALESCE(acn.issued_at, acn.created_at) >= :from
+                  AND COALESCE(acn.issued_at, acn.created_at) <= :to
+                ORDER BY issuedAt ASC, acn.id ASC
+            SQL,
+            $params
+        );
+
+        $summary = [
+            'net' => 0.0,
+            'iva' => 0.0,
+            'total' => 0.0,
+        ];
+
+        $normalize = static function (array $row, bool $isCredit) use (&$summary): array {
+            $net = (float) $row['netAmount'];
+            $iva = (float) $row['vatAmount'];
+            $total = (float) $row['totalAmount'];
+            $sign = $isCredit ? -1 : 1;
+
+            $summary['net'] += $net * $sign;
+            $summary['iva'] += $iva * $sign;
+            $summary['total'] += $total * $sign;
+
+            return [
+                'id' => (int) $row['id'],
+                'issuedAt' => new \DateTimeImmutable($row['issuedAt']),
+                'cbteTipo' => (string) $row['cbteTipo'],
+                'posNumber' => $row['posNumber'] !== null ? (int) $row['posNumber'] : null,
+                'cbteNumero' => $row['cbteNumero'] !== null ? (int) $row['cbteNumero'] : null,
+                'cae' => $row['cae'] !== null ? (string) $row['cae'] : null,
+                'customerName' => (string) $row['customerName'],
+                'customerDocument' => (string) $row['customerDocument'],
+                'netAmount' => $net * $sign,
+                'vatAmount' => $iva * $sign,
+                'totalAmount' => $total * $sign,
+                'isCredit' => $isCredit,
+            ];
+        };
+
+        $invoices = array_map(static fn (array $row) => $normalize($row, false), $invoiceRows);
+        $creditNotes = array_map(static fn (array $row) => $normalize($row, true), $creditNoteRows);
+
+        $rows = array_merge($invoices, $creditNotes);
+        usort($rows, static fn ($a, $b) => $a['issuedAt'] <=> $b['issuedAt']);
+
+        return [
+            'summary' => $summary,
+            'invoices' => $rows,
+        ];
+    }
+
+    /**
+     * @return array{summary: array{totalDebits: float, totalCredits: float}, rows: array<int, array<string, mixed>>}
+     */
+    public function getLedgerReport(Business $business, \DateTimeImmutable $from, \DateTimeImmutable $to): array
+    {
+        $connection = $this->saleRepository->getEntityManager()->getConnection();
+        $params = [
+            'businessId' => $business->getId(),
+            'from' => $from->format('Y-m-d 00:00:00'),
+            'to' => $to->format('Y-m-d 23:59:59'),
+        ];
+
+        $saleRows = $connection->fetchAllAssociative(
+            <<<SQL
+                SELECT s.id AS saleId,
+                       s.created_at AS createdAt,
+                       s.total AS totalAmount,
+                       MIN(p.method) AS paymentMethod
+                FROM sales s
+                LEFT JOIN payments p ON p.sale_id = s.id
+                WHERE s.business_id = :businessId
+                  AND s.status = 'CONFIRMED'
+                  AND s.created_at >= :from
+                  AND s.created_at <= :to
+                GROUP BY s.id, s.created_at, s.total
+                ORDER BY s.created_at ASC
+            SQL,
+            $params
+        );
+
+        $creditNoteRows = $connection->fetchAllAssociative(
+            <<<SQL
+                SELECT acn.id AS creditNoteId,
+                       COALESCE(acn.issued_at, acn.created_at) AS issuedAt,
+                       acn.total_amount AS totalAmount,
+                       MIN(p.method) AS paymentMethod,
+                       ai.cbte_numero AS invoiceNumber
+                FROM arca_credit_notes acn
+                LEFT JOIN sales s ON s.id = acn.sale_id
+                LEFT JOIN payments p ON p.sale_id = s.id
+                LEFT JOIN arca_invoices ai ON ai.id = acn.related_invoice_id
+                WHERE acn.business_id = :businessId
+                  AND acn.status = 'AUTHORIZED'
+                  AND COALESCE(acn.issued_at, acn.created_at) >= :from
+                  AND COALESCE(acn.issued_at, acn.created_at) <= :to
+                GROUP BY acn.id, issuedAt, acn.total_amount, ai.cbte_numero
+                ORDER BY issuedAt ASC
+            SQL,
+            $params
+        );
+
+        $purchaseRows = $connection->fetchAllAssociative(
+            <<<SQL
+                SELECT pi.id AS purchaseId,
+                       pi.invoice_date AS invoiceDate,
+                       pi.net_amount AS netAmount,
+                       pi.iva_amount AS ivaAmount,
+                       pi.total_amount AS totalAmount
+                FROM purchase_invoices pi
+                WHERE pi.business_id = :businessId
+                  AND pi.status = 'CONFIRMED'
+                  AND pi.invoice_date >= :fromDate
+                  AND pi.invoice_date <= :toDate
+                ORDER BY pi.invoice_date ASC
+            SQL,
+            [
+                'businessId' => $business->getId(),
+                'fromDate' => $from->format('Y-m-d'),
+                'toDate' => $to->format('Y-m-d'),
+            ]
+        );
+
+        $rows = [];
+        $summary = [
+            'totalDebits' => 0.0,
+            'totalCredits' => 0.0,
+        ];
+
+        foreach ($saleRows as $row) {
+            $method = (string) ($row['paymentMethod'] ?? 'CASH');
+            $debitAccount = $this->resolvePaymentAccount($method);
+            $amount = (float) $row['totalAmount'];
+            $rows[] = [
+                'date' => new \DateTimeImmutable($row['createdAt']),
+                'type' => 'VENTA',
+                'reference' => sprintf('Venta #%d', (int) $row['saleId']),
+                'debitAccount' => $debitAccount,
+                'creditAccount' => 'Ventas',
+                'amount' => $amount,
+                'note' => '',
+            ];
+            $summary['totalDebits'] += $amount;
+            $summary['totalCredits'] += $amount;
+        }
+
+        foreach ($creditNoteRows as $row) {
+            $method = (string) ($row['paymentMethod'] ?? 'CASH');
+            $creditAccount = $this->resolvePaymentAccount($method);
+            $amount = -1 * (float) $row['totalAmount'];
+            $invoiceNumber = $row['invoiceNumber'] !== null ? (int) $row['invoiceNumber'] : null;
+            $rows[] = [
+                'date' => new \DateTimeImmutable($row['issuedAt']),
+                'type' => 'NC',
+                'reference' => sprintf('NC #%d', (int) $row['creditNoteId']),
+                'debitAccount' => 'Ventas',
+                'creditAccount' => $creditAccount,
+                'amount' => $amount,
+                'note' => $invoiceNumber ? sprintf('NC asociada a factura %d', $invoiceNumber) : 'NC asociada a factura',
+            ];
+            $summary['totalDebits'] += $amount;
+            $summary['totalCredits'] += $amount;
+        }
+
+        foreach ($purchaseRows as $row) {
+            $invoiceDate = new \DateTimeImmutable($row['invoiceDate']);
+            $net = (float) $row['netAmount'];
+            $iva = (float) $row['ivaAmount'];
+            $total = (float) $row['totalAmount'];
+            $purchaseId = (int) $row['purchaseId'];
+
+            if ($net > 0) {
+                $rows[] = [
+                    'date' => $invoiceDate,
+                    'type' => 'COMPRA',
+                    'reference' => sprintf('Compra #%d', $purchaseId),
+                    'debitAccount' => 'Compras',
+                    'creditAccount' => 'Proveedores',
+                    'amount' => $net,
+                    'note' => 'Neto compra',
+                ];
+                $summary['totalDebits'] += $net;
+                $summary['totalCredits'] += $net;
+            }
+
+            if ($iva > 0) {
+                $rows[] = [
+                    'date' => $invoiceDate,
+                    'type' => 'COMPRA',
+                    'reference' => sprintf('Compra #%d', $purchaseId),
+                    'debitAccount' => 'IVA Crédito',
+                    'creditAccount' => 'Proveedores',
+                    'amount' => $iva,
+                    'note' => 'IVA compra',
+                ];
+                $summary['totalDebits'] += $iva;
+                $summary['totalCredits'] += $iva;
+            }
+
+            if ($net <= 0 && $iva <= 0) {
+                $rows[] = [
+                    'date' => $invoiceDate,
+                    'type' => 'COMPRA',
+                    'reference' => sprintf('Compra #%d', $purchaseId),
+                    'debitAccount' => 'Compras',
+                    'creditAccount' => 'Proveedores',
+                    'amount' => $total,
+                    'note' => 'Compra total',
+                ];
+                $summary['totalDebits'] += $total;
+                $summary['totalCredits'] += $total;
+            }
+        }
+
+        usort($rows, static fn ($a, $b) => $a['date'] <=> $b['date']);
+
+        return [
+            'summary' => $summary,
+            'rows' => $rows,
+        ];
+    }
+
+    private function resolvePaymentAccount(string $method): string
+    {
+        return match ($method) {
+            'CASH' => 'Caja',
+            'TRANSFER' => 'Banco',
+            'CARD' => 'Tarjetas',
+            'ACCOUNT' => 'CtaCte Clientes',
+            default => 'Caja',
+        };
+    }
 }

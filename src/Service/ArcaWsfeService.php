@@ -2,6 +2,7 @@
 
 namespace App\Service;
 
+use App\Entity\ArcaCreditNote;
 use App\Entity\ArcaInvoice;
 use App\Entity\BusinessArcaConfig;
 use DateTimeImmutable;
@@ -118,11 +119,117 @@ class ArcaWsfeService
         ];
     }
 
+    /**
+     * @param array{token: string, sign: string} $tokenSign
+     * @return array{request: array, response: array, cbteNumero: int, cae: ?string, caeDueDate: ?DateTimeImmutable}
+     */
+    public function requestCaeForCreditNote(
+        ArcaCreditNote $note,
+        BusinessArcaConfig $config,
+        array $tokenSign,
+        ArcaInvoice $associatedInvoice
+    ): array {
+        $wsdl = $config->getArcaEnvironment() === BusinessArcaConfig::ENV_PROD ? $this->arcaWsfeWsdlProd : $this->arcaWsfeWsdlHomo;
+        if ($wsdl === '') {
+            throw new \RuntimeException('WSDL de WSFE no configurado.');
+        }
+
+        $client = new \SoapClient($wsdl, [
+            'trace' => 1,
+            'exceptions' => true,
+        ]);
+
+        $auth = [
+            'Token' => $tokenSign['token'],
+            'Sign' => $tokenSign['sign'],
+            'Cuit' => $config->getCuitEmisor(),
+        ];
+
+        $cbteTipo = $this->resolveCbteTipoCode($note->getCbteTipo());
+        $last = $client->FECompUltimoAutorizado([
+            'Auth' => $auth,
+            'PtoVta' => $note->getArcaPosNumber(),
+            'CbteTipo' => $cbteTipo,
+        ]);
+
+        $lastNumber = (int) ($last->FECompUltimoAutorizadoResult->CbteNro ?? 0);
+        $cbteNumero = $lastNumber + 1;
+
+        $issuedAt = $note->getIssuedAt() ?? new DateTimeImmutable();
+        $receiverIvaConditionId = $associatedInvoice->getReceiverIvaConditionId();
+        if ($receiverIvaConditionId === null) {
+            throw new \RuntimeException('Condición IVA del receptor no configurada.');
+        }
+
+        $detail = [
+            'Concepto' => 1,
+            'DocTipo' => 99,
+            'DocNro' => 0,
+            'CbteDesde' => $cbteNumero,
+            'CbteHasta' => $cbteNumero,
+            'CbteFch' => $issuedAt->format('Ymd'),
+            'ImpTotal' => (float) $note->getTotalAmount(),
+            'ImpTotConc' => 0,
+            'ImpNeto' => (float) $note->getNetAmount(),
+            'ImpOpEx' => 0,
+            'ImpIVA' => (float) $note->getVatAmount(),
+            'ImpTrib' => 0,
+            'MonId' => 'PES',
+            'MonCotiz' => 1,
+            'CondicionIVAReceptorId' => $receiverIvaConditionId,
+            'CbtesAsoc' => [
+                'CbteAsoc' => [
+                    'Tipo' => $this->resolveCbteTipoCode($associatedInvoice->getCbteTipo()),
+                    'PtoVta' => $associatedInvoice->getArcaPosNumber(),
+                    'Nro' => $associatedInvoice->getCbteNumero() ?? 0,
+                ],
+            ],
+        ];
+
+        $ivaItems = $this->buildIvaItemsFromSnapshot($note->getItemsSnapshot(), $note->getVatAmount());
+        if ($ivaItems) {
+            $detail['Iva'] = [
+                'AlicIva' => $ivaItems,
+            ];
+        }
+
+        $request = [
+            'Auth' => $auth,
+            'FeCAEReq' => [
+                'FeCabReq' => [
+                    'CantReg' => 1,
+                    'PtoVta' => $note->getArcaPosNumber(),
+                    'CbteTipo' => $cbteTipo,
+                ],
+                'FeDetReq' => [
+                    'FECAEDetRequest' => $detail,
+                ],
+            ],
+        ];
+
+        $response = $client->FECAESolicitar($request);
+        $responseArray = json_decode(json_encode($response, JSON_THROW_ON_ERROR), true, 512, JSON_THROW_ON_ERROR);
+
+        $detailResponse = $response->FECAESolicitarResult->FeDetResp->FECAEDetResponse ?? null;
+        $cae = $detailResponse->CAE ?? null;
+        $caeDue = $detailResponse->CAEFchVto ?? null;
+
+        return [
+            'request' => $request,
+            'response' => $responseArray,
+            'cbteNumero' => $cbteNumero,
+            'cae' => $cae ? (string) $cae : null,
+            'caeDueDate' => $caeDue ? DateTimeImmutable::createFromFormat('Ymd', (string) $caeDue) ?: null : null,
+        ];
+    }
+
     private function resolveCbteTipoCode(string $cbteTipo): int
     {
         return match ($cbteTipo) {
             ArcaInvoice::CBTE_FACTURA_B => 6,
             ArcaInvoice::CBTE_FACTURA_C => 11,
+            ArcaCreditNote::CBTE_NC_B => 8,
+            ArcaCreditNote::CBTE_NC_C => 13,
             default => 11,
         };
     }
@@ -132,8 +239,16 @@ class ArcaWsfeService
      */
     private function buildIvaItems(ArcaInvoice $invoice): array
     {
-        $items = $invoice->getItemsSnapshot() ?? [];
-        if ($invoice->getVatAmount() === '0.00' || !$items) {
+        return $this->buildIvaItemsFromSnapshot($invoice->getItemsSnapshot(), $invoice->getVatAmount());
+    }
+
+    /**
+     * @return array<int, array{id: int, BaseImp: float, Importe: float}>
+     */
+    private function buildIvaItemsFromSnapshot(?array $itemsSnapshot, string $vatAmount): array
+    {
+        $items = $itemsSnapshot ?? [];
+        if ($vatAmount === '0.00' || !$items) {
             return [];
         }
 

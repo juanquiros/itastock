@@ -204,6 +204,164 @@ TWIG;
         ]));
     }
 
+    #[Route('/sales-vat', name: 'sales_vat', methods: ['GET'])]
+    public function salesVat(Request $request): Response
+    {
+        $business = $this->requireBusinessContext();
+        $fromInput = $request->query->get('from');
+        $toInput = $request->query->get('to');
+
+        $from = $fromInput ? new \DateTimeImmutable($fromInput) : new \DateTimeImmutable('first day of this month');
+        $to = $toInput ? new \DateTimeImmutable($toInput) : new \DateTimeImmutable('last day of this month');
+
+        $report = $this->reportService->getSalesVatReport($business, $from, $to);
+
+        return $this->render('reports/sales_vat.html.twig', [
+            'report' => $report,
+            'from' => $from,
+            'to' => $to,
+        ]);
+    }
+
+    #[Route('/sales-vat/pdf', name: 'sales_vat_pdf', methods: ['GET'])]
+    public function salesVatPdf(Request $request): Response
+    {
+        $business = $this->requireBusinessContext();
+        $fromInput = $request->query->get('from');
+        $toInput = $request->query->get('to');
+
+        $from = $fromInput ? new \DateTimeImmutable($fromInput) : new \DateTimeImmutable('first day of this month');
+        $to = $toInput ? new \DateTimeImmutable($toInput) : new \DateTimeImmutable('last day of this month');
+
+        $report = $this->reportService->getSalesVatReport($business, $from, $to);
+
+        return $this->pdfService->render('reports/sales_vat_pdf.html.twig', [
+            'business' => $business,
+            'report' => $report,
+            'from' => $from,
+            'to' => $to,
+            'generatedAt' => new \DateTimeImmutable(),
+        ], 'iva-ventas.pdf');
+    }
+
+    #[Route('/sales-vat.csv', name: 'sales_vat_csv', methods: ['GET'])]
+    public function salesVatCsv(Request $request): Response
+    {
+        $business = $this->requireBusinessContext();
+        $fromInput = $request->query->get('from');
+        $toInput = $request->query->get('to');
+
+        $from = $fromInput ? new \DateTimeImmutable($fromInput) : new \DateTimeImmutable('first day of this month');
+        $to = $toInput ? new \DateTimeImmutable($toInput) : new \DateTimeImmutable('last day of this month');
+
+        $report = $this->reportService->getSalesVatReport($business, $from, $to);
+
+        $response = new StreamedResponse();
+        $response->setCallback(static function () use ($report): void {
+            $handle = fopen('php://output', 'w');
+            fputcsv($handle, ['fecha', 'tipo', 'punto_venta', 'numero', 'cae', 'cliente', 'neto', 'iva', 'total'], ';');
+
+            foreach ($report['invoices'] as $row) {
+                fputcsv($handle, [
+                    $row['issuedAt']->format('Y-m-d'),
+                    $row['cbteTipo'],
+                    $row['posNumber'] ?? '',
+                    $row['cbteNumero'] ?? '',
+                    $row['cae'] ?? '',
+                    $row['customerName'],
+                    number_format($row['netAmount'], 2, '.', ''),
+                    number_format($row['vatAmount'], 2, '.', ''),
+                    number_format($row['totalAmount'], 2, '.', ''),
+                ], ';');
+            }
+
+            fclose($handle);
+        });
+
+        $response->headers->set('Content-Type', 'text/csv; charset=utf-8');
+        $response->headers->set('Content-Disposition', 'attachment; filename="iva-ventas.csv"');
+
+        return $response;
+    }
+
+    #[Route('/ledger', name: 'ledger', methods: ['GET'])]
+    public function ledger(Request $request): Response
+    {
+        $business = $this->requireBusinessContext();
+        $fromInput = $request->query->get('from');
+        $toInput = $request->query->get('to');
+
+        $from = $fromInput ? new \DateTimeImmutable($fromInput) : new \DateTimeImmutable('first day of this month');
+        $to = $toInput ? new \DateTimeImmutable($toInput) : new \DateTimeImmutable('last day of this month');
+
+        $report = $this->reportService->getLedgerReport($business, $from, $to);
+
+        return $this->render('reports/ledger.html.twig', [
+            'report' => $report,
+            'from' => $from,
+            'to' => $to,
+        ]);
+    }
+
+    #[Route('/ledger.pdf', name: 'ledger_pdf', methods: ['GET'])]
+    public function ledgerPdf(Request $request): Response
+    {
+        $business = $this->requireBusinessContext();
+        $fromInput = $request->query->get('from');
+        $toInput = $request->query->get('to');
+
+        $from = $fromInput ? new \DateTimeImmutable($fromInput) : new \DateTimeImmutable('first day of this month');
+        $to = $toInput ? new \DateTimeImmutable($toInput) : new \DateTimeImmutable('last day of this month');
+
+        $report = $this->reportService->getLedgerReport($business, $from, $to);
+
+        return $this->pdfService->render('reports/ledger_pdf.html.twig', [
+            'business' => $business,
+            'report' => $report,
+            'from' => $from,
+            'to' => $to,
+            'generatedAt' => new \DateTimeImmutable(),
+        ], 'libro-maestro.pdf');
+    }
+
+    #[Route('/ledger.csv', name: 'ledger_csv', methods: ['GET'])]
+    public function ledgerCsv(Request $request): Response
+    {
+        $business = $this->requireBusinessContext();
+        $fromInput = $request->query->get('from');
+        $toInput = $request->query->get('to');
+
+        $from = $fromInput ? new \DateTimeImmutable($fromInput) : new \DateTimeImmutable('first day of this month');
+        $to = $toInput ? new \DateTimeImmutable($toInput) : new \DateTimeImmutable('last day of this month');
+
+        $report = $this->reportService->getLedgerReport($business, $from, $to);
+
+        $response = new StreamedResponse();
+        $response->setCallback(static function () use ($report): void {
+            $handle = fopen('php://output', 'w');
+            fputcsv($handle, ['fecha', 'tipo', 'referencia', 'debe', 'haber', 'importe', 'nota'], ';');
+
+            foreach ($report['rows'] as $row) {
+                fputcsv($handle, [
+                    $row['date']->format('Y-m-d'),
+                    $row['type'],
+                    $row['reference'],
+                    $row['debitAccount'],
+                    $row['creditAccount'],
+                    number_format($row['amount'], 2, '.', ''),
+                    $row['note'],
+                ], ';');
+            }
+
+            fclose($handle);
+        });
+
+        $response->headers->set('Content-Type', 'text/csv; charset=utf-8');
+        $response->headers->set('Content-Disposition', 'attachment; filename="libro-maestro.csv"');
+
+        return $response;
+    }
+
     #[Route('/purchase-vat/pdf', name: 'purchase_vat_pdf', methods: ['GET'])]
     public function purchaseVatPdf(Request $request): Response
     {

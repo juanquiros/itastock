@@ -1,0 +1,82 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Libro maestro · ItaStock{% endblock %}
+
+{% block body %}
+    <div class="mb-4">
+        <p class="text-uppercase text-muted mb-1 small fw-semibold">Reportes</p>
+        <h1 class="h4 mb-0">Libro maestro</h1>
+        <p class="text-secondary mb-0">Periodo: {{ from|date('d/m/Y') }} - {{ to|date('d/m/Y') }}</p>
+    </div>
+
+    <form class="row g-2 mb-4" method="get">
+        <div class="col-md-3">
+            <label class="form-label">Desde</label>
+            <input class="form-control" type="date" name="from" value="{{ from|date('Y-m-d') }}">
+        </div>
+        <div class="col-md-3">
+            <label class="form-label">Hasta</label>
+            <input class="form-control" type="date" name="to" value="{{ to|date('Y-m-d') }}">
+        </div>
+        <div class="col-md-3 align-self-end">
+            <button class="btn btn-primary">Actualizar</button>
+        </div>
+    </form>
+
+    <div class="d-flex gap-2 mb-4">
+        <a class="btn btn-outline-secondary btn-sm" href="{{ path('app_reports_ledger_csv', {from: from|date('Y-m-d'), to: to|date('Y-m-d')}) }}">CSV</a>
+        <a class="btn btn-primary btn-sm" href="{{ path('app_reports_ledger_pdf', {from: from|date('Y-m-d'), to: to|date('Y-m-d')}) }}">PDF</a>
+    </div>
+
+    <div class="card shadow-sm mb-4">
+        <div class="card-body">
+            <div class="row text-center">
+                <div class="col-md-6">
+                    <p class="text-muted small mb-1">Total débitos</p>
+                    <p class="h5 mb-0">{{ report.summary.totalDebits|number_format(2, '.', ',') }}</p>
+                </div>
+                <div class="col-md-6">
+                    <p class="text-muted small mb-1">Total créditos</p>
+                    <p class="h5 mb-0">{{ report.summary.totalCredits|number_format(2, '.', ',') }}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card shadow-sm">
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-sm align-middle">
+                    <thead>
+                        <tr>
+                            <th>Fecha</th>
+                            <th>Tipo</th>
+                            <th>Referencia</th>
+                            <th>Debe</th>
+                            <th>Haber</th>
+                            <th class="text-end">Importe</th>
+                            <th>Nota</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in report.rows %}
+                            <tr>
+                                <td>{{ row.date|date('d/m/Y') }}</td>
+                                <td>{{ row.type }}</td>
+                                <td>{{ row.reference }}</td>
+                                <td>{{ row.debitAccount }}</td>
+                                <td>{{ row.creditAccount }}</td>
+                                <td class="text-end">{{ row.amount|number_format(2, '.', ',') }}</td>
+                                <td>{{ row.note }}</td>
+                            </tr>
+                        {% else %}
+                            <tr>
+                                <td colspan="7" class="text-muted">No hay movimientos en el período.</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+{% endblock %}

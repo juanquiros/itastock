@@ -51,6 +51,9 @@ class BusinessUser
     #[ORM\Column(options: ['default' => false])]
     private bool $arcaEnabledForThisCashier = false;
 
+    #[ORM\Column(options: ['default' => false])]
+    private bool $arcaAutoIssueInvoice = false;
+
     public function __construct()
     {
         $this->createdAt = new DateTimeImmutable();
@@ -166,6 +169,18 @@ class BusinessUser
     public function setArcaEnabledForThisCashier(bool $arcaEnabledForThisCashier): self
     {
         $this->arcaEnabledForThisCashier = $arcaEnabledForThisCashier;
+
+        return $this;
+    }
+
+    public function isArcaAutoIssueInvoice(): bool
+    {
+        return $this->arcaAutoIssueInvoice;
+    }
+
+    public function setArcaAutoIssueInvoice(bool $arcaAutoIssueInvoice): self
+    {
+        $this->arcaAutoIssueInvoice = $arcaAutoIssueInvoice;
 
         return $this;
     }

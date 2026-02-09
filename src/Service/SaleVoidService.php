@@ -7,6 +7,7 @@ use App\Entity\Sale;
 use App\Entity\SaleItem;
 use App\Entity\StockMovement;
 use App\Entity\User;
+use App\Repository\ArcaInvoiceRepository;
 use App\Repository\CashSessionRepository;
 use Doctrine\ORM\EntityManagerInterface;
 
@@ -18,6 +19,7 @@ class SaleVoidService
         private readonly EntityManagerInterface $entityManager,
         private readonly CashSessionRepository $cashSessionRepository,
         private readonly CustomerAccountService $customerAccountService,
+        private readonly ArcaInvoiceRepository $arcaInvoiceRepository,
     ) {
     }
 
@@ -58,6 +60,55 @@ class SaleVoidService
             throw new \DomainException('La venta ya fue anulada.');
         }
 
+        $invoice = $this->arcaInvoiceRepository->findOneBy([
+            'business' => $sale->getBusiness(),
+            'sale' => $sale,
+        ]);
+
+        if ($invoice && $invoice->getStatus() === \App\Entity\ArcaInvoice::STATUS_AUTHORIZED) {
+            throw new \DomainException('La venta está facturada. Emití Nota de Crédito para anular.');
+        }
+
+        $this->assertVoidWindow($sale);
+    }
+
+    public function voidSaleAfterCreditNote(Sale $sale, User $user, string $reason): void
+    {
+        if ($sale->getStatus() !== Sale::STATUS_CONFIRMED) {
+            throw new \DomainException('La venta ya fue anulada.');
+        }
+
+        $this->assertVoidWindow($sale);
+
+        $reason = trim($reason);
+        if ($reason === '') {
+            throw new \DomainException('Ingresá un motivo para anular la venta.');
+        }
+
+        $connection = $this->entityManager->getConnection();
+        $connection->beginTransaction();
+
+        try {
+            $sale->setStatus(Sale::STATUS_VOIDED);
+            $sale->setVoidedAt(new \DateTimeImmutable('now', $this->getTimezone()));
+            $sale->setVoidedBy($user);
+            $sale->setVoidReason($reason);
+
+            $this->revertStock($sale, $user);
+            $this->revertPayments($sale);
+            $this->revertCustomerAccount($sale, $user, $reason);
+
+            $this->entityManager->flush();
+            $connection->commit();
+        } catch (\Throwable $exception) {
+            $connection->rollBack();
+
+            throw $exception;
+        }
+    }
+
+    private function assertVoidWindow(Sale $sale): void
+    {
         $createdAt = $sale->getCreatedAt();
         if (!$createdAt instanceof \DateTimeImmutable) {
             throw new \DomainException('No se puede anular una venta sin fecha.');

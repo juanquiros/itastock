@@ -71,6 +71,13 @@ class UserType extends AbstractType
                 ],
                 'data' => $membership?->getArcaPosNumber(),
             ])
+            ->add('arcaAutoIssueInvoice', CheckboxType::class, [
+                'label' => 'Emitir factura automáticamente en esta caja',
+                'required' => false,
+                'mapped' => false,
+                'data' => $membership?->isArcaAutoIssueInvoice() ?? false,
+                'help' => 'Solo aplica si el modo ARCA está configurado en Factura.',
+            ])
             ->add('plainPassword', PasswordType::class, [
                 'label' => $options['require_password'] ? 'Contraseña' : 'Nueva contraseña',
                 'mapped' => false,

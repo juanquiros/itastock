@@ -13,6 +13,7 @@ use App\Entity\StockMovement;
 use App\Entity\User;
 use App\Entity\BusinessUser;
 use App\Repository\ArcaInvoiceRepository;
+use App\Repository\ArcaCreditNoteRepository;
 use App\Repository\BusinessArcaConfigRepository;
 use App\Repository\BusinessUserRepository;
 use App\Repository\CashSessionRepository;
@@ -53,6 +54,7 @@ class SaleController extends AbstractController
         private readonly BusinessUserRepository $businessUserRepository,
         private readonly BusinessArcaConfigRepository $arcaConfigRepository,
         private readonly ArcaInvoiceRepository $arcaInvoiceRepository,
+        private readonly ArcaCreditNoteRepository $arcaCreditNoteRepository,
         private readonly ArcaInvoiceService $arcaInvoiceService,
     ) {
     }
@@ -311,6 +313,10 @@ class SaleController extends AbstractController
             'business' => $business,
             'sale' => $sale,
         ]);
+        $arcaCreditNote = $this->arcaCreditNoteRepository->findOneBy([
+            'business' => $business,
+            'sale' => $sale,
+        ]);
 
         $canInvoice = $sale->getStatus() === Sale::STATUS_CONFIRMED
             && $arcaConfig?->isArcaEnabled()
@@ -318,6 +324,14 @@ class SaleController extends AbstractController
             && $membership?->getArcaMode() === 'INVOICE'
             && $membership?->getArcaPosNumber() !== null
             && !$arcaInvoice;
+
+        $canCreditNote = $sale->getStatus() === Sale::STATUS_CONFIRMED
+            && $arcaInvoice?->getStatus() === \App\Entity\ArcaInvoice::STATUS_AUTHORIZED
+            && $arcaConfig?->isArcaEnabled()
+            && $membership?->isArcaEnabledForThisCashier()
+            && $membership?->getArcaMode() === 'INVOICE'
+            && $membership?->getArcaPosNumber() !== null
+            && !$arcaCreditNote;
 
         $customers = [];
         if ($canInvoice && $sale->getCustomer() === null) {
@@ -329,7 +343,9 @@ class SaleController extends AbstractController
             'sale' => $sale,
             'remitoNumber' => $this->formatRemitoNumber($sale),
             'arcaInvoice' => $arcaInvoice,
+            'arcaCreditNote' => $arcaCreditNote,
             'canInvoice' => $canInvoice,
+            'canCreditNote' => $canCreditNote,
             'customers' => $customers,
         ]);
     }
@@ -375,6 +391,32 @@ class SaleController extends AbstractController
             'sale' => $sale,
             'generatedAt' => new \DateTimeImmutable(),
         ], sprintf('factura-venta-%d.pdf', $sale->getId()));
+    }
+
+    #[Route('/{id}/arca/credit-note/pdf', name: 'arca_credit_note_pdf', methods: ['GET'])]
+    public function arcaCreditNotePdf(Sale $sale): Response
+    {
+        $business = $this->requireBusinessContext();
+
+        if ($sale->getBusiness() !== $business) {
+            throw new AccessDeniedException('Solo podés ver notas de crédito de tu comercio.');
+        }
+
+        $creditNote = $this->arcaCreditNoteRepository->findOneBy([
+            'business' => $business,
+            'sale' => $sale,
+        ]);
+
+        if (!$creditNote || $creditNote->getStatus() !== \App\Entity\ArcaCreditNote::STATUS_AUTHORIZED) {
+            throw $this->createNotFoundException('Nota de crédito no disponible.');
+        }
+
+        return $this->pdfService->render('arca/credit_note_pdf.html.twig', [
+            'creditNote' => $creditNote,
+            'business' => $business,
+            'sale' => $sale,
+            'generatedAt' => new \DateTimeImmutable(),
+        ], sprintf('nota-credito-venta-%d.pdf', $sale->getId()));
     }
 
     #[Route('/{id}/arca/issue', name: 'arca_issue', methods: ['POST'])]
@@ -643,6 +685,73 @@ class SaleController extends AbstractController
             $connection->rollBack();
 
             throw $exception;
+        }
+
+        $membership = $this->businessUserRepository->findActiveMembership($user, $business);
+        $arcaConfig = $this->arcaConfigRepository->findOneBy(['business' => $business]);
+        $arcaInvoice = $this->arcaInvoiceRepository->findOneBy([
+            'business' => $business,
+            'sale' => $sale,
+        ]);
+
+        $shouldAutoInvoice = $sale->getStatus() === Sale::STATUS_CONFIRMED
+            && $arcaConfig?->isArcaEnabled()
+            && $membership?->isArcaEnabledForThisCashier()
+            && $membership?->getArcaMode() === 'INVOICE'
+            && $membership?->getArcaPosNumber() !== null
+            && $membership?->isArcaAutoIssueInvoice()
+            && !$arcaInvoice;
+
+        if ($shouldAutoInvoice) {
+            $autoInvoice = null;
+
+            try {
+                $autoInvoice = $this->arcaInvoiceService->buildInvoiceFromSale(
+                    $sale,
+                    $user,
+                    $membership,
+                    $arcaConfig,
+                    ArcaInvoiceService::PRICE_MODE_HISTORIC
+                );
+
+                $receiverMode = 'final';
+                $receiverCustomer = null;
+                $receiverIvaConditionId = $arcaConfig?->getDefaultReceiverIvaConditionId();
+                $saleCustomer = $sale->getCustomer();
+
+                if ($saleCustomer) {
+                    $receiverMode = 'customer';
+                    $receiverCustomer = $saleCustomer;
+                    $receiverIvaConditionId = $saleCustomer->getIvaConditionId() ?? $receiverIvaConditionId;
+                }
+
+                if ($receiverIvaConditionId === null) {
+                    throw new \RuntimeException('Condición IVA del receptor no configurada.');
+                }
+
+                $autoInvoice->setReceiverMode($receiverMode);
+                $autoInvoice->setReceiverCustomer($receiverCustomer);
+                $autoInvoice->setReceiverIvaConditionId($receiverIvaConditionId);
+                $this->entityManager->flush();
+
+                $this->arcaInvoiceService->requestCae($autoInvoice, $arcaConfig);
+
+                if ($autoInvoice->getStatus() === \App\Entity\ArcaInvoice::STATUS_AUTHORIZED) {
+                    $this->addFlash('success', 'Factura emitida automáticamente.');
+                } else {
+                    $this->addFlash('warning', 'Venta registrada, pero no se pudo emitir factura ARCA. Revisá el ticket.');
+                }
+            } catch (\Throwable $exception) {
+                if ($autoInvoice) {
+                    $autoInvoice->setStatus(\App\Entity\ArcaInvoice::STATUS_REJECTED);
+                    $autoInvoice->setArcaRawResponse([
+                        'error' => $exception->getMessage(),
+                    ]);
+                    $this->entityManager->flush();
+                }
+
+                $this->addFlash('warning', 'Venta registrada, pero no se pudo emitir factura ARCA. Revisá el ticket.');
+            }
         }
 
         $this->addFlash('success', 'Venta registrada.');
