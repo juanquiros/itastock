@@ -2,14 +2,55 @@
 
 {% block title %}Productos · ItaStock{% endblock %}
 
+{% block stylesheets %}
+    {{ parent() }}
+    <style>
+        .product-header {
+            gap: 1rem;
+        }
+
+        .product-toolbar {
+            gap: 0.5rem;
+        }
+
+        .product-actions {
+            gap: 0.35rem;
+        }
+
+        @media (max-width: 991.98px) {
+            .product-header {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            .product-toolbar {
+                width: 100%;
+            }
+
+            .product-toolbar .btn {
+                width: 100%;
+            }
+
+            .product-actions {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .product-actions .btn {
+                width: 100%;
+            }
+        }
+    </style>
+{% endblock %}
+
 {% block body %}
-    <div class="d-flex align-items-center justify-content-between mb-3">
+    <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap product-header">
         <div>
             <p class="text-uppercase text-muted mb-1 small fw-semibold">Inventario</p>
             <h1 class="h4 mb-0">Productos</h1>
             <p class="text-secondary mb-0">Seguimiento de stock y precios. Controlá lo que se vende todos los días.</p>
         </div>
-        <div class="btn-group" role="group">
+        <div class="d-flex flex-wrap justify-content-end product-toolbar">
             <a class="btn btn-outline-secondary" href="{{ path('app_product_export') }}">Exportar CSV</a>
             <a class="btn btn-outline-secondary" href="{{ path('app_product_import') }}">Importar CSV</a>
             <a class="btn btn-outline-secondary" href="{{ path('app_stock_import') }}">Ajustes por CSV</a>
@@ -113,7 +154,7 @@
                                     {% endif %}
                                 </td>
                                 <td class="text-end">
-                                    <div class="btn-group" role="group">
+                                    <div class="d-flex justify-content-end flex-wrap product-actions">
                                         <a class="btn btn-sm btn-outline-secondary" href="{{ path('app_product_edit', { id: product.id }) }}">Editar</a>
                                         <form method="post" action="{{ path('app_product_delete', { id: product.id }) }}" onsubmit="return confirm('¿Eliminar este producto?');">
                                             <input type="hidden" name="_token" value="{{ csrf_token('delete' ~ product.id) }}">

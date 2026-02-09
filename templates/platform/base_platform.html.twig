@@ -13,12 +13,12 @@
             .sidebar a:hover, .sidebar a.active { background: rgba(255,255,255,0.08); color: #fff; }
             .platform-layout { min-height: 100vh; }
             .platform-header { gap: 1rem; }
+            .platform-menu-toggle { border-color: rgba(255, 255, 255, 0.35); }
 
             @media (max-width: 991.98px) {
                 .platform-layout { flex-direction: column; }
                 .sidebar { min-height: auto; width: 100%; }
-                .platform-nav { flex-direction: row; flex-wrap: nowrap; overflow-x: auto; padding-bottom: 0.5rem; }
-                .platform-nav a { white-space: nowrap; }
+                .platform-nav { flex-direction: column; }
                 main { padding: 1.25rem; }
                 .platform-header { flex-direction: column; align-items: flex-start; }
                 .platform-header .text-end { text-align: left !important; }
@@ -33,32 +33,39 @@
     <body>
         <div class="d-flex platform-layout">
             <aside class="sidebar p-3">
-                <div class="d-flex align-items-center gap-2 mb-4">
-                    <img src="{{ asset('brand/itastock-logo.svg') }}" alt="ItaStock" width="32" height="32">
-                    <div>
-                        <div class="fw-bold">ItaStock</div>
-                        <div class="small text-secondary">Plataforma</div>
+                <div class="d-flex align-items-center justify-content-between gap-2 mb-4">
+                    <div class="d-flex align-items-center gap-2">
+                        <img src="{{ asset('brand/itastock-logo.svg') }}" alt="ItaStock" width="32" height="32">
+                        <div>
+                            <div class="fw-bold">ItaStock</div>
+                            <div class="small text-secondary">Plataforma</div>
+                        </div>
                     </div>
+                    <button class="btn btn-sm btn-outline-light d-lg-none platform-menu-toggle" type="button" data-bs-toggle="collapse" data-bs-target="#platformNav" aria-controls="platformNav" aria-expanded="false" aria-label="Toggle navigation">
+                        Menú
+                    </button>
                 </div>
                 {% set current = app.request.attributes.get('_route') %}
-                <nav class="d-flex flex-column gap-1 platform-nav">
-                    <a href="{{ path('platform_dashboard') }}" class="{{ current == 'platform_dashboard' ? 'active' : '' }}">Dashboard</a>
-                    <a href="{{ path('platform_pages_index') }}" class="{{ current starts with 'platform_pages' ? 'active' : '' }}">Páginas públicas</a>
-                    <a href="{{ path('platform_plans_index') }}" class="{{ current starts with 'platform_plans' ? 'active' : '' }}">Planes</a>
-                    <a href="{{ path('platform_billing_plans_index') }}" class="{{ current starts with 'platform_billing_plans' ? 'active' : '' }}">Planes billing</a>
-                    <a href="{{ path('platform_business_index') }}" class="{{ current starts with 'platform_business' ? 'active' : '' }}">Comercios</a>
-                    <a href="{{ path('platform_settings_pos') }}" class="{{ current starts with 'platform_settings' ? 'active' : '' }}">Configuración POS</a>
-                    <a href="{{ path('app_email_preferences') }}" class="{{ current == 'app_email_preferences' ? 'active' : '' }}">Preferencias de emails</a>
-                    <div class="text-uppercase small text-secondary mt-3">Catálogo maestro</div>
-                    <a href="{{ path('platform_catalog_category_index') }}" class="{{ current starts with 'platform_catalog_category' ? 'active' : '' }}">Categorías globales</a>
-                    <a href="{{ path('platform_catalog_brand_index') }}" class="{{ current starts with 'platform_catalog_brand' ? 'active' : '' }}">Marcas globales</a>
-                    <a href="{{ path('platform_catalog_product_index') }}" class="{{ current starts with 'platform_catalog_product' ? 'active' : '' }}">Productos globales</a>
-                    <a href="{{ path('platform_leads_index') }}" class="{{ current starts with 'platform_leads' ? 'active' : '' }}">Leads</a>
-                    <a href="{{ path('platform_subscriptions_index') }}" class="{{ current starts with 'platform_subscriptions' ? 'active' : '' }}">Suscripciones</a>
-                    <a href="{{ path('platform_reports_index') }}" class="{{ current == 'platform_reports_index' ? 'active' : '' }}">Reportes</a>
-                    <a href="{{ path('platform_reports_traffic') }}" class="{{ current == 'platform_reports_traffic' ? 'active' : '' }}">Tráfico (SEO)</a>
-                    <a href="{{ path('platform_email_logs') }}" class="{{ current starts with 'platform_email_logs' ? 'active' : '' }}">Emails enviados</a>
-                </nav>
+                <div class="collapse d-lg-block" id="platformNav">
+                    <nav class="d-flex flex-column gap-1 platform-nav">
+                        <a href="{{ path('platform_dashboard') }}" class="{{ current == 'platform_dashboard' ? 'active' : '' }}">Dashboard</a>
+                        <a href="{{ path('platform_pages_index') }}" class="{{ current starts with 'platform_pages' ? 'active' : '' }}">Páginas públicas</a>
+                        <a href="{{ path('platform_plans_index') }}" class="{{ current starts with 'platform_plans' ? 'active' : '' }}">Planes</a>
+                        <a href="{{ path('platform_billing_plans_index') }}" class="{{ current starts with 'platform_billing_plans' ? 'active' : '' }}">Planes billing</a>
+                        <a href="{{ path('platform_business_index') }}" class="{{ current starts with 'platform_business' ? 'active' : '' }}">Comercios</a>
+                        <a href="{{ path('platform_settings_pos') }}" class="{{ current starts with 'platform_settings' ? 'active' : '' }}">Configuración POS</a>
+                        <a href="{{ path('app_email_preferences') }}" class="{{ current == 'app_email_preferences' ? 'active' : '' }}">Preferencias de emails</a>
+                        <div class="text-uppercase small text-secondary mt-3">Catálogo maestro</div>
+                        <a href="{{ path('platform_catalog_category_index') }}" class="{{ current starts with 'platform_catalog_category' ? 'active' : '' }}">Categorías globales</a>
+                        <a href="{{ path('platform_catalog_brand_index') }}" class="{{ current starts with 'platform_catalog_brand' ? 'active' : '' }}">Marcas globales</a>
+                        <a href="{{ path('platform_catalog_product_index') }}" class="{{ current starts with 'platform_catalog_product' ? 'active' : '' }}">Productos globales</a>
+                        <a href="{{ path('platform_leads_index') }}" class="{{ current starts with 'platform_leads' ? 'active' : '' }}">Leads</a>
+                        <a href="{{ path('platform_subscriptions_index') }}" class="{{ current starts with 'platform_subscriptions' ? 'active' : '' }}">Suscripciones</a>
+                        <a href="{{ path('platform_reports_index') }}" class="{{ current == 'platform_reports_index' ? 'active' : '' }}">Reportes</a>
+                        <a href="{{ path('platform_reports_traffic') }}" class="{{ current == 'platform_reports_traffic' ? 'active' : '' }}">Tráfico (SEO)</a>
+                        <a href="{{ path('platform_email_logs') }}" class="{{ current starts with 'platform_email_logs' ? 'active' : '' }}">Emails enviados</a>
+                    </nav>
+                </div>
             </aside>
             <main class="flex-grow-1 p-4">
                 <div class="d-flex justify-content-between align-items-center mb-4 platform-header">
