@@ -51,6 +51,15 @@
                             <a class="btn btn-outline-primary" href="{{ path('app_sale_ticket_pdf', { id: sale.id }) }}">
                                 PDF
                             </a>
+                            {% if arcaInvoice and arcaInvoice.status == 'AUTHORIZED' %}
+                                <a class="btn btn-outline-success" href="{{ path('app_sale_arca_pdf', { id: sale.id }) }}">
+                                    Ver factura
+                                </a>
+                            {% elseif canInvoice %}
+                                <button class="btn btn-outline-success" data-bs-toggle="modal" data-bs-target="#arcaInvoiceModal">
+                                    Facturar
+                                </button>
+                            {% endif %}
                             <a class="btn btn-outline-secondary" href="{{ path('app_sale_new') }}">
                                 Nueva venta
                             </a>
@@ -217,6 +226,37 @@
             </div>
         </div>
     </div>
+
+    {% if canInvoice %}
+        <div class="modal fade" id="arcaInvoiceModal" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <form method="post" action="{{ path('app_sale_arca_issue', { id: sale.id }) }}">
+                        <div class="modal-header">
+                            <h5 class="modal-title">Confirmar facturación</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                        </div>
+                        <div class="modal-body">
+                            <p class="text-muted mb-3">Seleccioná el origen del precio para emitir la factura.</p>
+                            <div class="form-check mb-2">
+                                <input class="form-check-input" type="radio" name="price_mode" id="priceHistoric" value="historic" checked>
+                                <label class="form-check-label" for="priceHistoric">Usar precio histórico de la venta</label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="price_mode" id="priceCurrent" value="current">
+                                <label class="form-check-label" for="priceCurrent">Usar precio actual</label>
+                            </div>
+                            <input type="hidden" name="_token" value="{{ csrf_token('arca_invoice_' ~ sale.id) }}">
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                            <button class="btn btn-success">Facturar</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    {% endif %}
 
     {% if sale.status == 'CONFIRMED' and is_granted('BUSINESS_ADMIN') %}
         <div class="modal fade" id="voidSaleModal" tabindex="-1" aria-labelledby="voidSaleModalLabel" aria-hidden="true">

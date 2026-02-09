@@ -20,6 +20,24 @@
             {{ form_row(form.plainPassword) }}
         </div>
     </div>
+    <div class="card border-0 shadow-sm mt-3">
+        <div class="card-body">
+            <div class="fw-semibold mb-2">Facturación ARCA</div>
+            <div class="row">
+                <div class="col-md-6">
+                    {{ form_row(form.arcaEnabledForThisCashier) }}
+                </div>
+                <div class="col-md-6">
+                    {{ form_row(form.arcaMode) }}
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-md-6">
+                    {{ form_row(form.arcaPosNumber) }}
+                </div>
+            </div>
+        </div>
+    </div>
     <div class="d-flex justify-content-end gap-2 mt-3">
         <a href="{{ path('app_user_index') }}" class="btn btn-outline-secondary">Cancelar</a>
         <button class="btn btn-primary">{{ button_label|default('Guardar') }}</button>

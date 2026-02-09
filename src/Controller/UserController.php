@@ -50,6 +50,7 @@ class UserController extends AbstractController
         $user = new User();
         $requirePassword = true;
         $currentRole = BusinessUser::ROLE_SELLER;
+        $membership = null;
 
         if ($request->isMethod('POST')) {
             $formData = $request->request->all('user');
@@ -59,9 +60,9 @@ class UserController extends AbstractController
                 if ($existing instanceof User) {
                     $user = $existing;
                     $requirePassword = false;
-                    $existingMembership = $this->businessUserRepository->findActiveMembership($user, $business);
-                    if ($existingMembership) {
-                        $currentRole = $existingMembership->getRole();
+                    $membership = $this->businessUserRepository->findActiveMembership($user, $business);
+                    if ($membership) {
+                        $currentRole = $membership->getRole();
                     }
                 } else {
                     $user->setBusiness($business);
@@ -74,6 +75,7 @@ class UserController extends AbstractController
         $form = $this->createForm(UserType::class, $user, [
             'require_password' => $requirePassword,
             'current_role' => $currentRole,
+            'membership' => $membership,
         ]);
         $form->handleRequest($request);
 
@@ -82,7 +84,10 @@ class UserController extends AbstractController
                 $user,
                 $business,
                 $form->get('plainPassword')->getData(),
-                (string) $form->get('role')->getData()
+                (string) $form->get('role')->getData(),
+                $form->get('arcaEnabledForThisCashier')->getData(),
+                (string) $form->get('arcaMode')->getData(),
+                $form->get('arcaPosNumber')->getData(),
             );
 
             $this->addFlash('success', 'Usuario creado correctamente.');
@@ -107,6 +112,7 @@ class UserController extends AbstractController
         $form = $this->createForm(UserType::class, $user, [
             'require_password' => false,
             'current_role' => $currentRole,
+            'membership' => $membership,
         ]);
         $form->handleRequest($request);
 
@@ -115,7 +121,10 @@ class UserController extends AbstractController
                 $user,
                 $business,
                 $form->get('plainPassword')->getData(),
-                (string) $form->get('role')->getData()
+                (string) $form->get('role')->getData(),
+                $form->get('arcaEnabledForThisCashier')->getData(),
+                (string) $form->get('arcaMode')->getData(),
+                $form->get('arcaPosNumber')->getData(),
             );
 
             $this->addFlash('success', 'Usuario actualizado.');
@@ -164,8 +173,15 @@ class UserController extends AbstractController
         return $this->redirectToRoute('app_user_index');
     }
 
-    private function handleUserPersistence(User $user, Business $business, ?string $plainPassword, string $selectedRole): void
-    {
+    private function handleUserPersistence(
+        User $user,
+        Business $business,
+        ?string $plainPassword,
+        string $selectedRole,
+        mixed $arcaEnabledForThisCashier,
+        string $arcaMode,
+        mixed $arcaPosNumber
+    ): void {
         $selectedRole = match ($selectedRole) {
             BusinessUser::ROLE_OWNER, BusinessUser::ROLE_ADMIN, BusinessUser::ROLE_SELLER, BusinessUser::ROLE_READONLY => $selectedRole,
             default => BusinessUser::ROLE_SELLER,
@@ -198,6 +214,9 @@ class UserController extends AbstractController
 
         $membership->setRole($selectedRole);
         $membership->setIsActive(true);
+        $membership->setArcaEnabledForThisCashier((bool) $arcaEnabledForThisCashier);
+        $membership->setArcaMode($arcaMode ?: 'REMITO_ONLY');
+        $membership->setArcaPosNumber($arcaPosNumber !== null ? (int) $arcaPosNumber : null);
 
         $this->entityManager->persist($user);
         $this->entityManager->flush();

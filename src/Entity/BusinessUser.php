@@ -42,6 +42,15 @@ class BusinessUser
     #[ORM\Column]
     private ?DateTimeImmutable $updatedAt = null;
 
+    #[ORM\Column(nullable: true)]
+    private ?int $arcaPosNumber = null;
+
+    #[ORM\Column(length: 20, options: ['default' => 'REMITO_ONLY'])]
+    private string $arcaMode = 'REMITO_ONLY';
+
+    #[ORM\Column(options: ['default' => false])]
+    private bool $arcaEnabledForThisCashier = false;
+
     public function __construct()
     {
         $this->createdAt = new DateTimeImmutable();
@@ -123,5 +132,41 @@ class BusinessUser
     public function getUpdatedAt(): ?DateTimeImmutable
     {
         return $this->updatedAt;
+    }
+
+    public function getArcaPosNumber(): ?int
+    {
+        return $this->arcaPosNumber;
+    }
+
+    public function setArcaPosNumber(?int $arcaPosNumber): self
+    {
+        $this->arcaPosNumber = $arcaPosNumber;
+
+        return $this;
+    }
+
+    public function getArcaMode(): string
+    {
+        return $this->arcaMode;
+    }
+
+    public function setArcaMode(string $arcaMode): self
+    {
+        $this->arcaMode = $arcaMode;
+
+        return $this;
+    }
+
+    public function isArcaEnabledForThisCashier(): bool
+    {
+        return $this->arcaEnabledForThisCashier;
+    }
+
+    public function setArcaEnabledForThisCashier(bool $arcaEnabledForThisCashier): self
+    {
+        $this->arcaEnabledForThisCashier = $arcaEnabledForThisCashier;
+
+        return $this;
     }
 }

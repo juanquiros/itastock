@@ -78,6 +78,9 @@ class Business
     #[ORM\OneToMany(mappedBy: 'business', targetEntity: BusinessUser::class, orphanRemoval: true)]
     private Collection $businessUsers;
 
+    #[ORM\OneToOne(mappedBy: 'business', targetEntity: BusinessArcaConfig::class, cascade: ['persist', 'remove'])]
+    private ?BusinessArcaConfig $arcaConfig = null;
+
 
     public function __construct()
     {
@@ -366,6 +369,22 @@ class Business
     public function setMercadoPagoPayerEmail(?string $mercadoPagoPayerEmail): self
     {
         $this->mercadoPagoPayerEmail = $mercadoPagoPayerEmail;
+
+        return $this;
+    }
+
+    public function getArcaConfig(): ?BusinessArcaConfig
+    {
+        return $this->arcaConfig;
+    }
+
+    public function setArcaConfig(?BusinessArcaConfig $arcaConfig): self
+    {
+        $this->arcaConfig = $arcaConfig;
+
+        if ($arcaConfig && $arcaConfig->getBusiness() !== $this) {
+            $arcaConfig->setBusiness($this);
+        }
 
         return $this;
     }

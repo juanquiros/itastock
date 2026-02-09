@@ -32,6 +32,10 @@ class Category
     #[ORM\JoinColumn(onDelete: 'SET NULL')]
     private ?CatalogCategory $catalogCategory = null;
 
+    #[ORM\Column(type: 'decimal', precision: 5, scale: 2, nullable: true)]
+    #[Assert\PositiveOrZero]
+    private ?string $ivaRate = null;
+
     #[ORM\OneToMany(mappedBy: 'category', targetEntity: Product::class)]
     private Collection $products;
 
@@ -82,6 +86,18 @@ class Category
     public function setCatalogCategory(?CatalogCategory $catalogCategory): self
     {
         $this->catalogCategory = $catalogCategory;
+
+        return $this;
+    }
+
+    public function getIvaRate(): ?string
+    {
+        return $this->ivaRate;
+    }
+
+    public function setIvaRate(?string $ivaRate): self
+    {
+        $this->ivaRate = $ivaRate;
 
         return $this;
     }

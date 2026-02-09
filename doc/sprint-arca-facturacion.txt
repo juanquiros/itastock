@@ -1,0 +1,47 @@
+SPRINT ARCA - FACTURACIÓN ELECTRÓNICA
+====================================
+
+Flujo funcional
+---------------
+1. El administrador habilita ARCA desde la pantalla de configuración y carga CUIT, certificado y key PEM.
+2. En la administración de usuarios del comercio, el admin asigna punto de venta ARCA, modo de operación y habilitación por caja.
+3. El vendedor genera una venta (remito) como siempre. Si su caja está en modo INVOICE y ARCA está habilitado, aparece el botón “Facturar”.
+4. Al facturar, se confirma el precio a usar (histórico o actual). Se genera una ArcaInvoice y se solicita CAE.
+5. Si la factura queda AUTHORIZED, se habilita “Ver factura” (PDF).
+6. El administrador consulta reportes en “Facturación ARCA”, con filtros y export CSV.
+
+Pantallas agregadas
+-------------------
+- Configuración ARCA: /app/admin/settings/arca
+- Reporte Facturación ARCA: /app/admin/arca
+- Detalle ARCA (raw request/response): /app/admin/arca/{id}/detail
+
+Consideraciones operativas
+--------------------------
+- La facturación no es automática: solo se emite cuando se confirma “Facturar”.
+- El modo “Solo remito” mantiene el flujo actual sin cambios.
+- Si ARCA falla, la factura queda REJECTED y se guarda el response para auditoría.
+- La visualización de facturas en ventas respeta permisos y comercio actual.
+
+Guía de configuración (cert/key)
+--------------------------------
+- Certificado y key deben pegarse en formato PEM completo:
+  - Certificado: -----BEGIN CERTIFICATE----- ... -----END CERTIFICATE-----
+  - Key privada: -----BEGIN PRIVATE KEY----- ... -----END PRIVATE KEY-----
+- Passphrase es opcional y solo se usa si la key está protegida.
+
+Notas de seguridad multi-tenant
+-------------------------------
+- Todas las operaciones quedan scopeadas por Business.
+- El acceso a configuración y reportes requiere rol OWNER/ADMIN.
+- Un usuario solo puede ver facturas de su comercio.
+
+Rutas agregadas
+---------------
+- /app/admin/settings/arca
+- /app/admin/settings/arca/test
+- /app/admin/arca
+- /app/admin/arca/{id}/detail
+- /app/admin/arca/{id}/pdf
+- /app/pos/{id}/arca/issue
+- /app/pos/{id}/arca/pdf

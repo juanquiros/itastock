@@ -1,0 +1,57 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Detalle factura ARCA | ItaStock{% endblock %}
+
+{% block body %}
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <div>
+            <h1 class="h4 mb-1">Detalle ARCA</h1>
+            <p class="text-muted mb-0">Venta #{{ invoice.sale.id }} · Estado {{ invoice.status }}</p>
+        </div>
+        <a class="btn btn-outline-secondary" href="{{ path('app_admin_arca_index') }}">Volver</a>
+    </div>
+
+    <div class="row">
+        <div class="col-lg-6">
+            <div class="card shadow-sm mb-3">
+                <div class="card-body">
+                    <div class="fw-semibold mb-2">Datos generales</div>
+                    <div class="text-muted small">Punto de venta: {{ invoice.arcaPosNumber }}</div>
+                    <div class="text-muted small">Comprobante: {{ invoice.cbteTipo }}</div>
+                    <div class="text-muted small">Número: {{ invoice.cbteNumero ?: '-' }}</div>
+                    <div class="text-muted small">CAE: {{ invoice.cae ?: '-' }}</div>
+                    <div class="text-muted small">Vto CAE: {{ invoice.caeDueDate ? invoice.caeDueDate|date('d/m/Y') : '-' }}</div>
+                    <div class="text-muted small">Total: ${{ invoice.totalAmount }}</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-6">
+            <div class="card shadow-sm mb-3">
+                <div class="card-body">
+                    <div class="fw-semibold mb-2">Items facturados</div>
+                    <ul class="list-unstyled small mb-0">
+                        {% for item in invoice.itemsSnapshot ?? [] %}
+                            <li>{{ item.description }} · {{ item.qty }} × ${{ item.unitPrice }} (IVA {{ item.ivaRate }}%)</li>
+                        {% else %}
+                            <li class="text-muted">Sin ítems registrados.</li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card shadow-sm mb-3">
+        <div class="card-body">
+            <div class="fw-semibold mb-2">Request ARCA</div>
+            <pre class="small bg-light p-3 rounded mb-0">{{ invoice.arcaRawRequest ? invoice.arcaRawRequest|json_encode(constant('JSON_PRETTY_PRINT')) : 'Sin request' }}</pre>
+        </div>
+    </div>
+
+    <div class="card shadow-sm">
+        <div class="card-body">
+            <div class="fw-semibold mb-2">Response ARCA</div>
+            <pre class="small bg-light p-3 rounded mb-0">{{ invoice.arcaRawResponse ? invoice.arcaRawResponse|json_encode(constant('JSON_PRETTY_PRINT')) : 'Sin response' }}</pre>
+        </div>
+    </div>
+{% endblock %}

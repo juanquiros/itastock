@@ -12,6 +12,9 @@ use App\Entity\SaleItem;
 use App\Entity\StockMovement;
 use App\Entity\User;
 use App\Entity\BusinessUser;
+use App\Repository\ArcaInvoiceRepository;
+use App\Repository\BusinessArcaConfigRepository;
+use App\Repository\BusinessUserRepository;
 use App\Repository\CashSessionRepository;
 use App\Repository\PlatformSettingsRepository;
 use App\Repository\PriceListItemRepository;
@@ -20,6 +23,7 @@ use App\Repository\SaleRepository;
 use App\Security\BusinessContext;
 use App\Service\CustomerAccountService;
 use App\Service\DiscountEngine;
+use App\Service\ArcaInvoiceService;
 use App\Service\PdfService;
 use App\Service\PricingService;
 use Doctrine\ORM\EntityManagerInterface;
@@ -46,6 +50,10 @@ class SaleController extends AbstractController
         private readonly DiscountEngine $discountEngine,
         private readonly PdfService $pdfService,
         private readonly BusinessContext $businessContext,
+        private readonly BusinessUserRepository $businessUserRepository,
+        private readonly BusinessArcaConfigRepository $arcaConfigRepository,
+        private readonly ArcaInvoiceRepository $arcaInvoiceRepository,
+        private readonly ArcaInvoiceService $arcaInvoiceService,
     ) {
     }
 
@@ -290,15 +298,32 @@ class SaleController extends AbstractController
     #[Route('/{id}/ticket', name: 'ticket', methods: ['GET'])]
     public function ticket(Sale $sale): Response
     {
+        $user = $this->requireUser();
         $business = $this->requireBusinessContext();
 
         if ($sale->getBusiness() !== $business) {
             throw new AccessDeniedException('Solo podés ver tickets de tu comercio.');
         }
 
+        $membership = $this->businessUserRepository->findActiveMembership($user, $business);
+        $arcaConfig = $this->arcaConfigRepository->findOneBy(['business' => $business]);
+        $arcaInvoice = $this->arcaInvoiceRepository->findOneBy([
+            'business' => $business,
+            'sale' => $sale,
+        ]);
+
+        $canInvoice = $sale->getStatus() === Sale::STATUS_CONFIRMED
+            && $arcaConfig?->isArcaEnabled()
+            && $membership?->isArcaEnabledForThisCashier()
+            && $membership?->getArcaMode() === 'INVOICE'
+            && $membership?->getArcaPosNumber() !== null
+            && !$arcaInvoice;
+
         return $this->render('sale/ticket.html.twig', [
             'sale' => $sale,
             'remitoNumber' => $this->formatRemitoNumber($sale),
+            'arcaInvoice' => $arcaInvoice,
+            'canInvoice' => $canInvoice,
         ]);
     }
 
@@ -317,6 +342,97 @@ class SaleController extends AbstractController
             'remitoNumber' => $this->formatRemitoNumber($sale),
             'generatedAt' => new \DateTimeImmutable(),
         ], sprintf('remito-venta-%d.pdf', $sale->getId()));
+    }
+
+    #[Route('/{id}/arca/pdf', name: 'arca_pdf', methods: ['GET'])]
+    public function arcaPdf(Sale $sale): Response
+    {
+        $business = $this->requireBusinessContext();
+
+        if ($sale->getBusiness() !== $business) {
+            throw new AccessDeniedException('Solo podés ver facturas de tu comercio.');
+        }
+
+        $invoice = $this->arcaInvoiceRepository->findOneBy([
+            'business' => $business,
+            'sale' => $sale,
+        ]);
+
+        if (!$invoice || $invoice->getStatus() !== \App\Entity\ArcaInvoice::STATUS_AUTHORIZED) {
+            throw $this->createNotFoundException('Factura no disponible.');
+        }
+
+        return $this->pdfService->render('arca/invoice_pdf.html.twig', [
+            'invoice' => $invoice,
+            'business' => $business,
+            'sale' => $sale,
+            'generatedAt' => new \DateTimeImmutable(),
+        ], sprintf('factura-venta-%d.pdf', $sale->getId()));
+    }
+
+    #[Route('/{id}/arca/issue', name: 'arca_issue', methods: ['POST'])]
+    public function issueArcaInvoice(Request $request, Sale $sale): Response
+    {
+        $user = $this->requireUser();
+        $business = $this->requireBusinessContext();
+
+        if ($sale->getBusiness() !== $business) {
+            throw new AccessDeniedException('Solo podés facturar ventas de tu comercio.');
+        }
+
+        if (!$this->isCsrfTokenValid('arca_invoice_'.$sale->getId(), (string) $request->request->get('_token'))) {
+            return $this->redirectToRoute('app_sale_ticket', ['id' => $sale->getId()]);
+        }
+
+        if ($sale->getStatus() !== Sale::STATUS_CONFIRMED) {
+            $this->addFlash('danger', 'Solo podés facturar ventas confirmadas.');
+
+            return $this->redirectToRoute('app_sale_ticket', ['id' => $sale->getId()]);
+        }
+
+        $arcaConfig = $this->arcaConfigRepository->findOneBy(['business' => $business]);
+        $membership = $this->businessUserRepository->findActiveMembership($user, $business);
+
+        if (!$arcaConfig || !$arcaConfig->isArcaEnabled()) {
+            $this->addFlash('danger', 'ARCA no está habilitado para este comercio.');
+
+            return $this->redirectToRoute('app_sale_ticket', ['id' => $sale->getId()]);
+        }
+
+        if (!$membership || !$membership->isArcaEnabledForThisCashier() || $membership->getArcaMode() !== 'INVOICE') {
+            $this->addFlash('danger', 'Tu caja no está habilitada para facturar.');
+
+            return $this->redirectToRoute('app_sale_ticket', ['id' => $sale->getId()]);
+        }
+
+        if ($membership->getArcaPosNumber() === null) {
+            $this->addFlash('danger', 'Necesitás configurar el punto de venta ARCA para tu usuario.');
+
+            return $this->redirectToRoute('app_sale_ticket', ['id' => $sale->getId()]);
+        }
+
+        $existing = $this->arcaInvoiceRepository->findOneBy(['business' => $business, 'sale' => $sale]);
+        if ($existing) {
+            $this->addFlash('warning', 'Esta venta ya tiene una factura asociada.');
+
+            return $this->redirectToRoute('app_sale_ticket', ['id' => $sale->getId()]);
+        }
+
+        $priceMode = (string) $request->request->get('price_mode', ArcaInvoiceService::PRICE_MODE_HISTORIC);
+        if (!in_array($priceMode, [ArcaInvoiceService::PRICE_MODE_HISTORIC, ArcaInvoiceService::PRICE_MODE_CURRENT], true)) {
+            $priceMode = ArcaInvoiceService::PRICE_MODE_HISTORIC;
+        }
+
+        $invoice = $this->arcaInvoiceService->buildInvoiceFromSale($sale, $user, $membership, $arcaConfig, $priceMode);
+        $this->arcaInvoiceService->requestCae($invoice, $arcaConfig);
+
+        if ($invoice->getStatus() === \App\Entity\ArcaInvoice::STATUS_AUTHORIZED) {
+            $this->addFlash('success', 'Factura autorizada correctamente.');
+        } else {
+            $this->addFlash('danger', 'No se pudo autorizar la factura. Revisá el detalle en reportes.');
+        }
+
+        return $this->redirectToRoute('app_sale_ticket', ['id' => $sale->getId()]);
     }
 
     private function handleSubmission(Request $request, Business $business, array $products, User $user): Response

@@ -18,6 +18,10 @@ parameters:
     app.emails.enabled: '%env(bool:APP_EMAILS_ENABLED)%'
     app.recaptcha.site_key: '%env(RECAPTCHA_SITE_KEY)%'
     app.recaptcha.secret_key: '%env(RECAPTCHA_SECRET_KEY)%'
+    app.arca.wsaa.wsdl_homo: '%env(ARCA_WSAA_HOMO_WSDL)%'
+    app.arca.wsaa.wsdl_prod: '%env(ARCA_WSAA_PROD_WSDL)%'
+    app.arca.wsfe.wsdl_homo: '%env(ARCA_WSFE_HOMO_WSDL)%'
+    app.arca.wsfe.wsdl_prod: '%env(ARCA_WSFE_PROD_WSDL)%'
 
 services:
     # default configuration for services in *this* file
@@ -34,6 +38,10 @@ services:
             $emailsEnabled: '%app.emails.enabled%'
             $recaptchaSiteKey: '%app.recaptcha.site_key%'
             $recaptchaSecretKey: '%app.recaptcha.secret_key%'
+            $arcaWsaaWsdlHomo: '%app.arca.wsaa.wsdl_homo%'
+            $arcaWsaaWsdlProd: '%app.arca.wsaa.wsdl_prod%'
+            $arcaWsfeWsdlHomo: '%app.arca.wsfe.wsdl_homo%'
+            $arcaWsfeWsdlProd: '%app.arca.wsfe.wsdl_prod%'
 
     # makes classes in src/ available to be used as services
     # this creates a service per class whose id is the fully-qualified class name

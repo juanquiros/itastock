@@ -1,0 +1,104 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Facturación ARCA | ItaStock{% endblock %}
+
+{% block body %}
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <div>
+            <h1 class="h4 mb-1">Facturación ARCA</h1>
+            <p class="text-muted mb-0">Seguimiento de facturas electrónicas emitidas.</p>
+        </div>
+        <a class="btn btn-outline-secondary" href="{{ path('app_admin_arca_index', exportParams) }}">Exportar CSV</a>
+    </div>
+
+    <div class="card shadow-sm mb-3">
+        <div class="card-body">
+            <form method="get" class="row g-3">
+                <div class="col-md-3">
+                    <label class="form-label">Desde</label>
+                    <input type="date" class="form-control" name="from" value="{{ filters.from ? filters.from|date('Y-m-d') : '' }}">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Hasta</label>
+                    <input type="date" class="form-control" name="to" value="{{ filters.to ? filters.to|date('Y-m-d') : '' }}">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Estado</label>
+                    <select class="form-select" name="status">
+                        <option value="">Todos</option>
+                        {% for status in statuses %}
+                            <option value="{{ status }}" {{ filters.status == status ? 'selected' : '' }}>{{ status }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Punto de venta</label>
+                    <input type="number" class="form-control" name="pos" min="1" value="{{ filters.posNumber ?: '' }}">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Caja</label>
+                    <select class="form-select" name="user">
+                        <option value="">Todas</option>
+                        {% for membership in memberships %}
+                            <option value="{{ membership.user.id }}" {{ filters.createdBy == membership.user.id ? 'selected' : '' }}>
+                                {{ membership.user.fullName ?: membership.user.email }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-12 d-flex justify-content-end gap-2">
+                    <a href="{{ path('app_admin_arca_index') }}" class="btn btn-outline-secondary">Limpiar</a>
+                    <button class="btn btn-primary">Filtrar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="card shadow-sm">
+        <div class="card-body table-responsive">
+            <table class="table table-sm align-middle">
+                <thead class="table-light">
+                    <tr>
+                        <th>Fecha</th>
+                        <th>Venta</th>
+                        <th>Cliente</th>
+                        <th class="text-end">Neto</th>
+                        <th class="text-end">IVA</th>
+                        <th class="text-end">Total</th>
+                        <th>CAE</th>
+                        <th>Vto CAE</th>
+                        <th>Estado</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                {% for invoice in invoices %}
+                    <tr>
+                        <td>{{ invoice.createdAt ? invoice.createdAt|date('d/m/Y H:i') : '-' }}</td>
+                        <td>#{{ invoice.sale.id }}</td>
+                        <td>{{ invoice.sale.customer ? invoice.sale.customer.name : 'Consumidor Final' }}</td>
+                        <td class="text-end">${{ invoice.netAmount }}</td>
+                        <td class="text-end">${{ invoice.vatAmount }}</td>
+                        <td class="text-end">${{ invoice.totalAmount }}</td>
+                        <td>{{ invoice.cae ?: '-' }}</td>
+                        <td>{{ invoice.caeDueDate ? invoice.caeDueDate|date('d/m/Y') : '-' }}</td>
+                        <td>{{ invoice.status }}</td>
+                        <td>
+                            <div class="btn-group btn-group-sm">
+                                {% if invoice.status == 'AUTHORIZED' %}
+                                    <a class="btn btn-outline-primary" href="{{ path('app_admin_arca_pdf', { id: invoice.id }) }}">Factura</a>
+                                {% endif %}
+                                <a class="btn btn-outline-secondary" href="{{ path('app_admin_arca_detail', { id: invoice.id }) }}">Detalle</a>
+                            </div>
+                        </td>
+                    </tr>
+                {% else %}
+                    <tr>
+                        <td colspan="10" class="text-center text-muted">Sin facturas para los filtros seleccionados.</td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+{% endblock %}

@@ -51,6 +51,10 @@ class Product
     #[Assert\PositiveOrZero]
     private ?string $basePrice = '0.00';
 
+    #[ORM\Column(type: 'decimal', precision: 5, scale: 2, nullable: true)]
+    #[Assert\PositiveOrZero]
+    private ?string $ivaRate = null;
+
     #[ORM\Column(type: 'decimal', precision: 10, scale: 3, options: ['default' => '0.000'])]
     #[Assert\PositiveOrZero]
     private string $stockMin = '0.000';
@@ -179,6 +183,18 @@ class Product
     public function setBasePrice(string $basePrice): self
     {
         $this->basePrice = $basePrice;
+
+        return $this;
+    }
+
+    public function getIvaRate(): ?string
+    {
+        return $this->ivaRate;
+    }
+
+    public function setIvaRate(?string $ivaRate): self
+    {
+        $this->ivaRate = $ivaRate;
 
         return $this;
     }
