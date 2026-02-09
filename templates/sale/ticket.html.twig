@@ -237,6 +237,29 @@
                             <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                         </div>
                         <div class="modal-body">
+                            {% if sale.customer is null %}
+                                <div class="mb-3">
+                                    <p class="text-muted mb-2">Elegí a nombre de quién se factura.</p>
+                                    <div class="form-check mb-2">
+                                        <input class="form-check-input" type="radio" name="receiver_mode" id="receiverFinal" value="final" checked>
+                                        <label class="form-check-label" for="receiverFinal">Consumidor final</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="radio" name="receiver_mode" id="receiverCustomer" value="customer">
+                                        <label class="form-check-label" for="receiverCustomer">Seleccionar cliente</label>
+                                    </div>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label" for="receiverCustomerId">Cliente</label>
+                                    <select class="form-select" id="receiverCustomerId" name="customer_id">
+                                        <option value="">Seleccionar cliente</option>
+                                        {% for customer in customers %}
+                                            <option value="{{ customer.id }}">{{ customer.name }}{% if customer.documentNumber %} · {{ customer.documentNumber }}{% endif %}</option>
+                                        {% endfor %}
+                                    </select>
+                                    <div class="form-text">Completá este campo solo si elegís “Seleccionar cliente”.</div>
+                                </div>
+                            {% endif %}
                             <p class="text-muted mb-3">Seleccioná el origen del precio para emitir la factura.</p>
                             <div class="form-check mb-2">
                                 <input class="form-check-input" type="radio" name="price_mode" id="priceHistoric" value="historic" checked>

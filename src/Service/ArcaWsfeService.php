@@ -8,7 +8,18 @@ use DateTimeImmutable;
 
 class ArcaWsfeService
 {
+    /**
+     * @var array<int, array<int, string>>
+     */
+    private array $condicionIvaReceptorOptions = [];
+
+    /**
+     * @var array<int, string>
+     */
+    private array $condicionIvaReceptorErrors = [];
+
     public function __construct(
+        private readonly ArcaWsaaService $wsaaService,
         private readonly string $arcaWsfeWsdlHomo,
         private readonly string $arcaWsfeWsdlProd,
     ) {
@@ -47,6 +58,10 @@ class ArcaWsfeService
         $cbteNumero = $lastNumber + 1;
 
         $issuedAt = $invoice->getIssuedAt() ?? new DateTimeImmutable();
+        $receiverIvaConditionId = $invoice->getReceiverIvaConditionId();
+        if ($receiverIvaConditionId === null) {
+            throw new \RuntimeException('Condición IVA del receptor no configurada.');
+        }
 
         $detail = [
             'Concepto' => 1,
@@ -63,6 +78,7 @@ class ArcaWsfeService
             'ImpTrib' => 0,
             'MonId' => 'PES',
             'MonCotiz' => 1,
+            'CondicionIvaReceptorId' => $receiverIvaConditionId,
         ];
 
         $ivaItems = $this->buildIvaItems($invoice);
@@ -161,5 +177,78 @@ class ArcaWsfeService
             '0', '0.0', '0.00' => 3,
             default => 5,
         };
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    public function getCondicionIvaReceptorOptions(BusinessArcaConfig $config): array
+    {
+        $businessId = $config->getBusiness()?->getId() ?? 0;
+        if (array_key_exists($businessId, $this->condicionIvaReceptorOptions)) {
+            return $this->condicionIvaReceptorOptions[$businessId];
+        }
+
+        $this->condicionIvaReceptorErrors[$businessId] = '';
+        try {
+            $wsdl = $config->getArcaEnvironment() === BusinessArcaConfig::ENV_PROD ? $this->arcaWsfeWsdlProd : $this->arcaWsfeWsdlHomo;
+            if ($wsdl === '') {
+                throw new \RuntimeException('WSDL de WSFE no configurado.');
+            }
+
+            $business = $config->getBusiness();
+            if (!$business) {
+                throw new \RuntimeException('Comercio no asociado a la configuración ARCA.');
+            }
+
+            $tokenSign = $this->wsaaService->getTokenSign($business, $config, 'wsfe');
+            $client = new \SoapClient($wsdl, [
+                'trace' => 1,
+                'exceptions' => true,
+            ]);
+
+            $auth = [
+                'Token' => $tokenSign['token'],
+                'Sign' => $tokenSign['sign'],
+                'Cuit' => $config->getCuitEmisor(),
+            ];
+
+            $response = $client->FEParamGetCondicionIvaReceptor([
+                'Auth' => $auth,
+            ]);
+
+            $raw = $response->FEParamGetCondicionIvaReceptorResult->ResultGet->CondicionIvaReceptor ?? [];
+            $items = json_decode(json_encode($raw, JSON_THROW_ON_ERROR), true, 512, JSON_THROW_ON_ERROR);
+            if (isset($items['Id'])) {
+                $items = [$items];
+            }
+            if (!is_array($items)) {
+                $items = [];
+            }
+
+            $options = [];
+            foreach ($items as $item) {
+                $id = isset($item['Id']) ? (int) $item['Id'] : 0;
+                $desc = isset($item['Desc']) ? (string) $item['Desc'] : '';
+                if ($id > 0 && $desc !== '') {
+                    $options[$id] = $desc;
+                }
+            }
+        } catch (\Throwable $exception) {
+            $this->condicionIvaReceptorErrors[$businessId] = $exception->getMessage();
+            $options = [];
+        }
+
+        $this->condicionIvaReceptorOptions[$businessId] = $options;
+
+        return $options;
+    }
+
+    public function getCondicionIvaReceptorError(BusinessArcaConfig $config): ?string
+    {
+        $businessId = $config->getBusiness()?->getId() ?? 0;
+        $error = $this->condicionIvaReceptorErrors[$businessId] ?? null;
+
+        return $error !== '' ? $error : null;
     }
 }

@@ -38,6 +38,13 @@ class BusinessArcaConfigType extends AbstractType
                     'Responsable inscripto' => BusinessArcaConfig::TAX_PAYER_RESPONSABLE_INSCRIPTO,
                 ],
             ])
+            ->add('defaultReceiverIvaConditionId', ChoiceType::class, [
+                'label' => 'Condición IVA por defecto del receptor',
+                'required' => false,
+                'placeholder' => 'Seleccionar',
+                'choices' => array_flip($options['receiver_iva_options']),
+                'help' => $options['receiver_iva_help'],
+            ])
             ->add('cuitEmisor', TextType::class, [
                 'label' => 'CUIT emisor',
                 'required' => false,
@@ -114,6 +121,8 @@ class BusinessArcaConfigType extends AbstractType
     {
         $resolver->setDefaults([
             'data_class' => BusinessArcaConfig::class,
+            'receiver_iva_options' => [],
+            'receiver_iva_help' => 'ARCA lo exige para Factura C / Consumidor Final (RG 5616).',
         ]);
     }
 }

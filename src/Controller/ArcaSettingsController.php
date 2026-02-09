@@ -8,6 +8,7 @@ use App\Repository\BusinessArcaConfigRepository;
 use App\Security\BusinessContext;
 use App\Service\ArcaPemNormalizer;
 use App\Service\ArcaWsaaService;
+use App\Service\ArcaWsfeService;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\Form\FormError;
@@ -27,6 +28,7 @@ class ArcaSettingsController extends AbstractController
         private readonly EntityManagerInterface $entityManager,
         private readonly ArcaPemNormalizer $pemNormalizer,
         private readonly ArcaWsaaService $arcaWsaaService,
+        private readonly ArcaWsfeService $arcaWsfeService,
     ) {
     }
 
@@ -37,7 +39,17 @@ class ArcaSettingsController extends AbstractController
         $config = $this->configRepository->getOrCreate($business);
         $business->setArcaConfig($config);
 
-        $form = $this->createForm(BusinessArcaConfigType::class, $config);
+        $receiverOptions = $this->arcaWsfeService->getCondicionIvaReceptorOptions($config);
+        $receiverHelp = 'ARCA lo exige para Factura C / Consumidor Final (RG 5616).';
+        if ($this->arcaWsfeService->getCondicionIvaReceptorError($config)) {
+            $receiverHelp .= ' No se pudieron cargar opciones desde ARCA. Podés guardar igual y reintentar.';
+            $this->addFlash('warning', 'No se pudo cargar el catálogo de condiciones IVA del receptor desde ARCA.');
+        }
+
+        $form = $this->createForm(BusinessArcaConfigType::class, $config, [
+            'receiver_iva_options' => $receiverOptions,
+            'receiver_iva_help' => $receiverHelp,
+        ]);
         $form->handleRequest($request);
 
         if ($form->isSubmitted()) {

@@ -47,6 +47,9 @@ class BusinessArcaConfig
     #[ORM\Column(length: 30, options: ['default' => self::TAX_PAYER_MONOTRIBUTO])]
     private string $taxPayerType = self::TAX_PAYER_MONOTRIBUTO;
 
+    #[ORM\Column(nullable: true)]
+    private ?int $defaultReceiverIvaConditionId = null;
+
     #[ORM\Column]
     private ?DateTimeImmutable $createdAt = null;
 
@@ -170,6 +173,18 @@ class BusinessArcaConfig
     public function setTaxPayerType(string $taxPayerType): self
     {
         $this->taxPayerType = $taxPayerType;
+
+        return $this;
+    }
+
+    public function getDefaultReceiverIvaConditionId(): ?int
+    {
+        return $this->defaultReceiverIvaConditionId;
+    }
+
+    public function setDefaultReceiverIvaConditionId(?int $defaultReceiverIvaConditionId): self
+    {
+        $this->defaultReceiverIvaConditionId = $defaultReceiverIvaConditionId;
 
         return $this;
     }

@@ -4,16 +4,28 @@ namespace App\Form;
 
 use App\Entity\Customer;
 use App\Entity\PriceList;
+use App\Repository\BusinessArcaConfigRepository;
+use App\Security\BusinessContext;
+use App\Service\ArcaWsfeService;
 use Symfony\Component\Form\AbstractType;
 use Symfony\Component\Form\Extension\Core\Type\CheckboxType;
 use Symfony\Component\Form\Extension\Core\Type\ChoiceType;
 use Symfony\Component\Form\Extension\Core\Type\TextType;
 use Symfony\Component\Form\FormBuilderInterface;
 use Symfony\Component\OptionsResolver\OptionsResolver;
+use Symfony\Component\Security\Core\Authorization\AuthorizationCheckerInterface;
 use Symfony\Component\Validator\Constraints\Regex;
 
 class CustomerType extends AbstractType
 {
+    public function __construct(
+        private readonly BusinessContext $businessContext,
+        private readonly BusinessArcaConfigRepository $configRepository,
+        private readonly ArcaWsfeService $wsfeService,
+        private readonly AuthorizationCheckerInterface $authorizationChecker,
+    ) {
+    }
+
     public function buildForm(FormBuilderInterface $builder, array $options): void
     {
         $builder
@@ -69,6 +81,30 @@ class CustomerType extends AbstractType
                 'required' => false,
             ])
         ;
+
+        if ($this->authorizationChecker->isGranted('BUSINESS_ADMIN')) {
+            $business = $this->businessContext->requireCurrentBusiness();
+            $config = $this->configRepository->findOneBy(['business' => $business]);
+            $choices = [];
+            $help = 'Opcional. Usalo para facturación ARCA.';
+
+            if ($config) {
+                $choices = array_flip($this->wsfeService->getCondicionIvaReceptorOptions($config));
+                if ($this->wsfeService->getCondicionIvaReceptorError($config)) {
+                    $help = 'No se pudieron cargar opciones desde ARCA. Podés guardar igual y reintentar luego.';
+                }
+            } else {
+                $help = 'Configurá ARCA para poder cargar las opciones.';
+            }
+
+            $builder->add('ivaConditionId', ChoiceType::class, [
+                'label' => 'Condición frente al IVA',
+                'required' => false,
+                'placeholder' => 'Seleccionar',
+                'choices' => $choices,
+                'help' => $help,
+            ]);
+        }
     }
 
     public function configureOptions(OptionsResolver $resolver): void

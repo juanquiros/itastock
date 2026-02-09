@@ -4,6 +4,7 @@ namespace App\Controller;
 
 use App\Entity\Business;
 use App\Entity\CashSession;
+use App\Entity\Customer;
 use App\Repository\BusinessArcaConfigRepository;
 use App\Repository\CashSessionRepository;
 use App\Repository\PaymentRepository;
@@ -143,12 +144,19 @@ class CashSessionController extends AbstractController
         $summary = $this->reportService->getCashSessionSummary($cashSession, true);
         $totals = $summary['totals'] ?? [];
         $arcaConfig = $this->arcaConfigRepository->findOneBy(['business' => $business]);
+        $customers = [];
+
+        if ($arcaConfig?->isArcaEnabled()) {
+            $customerRepository = $this->entityManager->getRepository(Customer::class);
+            $customers = array_slice($customerRepository->findActiveForBusiness($business), 0, 200);
+        }
 
         return $this->render('cash/report.html.twig', [
             'cashSession' => $cashSession,
             'totals' => $totals,
             'summary' => $summary,
             'arcaEnabled' => $arcaConfig?->isArcaEnabled() ?? false,
+            'customers' => $customers,
         ]);
     }
 

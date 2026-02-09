@@ -5,9 +5,11 @@ namespace App\Controller;
 use App\Entity\ArcaInvoice;
 use App\Entity\Business;
 use App\Repository\ArcaInvoiceRepository;
+use App\Repository\BusinessArcaConfigRepository;
 use App\Repository\BusinessUserRepository;
 use App\Security\BusinessContext;
 use App\Service\PdfService;
+use App\Service\ArcaWsfeService;
 use DateTimeImmutable;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
@@ -25,6 +27,8 @@ class ArcaInvoiceController extends AbstractController
         private readonly ArcaInvoiceRepository $arcaInvoiceRepository,
         private readonly BusinessUserRepository $businessUserRepository,
         private readonly PdfService $pdfService,
+        private readonly BusinessArcaConfigRepository $arcaConfigRepository,
+        private readonly ArcaWsfeService $arcaWsfeService,
     ) {
     }
 
@@ -100,8 +104,23 @@ class ArcaInvoiceController extends AbstractController
         $business = $this->requireBusinessContext();
         $this->denyIfDifferentBusiness($invoice, $business);
 
+        $receiverName = 'Consumidor Final';
+        $receiverCustomer = $invoice->getReceiverCustomer() ?? $invoice->getSale()?->getCustomer();
+        if ($receiverCustomer) {
+            $receiverName = $receiverCustomer->getName();
+        }
+
+        $ivaConditionLabel = null;
+        $config = $this->arcaConfigRepository->findOneBy(['business' => $business]);
+        if ($config && $invoice->getReceiverIvaConditionId()) {
+            $options = $this->arcaWsfeService->getCondicionIvaReceptorOptions($config);
+            $ivaConditionLabel = $options[$invoice->getReceiverIvaConditionId()] ?? null;
+        }
+
         return $this->render('arca/detail.html.twig', [
             'invoice' => $invoice,
+            'receiverName' => $receiverName,
+            'receiverIvaCondition' => $ivaConditionLabel,
         ]);
     }
 

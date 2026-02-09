@@ -1,0 +1,30 @@
+ARCA WSFE - Condición IVA del receptor (RG 5616)
+
+Resumen
+- RG 5616 exige informar la Condición frente al IVA del receptor en WSFE.
+- En Factura C / Consumidor Final debe informarse siempre.
+
+Configuración por comercio
+1) Ir a /app/settings/arca
+2) Buscar “Condición IVA por defecto del receptor”.
+3) Seleccionar una opción válida del catálogo WSFE.
+4) Guardar.
+
+Configuración por cliente
+1) Ir a /app/admin/customers/new o editar un cliente.
+2) Completar el campo “Condición frente al IVA”.
+3) Guardar.
+
+Facturar una venta sin cliente
+- Al presionar “Facturar” se muestra la selección de receptor:
+  a) Consumidor Final: usa la condición IVA por defecto del comercio.
+  b) Seleccionar cliente: elige un cliente existente y usa su condición IVA.
+- No se pide cliente para remito; solo se solicita al facturar.
+
+Errores típicos
+- “Configurá la Condición IVA del receptor en ARCA o asignala al cliente.”
+  Significa que no hay condición configurada ni en el cliente ni en la configuración ARCA.
+- “El cliente no tiene condición IVA configurada.”
+  El cliente seleccionado no tiene cargada su condición frente al IVA.
+- “ARCA no está habilitado para este comercio.”
+  La configuración ARCA está deshabilitada o incompleta.

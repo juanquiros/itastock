@@ -73,6 +73,16 @@ class ArcaInvoice
     #[ORM\Column(type: 'json', nullable: true)]
     private ?array $arcaRawResponse = null;
 
+    #[ORM\Column(length: 20, nullable: true)]
+    private ?string $receiverMode = null;
+
+    #[ORM\Column(nullable: true)]
+    private ?int $receiverIvaConditionId = null;
+
+    #[ORM\ManyToOne]
+    #[ORM\JoinColumn(onDelete: 'SET NULL')]
+    private ?Customer $receiverCustomer = null;
+
     #[ORM\Column(type: 'datetime_immutable', nullable: true)]
     private ?DateTimeImmutable $issuedAt = null;
 
@@ -283,6 +293,42 @@ class ArcaInvoice
     public function setArcaRawResponse(?array $arcaRawResponse): self
     {
         $this->arcaRawResponse = $arcaRawResponse;
+
+        return $this;
+    }
+
+    public function getReceiverMode(): ?string
+    {
+        return $this->receiverMode;
+    }
+
+    public function setReceiverMode(?string $receiverMode): self
+    {
+        $this->receiverMode = $receiverMode;
+
+        return $this;
+    }
+
+    public function getReceiverIvaConditionId(): ?int
+    {
+        return $this->receiverIvaConditionId;
+    }
+
+    public function setReceiverIvaConditionId(?int $receiverIvaConditionId): self
+    {
+        $this->receiverIvaConditionId = $receiverIvaConditionId;
+
+        return $this;
+    }
+
+    public function getReceiverCustomer(): ?Customer
+    {
+        return $this->receiverCustomer;
+    }
+
+    public function setReceiverCustomer(?Customer $receiverCustomer): self
+    {
+        $this->receiverCustomer = $receiverCustomer;
 
         return $this;
     }

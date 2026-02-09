@@ -49,6 +49,9 @@ class Customer
     #[ORM\Column(length: 20)]
     private ?string $customerType = null;
 
+    #[ORM\Column(nullable: true)]
+    private ?int $ivaConditionId = null;
+
     #[ORM\Column]
     private bool $isActive = true;
 
@@ -150,6 +153,18 @@ class Customer
     public function setCustomerType(string $customerType): self
     {
         $this->customerType = $customerType;
+
+        return $this;
+    }
+
+    public function getIvaConditionId(): ?int
+    {
+        return $this->ivaConditionId;
+    }
+
+    public function setIvaConditionId(?int $ivaConditionId): self
+    {
+        $this->ivaConditionId = $ivaConditionId;
 
         return $this;
     }

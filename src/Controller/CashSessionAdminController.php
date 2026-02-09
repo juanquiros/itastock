@@ -3,6 +3,7 @@
 namespace App\Controller;
 
 use App\Entity\CashSession;
+use App\Entity\Customer;
 use App\Entity\Sale;
 use App\Repository\ArcaInvoiceRepository;
 use App\Repository\BusinessArcaConfigRepository;
@@ -135,7 +136,55 @@ class CashSessionAdminController extends AbstractController
             $priceMode = ArcaInvoiceService::PRICE_MODE_HISTORIC;
         }
 
+        $receiverMode = (string) $request->request->get('receiver_mode', 'final');
+        $receiverCustomer = null;
+        $receiverIvaConditionId = null;
+        $saleCustomer = $sale->getCustomer();
+
+        if ($saleCustomer) {
+            $receiverMode = 'customer';
+            $receiverCustomer = $saleCustomer;
+            $receiverIvaConditionId = $saleCustomer->getIvaConditionId() ?? $arcaConfig->getDefaultReceiverIvaConditionId();
+        } elseif ($receiverMode === 'customer') {
+            $customerId = $request->request->getInt('customer_id');
+            $customer = $customerId > 0 ? $this->saleRepository->getEntityManager()->getRepository(Customer::class)->find($customerId) : null;
+            if (!$customer instanceof Customer || $customer->getBusiness() !== $business) {
+                $this->addFlash('danger', 'Seleccioná un cliente válido para facturar.');
+
+                return $redirectParams
+                    ? $this->redirectToRoute('app_cash_report', $redirectParams)
+                    : $this->redirectToRoute('app_cash_status');
+            }
+
+            if ($customer->getIvaConditionId() === null) {
+                $this->addFlash('danger', 'El cliente no tiene condición IVA configurada.');
+
+                return $redirectParams
+                    ? $this->redirectToRoute('app_cash_report', $redirectParams)
+                    : $this->redirectToRoute('app_cash_status');
+            }
+
+            $receiverCustomer = $customer;
+            $receiverIvaConditionId = $customer->getIvaConditionId();
+        } else {
+            $receiverMode = 'final';
+            $receiverIvaConditionId = $arcaConfig->getDefaultReceiverIvaConditionId();
+        }
+
+        if ($receiverIvaConditionId === null) {
+            $this->addFlash('danger', 'Configurá la Condición IVA del receptor en ARCA o asignala al cliente.');
+
+            return $redirectParams
+                ? $this->redirectToRoute('app_cash_report', $redirectParams)
+                : $this->redirectToRoute('app_cash_status');
+        }
+
         $invoice = $this->arcaInvoiceService->buildInvoiceFromSale($sale, $user, $membership, $arcaConfig, $priceMode);
+        $invoice->setReceiverMode($receiverMode);
+        $invoice->setReceiverCustomer($receiverCustomer);
+        $invoice->setReceiverIvaConditionId($receiverIvaConditionId);
+        $this->saleRepository->getEntityManager()->flush();
+
         $this->arcaInvoiceService->requestCae($invoice, $arcaConfig);
 
         if ($invoice->getStatus() === \App\Entity\ArcaInvoice::STATUS_AUTHORIZED) {

@@ -22,6 +22,8 @@
                     <div class="text-muted small">CAE: {{ invoice.cae ?: '-' }}</div>
                     <div class="text-muted small">Vto CAE: {{ invoice.caeDueDate ? invoice.caeDueDate|date('d/m/Y') : '-' }}</div>
                     <div class="text-muted small">Total: ${{ invoice.totalAmount }}</div>
+                    <div class="text-muted small">Receptor: {{ receiverName }}</div>
+                    <div class="text-muted small">Condición IVA receptor: {{ receiverIvaCondition ?: 'Sin informar' }}</div>
                 </div>
             </div>
         </div>
