@@ -175,7 +175,7 @@ class DashboardService
             $debtors = $this->customerAccountMovementRepository->findTopDebtorsForUserInRange($business, $user, $from, $to, 5);
         }
         $ids = array_map(static fn (array $row) => (int) $row['customerId'], $debtors);
-        $customers = $ids ? $this->customerRepository->findBy(['id' => $ids]) : [];
+        $customers = $this->customerRepository->findByIdsForBusiness($business, $ids);
 
         $customerById = [];
         foreach ($customers as $customer) {

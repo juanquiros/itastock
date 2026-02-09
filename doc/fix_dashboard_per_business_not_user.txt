@@ -1,0 +1,24 @@
+FIX: Dashboard admin de comercio filtra por comercio activo (tenant)
+
+Objetivo
+- Evitar que el dashboard mezcle datos de múltiples comercios en una misma vista.
+- Asegurar que cada KPI/alerta carga datos con filtro hard por currentBusiness.
+
+Cambios aplicados
+- El lookup de clientes para deudores ahora filtra por business_id además del id del cliente.
+- Se mantiene el uso de BusinessContext para forzar comercio activo (current_business_id) y redirigir al selector cuando corresponde.
+
+Verificación manual
+Caso 1: Usuario admin con 2 comercios
+1) Ingresar con el usuario y seleccionar comercio A en /app/business/switch.
+2) Abrir /app/dashboard y verificar KPIs, alertas y recientes sólo del comercio A.
+3) Cambiar a comercio B desde el selector.
+4) Volver a /app/dashboard y verificar que los KPIs cambian y no mezclan datos de A.
+
+Caso 2: Usuario admin con 1 comercio
+1) Ingresar con el usuario.
+2) Verificar que el sistema setea el comercio automáticamente y muestra /app/dashboard.
+
+Caso 3: Usuario sin comercios
+1) Ingresar con el usuario.
+2) Verificar redirección/mensaje de acceso denegado según la lógica actual.

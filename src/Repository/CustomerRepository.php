@@ -49,4 +49,24 @@ class CustomerRepository extends ServiceEntityRepository
             ->getQuery()
             ->getResult();
     }
+
+    /**
+     * @param int[] $ids
+     *
+     * @return Customer[]
+     */
+    public function findByIdsForBusiness(Business $business, array $ids): array
+    {
+        if ($ids === []) {
+            return [];
+        }
+
+        return $this->createQueryBuilder('c')
+            ->andWhere('c.business = :business')
+            ->andWhere('c.id IN (:ids)')
+            ->setParameter('business', $business)
+            ->setParameter('ids', $ids)
+            ->getQuery()
+            ->getResult();
+    }
 }
