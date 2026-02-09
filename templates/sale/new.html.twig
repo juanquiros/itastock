@@ -462,7 +462,12 @@
 
                 resultsContainer.innerHTML = list;
                 resultsContainer.querySelectorAll('button[data-product]').forEach((btn) => {
-                    btn.addEventListener('click', () => addItem(parseInt(btn.dataset.product, 10)));
+                    btn.addEventListener('click', () => {
+                        addItem(parseInt(btn.dataset.product, 10));
+                        searchInput.value = '';
+                        renderResults('');
+                        searchInput.focus();
+                    });
                 });
 
                 return filtered;
