@@ -158,8 +158,25 @@ class ArcaWsaaService
             throw new \RuntimeException('No se pudo firmar el TRA con OpenSSL. ' . $detail);
         }
 
-        $cms = file_get_contents($output) ?: '';
-        $cms = preg_replace('/-----BEGIN PKCS7-----|-----END PKCS7-----|\s/', '', $cms) ?: '';
+        $smime = file_get_contents($output) ?: '';
+        $smime = str_replace(["\r\n", "\r"], "\n", $smime);
+        $parts = preg_split("/\n\n/", $smime, 2);
+        if (!$parts || count($parts) < 2) {
+            throw new \RuntimeException('SMIME inesperado: no se pudo extraer el bloque base64.');
+        }
+        $b64 = preg_replace('/-----BEGIN [^-]+-----|-----END [^-]+-----/', '', $parts[1]) ?? '';
+        $b64Clean = preg_replace('/\s+/', '', trim($b64)) ?? '';
+        $der = base64_decode($b64Clean, true);
+        if ($der === false) {
+            error_log(sprintf(
+                'ARCA CMS base64 inválido. len_raw=%d len_clean=%d head=%s',
+                strlen($b64),
+                strlen($b64Clean),
+                substr($b64Clean, 0, 40)
+            ));
+            throw new \RuntimeException('CMS base64 inválido (post-clean).');
+        }
+        $cms = base64_encode($der);
 
         @unlink($input);
         @unlink($output);

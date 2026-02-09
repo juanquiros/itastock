@@ -1,0 +1,12 @@
+ARCA - CMS base64 desde S/MIME (WSAA)
+
+openssl_pkcs7_sign genera un S/MIME con headers y el bloque base64 del CMS.
+Para enviar a WSAA, hay que extraer el cuerpo base64, limpiar whitespace y recién decodificar/encodear.
+
+Flujo:
+- Normalizar newlines del S/MIME.
+- Separar headers del cuerpo por doble salto de línea.
+- Remover delimitadores BEGIN/END si existen.
+- Limpiar whitespace, decodificar base64 (strict) y volver a encodear.
+
+Esto evita errores como "No se puede decodificar el BASE64".
