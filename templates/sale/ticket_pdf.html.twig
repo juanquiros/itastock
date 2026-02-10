@@ -4,60 +4,74 @@
     <meta charset="UTF-8">
     <style>
         body { font-family: Arial, sans-serif; font-size: 12px; color: #222; }
-        h1 { font-size: 18px; margin-bottom: 4px; }
+        h1 { font-size: 18px; margin-bottom: 8px; text-align: center; }
         h2 { font-size: 14px; margin: 12px 0 6px; }
         table { width: 100%; border-collapse: collapse; margin-bottom: 12px; }
         th, td { border: 1px solid #ddd; padding: 6px; }
         th { background: #f5f5f5; text-align: left; }
-        .meta { margin-bottom: 12px; }
+        .header-grid { width: 100%; border-collapse: collapse; margin-bottom: 12px; }
+        .header-grid td { border: none; width: 50%; vertical-align: top; padding: 0 6px 0 0; }
+        .header-grid td:last-child { padding-right: 0; padding-left: 6px; }
         .meta div { margin-bottom: 4px; }
         .totals { margin-top: 8px; text-align: right; }
         .legend { margin-top: 16px; font-size: 11px; color: #555; }
+        .text-center { text-align: center; }
     </style>
 </head>
 <body>
     <h1>Remito de venta</h1>
 
-    <div class="meta">
-        {% if business.ticketHeaderImagePath %}
-            <div style="margin-bottom: 8px;">
-                <img src="{{ business.ticketHeaderImagePath }}" alt="Icono del comercio" style="max-height: 120px; max-width: 100%;">
-            </div>
-        {% endif %}
-        <div><strong>Comercio:</strong> {{ business.name }}</div>
-        {% set headerLines = business.ticketHeaderLines ? business.ticketHeaderLines|replace({'\r': ''})|split('\n') : [] %}
-        {% if headerLines %}
-            <div style="margin-top: 6px;">
-                {% for line in headerLines %}
-                    {% if line|trim %}
-                        <div>{{ line }}</div>
+    {% set headerLines = business.ticketHeaderLines ? business.ticketHeaderLines|replace({'\r': ''})|split('\n') : [] %}
+
+    <table class="header-grid">
+        <tr>
+            <td>
+                <div class="meta">
+                    <div><strong>Comercio:</strong> {{ business.name }}</div>
+                    <div><strong>Fecha:</strong> {{ sale.createdAt|date('d/m/Y H:i') }}</div>
+                    <div><strong>Vendedor:</strong> {{ sale.createdBy ? sale.createdBy.fullName : 'N/D' }}</div>
+                    <div><strong>N° de remito:</strong> {{ remitoNumber }}</div>
+                    <div><strong>Generado:</strong> {{ generatedAt|date('d/m/Y H:i') }}</div>
+                    <div><strong>Cliente:</strong> {{ sale.customer ? sale.customer.name : 'Consumidor Final' }}</div>
+                    {% if sale.customer %}
+                        {% if sale.customer.documentType or sale.customer.documentNumber %}
+                            <div><strong>{{ sale.customer.documentType ?: 'Documento' }}:</strong> {{ sale.customer.documentNumber ?: '-' }}</div>
+                        {% endif %}
+                        {% if sale.customer.phone %}
+                            <div><strong>Teléfono:</strong> {{ sale.customer.phone }}</div>
+                        {% endif %}
+                        {% if sale.customer.address %}
+                            <div><strong>Dirección:</strong> {{ sale.customer.address }}</div>
+                        {% endif %}
+                        {% if sale.customer.customerType %}
+                            <div><strong>Tipo:</strong> {{ sale.customer.customerType }}</div>
+                        {% endif %}
+                        {% if sale.customer.priceList %}
+                            <div><strong>Lista:</strong> {{ sale.customer.priceList.name }}</div>
+                        {% endif %}
                     {% endif %}
-                {% endfor %}
-            </div>
-        {% endif %}
-        <div><strong>Fecha:</strong> {{ sale.createdAt|date('d/m/Y H:i') }}</div>
-        <div><strong>Vendedor:</strong> {{ sale.createdBy ? sale.createdBy.fullName : 'N/D' }}</div>
-        <div><strong>N° de remito:</strong> {{ remitoNumber }}</div>
-        <div><strong>Generado:</strong> {{ generatedAt|date('d/m/Y H:i') }}</div>
-        <div><strong>Cliente:</strong> {{ sale.customer ? sale.customer.name : 'Consumidor Final' }}</div>
-        {% if sale.customer %}
-            {% if sale.customer.documentType or sale.customer.documentNumber %}
-                <div><strong>{{ sale.customer.documentType ?: 'Documento' }}:</strong> {{ sale.customer.documentNumber ?: '-' }}</div>
-            {% endif %}
-            {% if sale.customer.phone %}
-                <div><strong>Teléfono:</strong> {{ sale.customer.phone }}</div>
-            {% endif %}
-            {% if sale.customer.address %}
-                <div><strong>Dirección:</strong> {{ sale.customer.address }}</div>
-            {% endif %}
-            {% if sale.customer.customerType %}
-                <div><strong>Tipo:</strong> {{ sale.customer.customerType }}</div>
-            {% endif %}
-            {% if sale.customer.priceList %}
-                <div><strong>Lista:</strong> {{ sale.customer.priceList.name }}</div>
-            {% endif %}
-        {% endif %}
-    </div>
+                </div>
+            </td>
+            <td>
+                <div class="meta text-center">
+                    {% if business.ticketHeaderImagePath %}
+                        <div style="margin-bottom: 8px;">
+                            <img src="{{ business.ticketHeaderImagePath }}" alt="Icono del comercio" style="max-height: 120px; max-width: 100%;">
+                        </div>
+                    {% endif %}
+                    {% if headerLines %}
+                        <div style="margin-top: 6px; text-align: left; display: inline-block;">
+                            {% for line in headerLines %}
+                                {% if line|trim %}
+                                    <div>{{ line }}</div>
+                                {% endif %}
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+                </div>
+            </td>
+        </tr>
+    </table>
 
     <h2>Detalle de ítems</h2>
     <table>
@@ -112,7 +126,7 @@
 
     {% set footerLines = business.ticketFooterLines ? business.ticketFooterLines|replace({'\r': ''})|split('\n') : [] %}
     {% if footerLines %}
-        <div style="margin-top: 8px;">
+        <div style="margin-top: 8px;" class="text-center">
             {% for line in footerLines %}
                 {% if line|trim %}
                     <div>{{ line }}</div>
@@ -122,12 +136,12 @@
     {% endif %}
 
     {% if business.ticketFooterImagePath %}
-        <div style="margin-top: 8px;">
+        <div style="margin-top: 8px;" class="text-center">
             <img src="{{ business.ticketFooterImagePath }}" alt="Imagen final del ticket" style="max-height: 160px; max-width: 100%;">
         </div>
     {% endif %}
 
-    <div class="legend">
+    <div class="legend text-center">
         <strong>NO VÁLIDO COMO TICKET FISCAL</strong><br>
         Este documento actúa como remito no fiscal emitido desde ItaStock.
     </div>
