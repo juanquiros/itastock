@@ -361,6 +361,7 @@ class SaleController extends AbstractController
             'canCreditNote' => $canCreditNote,
             'isAutoInvoicing' => $isAutoInvoicing,
             'showInvoiceAsTicket' => $showInvoiceAsTicket,
+            'ticketPaperSize' => $user->getTicketPaperSize(),
             'customers' => $customers,
         ]);
     }

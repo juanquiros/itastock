@@ -17,6 +17,10 @@ use Symfony\Component\Validator\Constraints as Assert;
 #[UniqueEntity(fields: ['email'], message: 'Ya existe un usuario con este correo.')]
 class User implements UserInterface, PasswordAuthenticatedUserInterface
 {
+    public const PRINT_PAPER_A4 = 'A4';
+    public const PRINT_PAPER_80MM = 'THERMAL_80MM';
+    public const PRINT_PAPER_58MM = 'THERMAL_58MM';
+
     #[ORM\Id]
     #[ORM\GeneratedValue]
     #[ORM\Column]
@@ -52,6 +56,9 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
 
     #[ORM\Column(nullable: true)]
     private ?int $posNumber = null;
+
+    #[ORM\Column(length: 20, options: ['default' => 'A4'])]
+    private string $ticketPaperSize = self::PRINT_PAPER_A4;
 
     /** @var Collection<int, BusinessUser> */
     #[ORM\OneToMany(mappedBy: 'user', targetEntity: BusinessUser::class, orphanRemoval: true)]
@@ -189,6 +196,21 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     public function setPosNumber(?int $posNumber): self
     {
         $this->posNumber = $posNumber;
+
+        return $this;
+    }
+
+
+    public function getTicketPaperSize(): string
+    {
+        return $this->ticketPaperSize;
+    }
+
+    public function setTicketPaperSize(string $ticketPaperSize): self
+    {
+        $this->ticketPaperSize = in_array($ticketPaperSize, [self::PRINT_PAPER_A4, self::PRINT_PAPER_80MM, self::PRINT_PAPER_58MM], true)
+            ? $ticketPaperSize
+            : self::PRINT_PAPER_A4;
 
         return $this;
     }

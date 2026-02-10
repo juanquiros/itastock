@@ -46,6 +46,15 @@ class UserType extends AbstractType
                 ],
                 'help' => 'El administrador del comercio usa el puesto 1. Los demás usuarios deben tener un número propio.',
             ])
+            ->add('ticketPaperSize', ChoiceType::class, [
+                'label' => 'Tamaño de hoja para impresión de ticket',
+                'choices' => [
+                    'A4' => User::PRINT_PAPER_A4,
+                    'Térmica 80 mm' => User::PRINT_PAPER_80MM,
+                    'Térmica 58 mm' => User::PRINT_PAPER_58MM,
+                ],
+                'help' => 'Se aplica al botón Imprimir en el ticket de venta.',
+            ])
             ->add('arcaEnabledForThisCashier', CheckboxType::class, [
                 'label' => 'Habilitar facturación ARCA para esta caja',
                 'required' => false,
