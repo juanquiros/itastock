@@ -77,15 +77,17 @@ class ArcaQrService
 
     public function generatePngDataUri(string $qrUrl): string
     {
-        $result = Builder::create()
-            ->writer(new PngWriter())
-            ->data($qrUrl)
-            ->encoding(new Encoding('UTF-8'))
-            ->errorCorrectionLevel(ErrorCorrectionLevel::Low)
-            ->size(220)
-            ->margin(8)
-            ->roundBlockSizeMode(RoundBlockSizeMode::Margin)
-            ->build();
+        $builder = new Builder(
+            writer: new PngWriter(),
+            data: $qrUrl,
+            encoding: new Encoding('UTF-8'),
+            errorCorrectionLevel: ErrorCorrectionLevel::Low,
+            size: 220,
+            margin: 8,
+            roundBlockSizeMode: RoundBlockSizeMode::Margin,
+        );
+
+        $result = $builder->build();
 
         return 'data:image/png;base64,'.base64_encode($result->getString());
     }
