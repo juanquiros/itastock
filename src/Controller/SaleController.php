@@ -362,6 +362,8 @@ class SaleController extends AbstractController
             'isAutoInvoicing' => $isAutoInvoicing,
             'showInvoiceAsTicket' => $showInvoiceAsTicket,
             'ticketPaperSize' => $user->getTicketPaperSize(),
+            'ticketQrDataUri' => $showInvoiceAsTicket ? $this->buildInvoiceQrDataUri($arcaInvoice, $business->getArcaConfig()) : null,
+            'ticketQrUrl' => $showInvoiceAsTicket ? $this->buildInvoiceQrUrl($arcaInvoice, $business->getArcaConfig()) : null,
             'customers' => $customers,
         ]);
     }
