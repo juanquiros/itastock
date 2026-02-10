@@ -4,28 +4,35 @@
     <meta charset="UTF-8">
     <style>
         body { font-family: Arial, sans-serif; font-size: 12px; color: #222; }
-        h1 { font-size: 18px; margin-bottom: 8px; text-align: center; }
-        h2 { font-size: 14px; margin: 12px 0 6px; }
+        h1 { margin: 0; }
+        h2 { font-size: 14px; margin: 14px 0 6px; }
         table { width: 100%; border-collapse: collapse; margin-bottom: 12px; }
         th, td { border: 1px solid #ddd; padding: 6px; }
         th { background: #f5f5f5; text-align: left; }
-        .header-grid { width: 100%; border-collapse: collapse; margin-bottom: 12px; }
-        .header-grid td { border: none; width: 50%; vertical-align: top; padding: 0 6px 0 0; }
-        .header-grid td:last-child { padding-right: 0; padding-left: 6px; }
+        .doc-title { text-align: center; border: 1px solid #222; padding: 8px; margin-bottom: 10px; }
+        .doc-title .type { font-size: 20px; font-weight: bold; }
+        .doc-title .number { font-size: 14px; margin-top: 4px; }
+        .head-two { width: 100%; border-collapse: collapse; margin-bottom: 12px; }
+        .head-two td { width: 50%; vertical-align: top; border: 1px solid #222; padding: 8px; }
+        .head-label { font-weight: bold; margin-bottom: 6px; border-bottom: 1px solid #ccc; padding-bottom: 4px; }
         .meta div { margin-bottom: 4px; }
         .totals { margin-top: 8px; text-align: right; }
-        .legend { margin-top: 16px; font-size: 11px; color: #555; }
+        .legend { margin-top: 16px; font-size: 11px; color: #555; text-align: center; }
         .text-center { text-align: center; }
     </style>
 </head>
 <body>
-    <h1>Factura {{ invoice.cbteTipo == 'FACTURA_B' ? 'B' : 'C' }}</h1>
-
     {% set headerLines = business.ticketHeaderLines ? business.ticketHeaderLines|replace({'\r': ''})|split('\n') : [] %}
 
-    <table class="header-grid">
+    <div class="doc-title">
+        <div class="type">FACTURA {{ invoice.cbteTipo == 'FACTURA_B' ? 'B' : 'C' }}</div>
+        <div class="number">N° {{ '%04d'|format(invoice.arcaPosNumber) }}-{{ invoice.cbteNumero ? '%08d'|format(invoice.cbteNumero) : '--------' }}</div>
+    </div>
+
+    <table class="head-two">
         <tr>
             <td>
+                <div class="head-label">Datos del sistema</div>
                 <div class="meta">
                     <div><strong>Comercio:</strong> {{ business.name }}</div>
                     <div><strong>CUIT:</strong> {{ business.arcaConfig ? business.arcaConfig.cuitEmisor : '-' }}</div>
@@ -49,10 +56,11 @@
                 </div>
             </td>
             <td>
-                <div class="meta text-center">
+                <div class="head-label">Datos configurados por el comercio</div>
+                <div class="text-center">
                     {% if business.ticketHeaderImagePath %}
                         <div style="margin-bottom: 8px;">
-                            <img src="{{ business.ticketHeaderImagePath }}" alt="Icono del comercio" style="max-height: 120px; max-width: 100%;">
+                            <img src="{{ business.ticketHeaderImagePath }}" alt="Icono del comercio" style="max-height: 120px; max-width: 100%; margin: 0 auto; display: block;">
                         </div>
                     {% endif %}
                     {% if headerLines %}
@@ -63,6 +71,8 @@
                                 {% endif %}
                             {% endfor %}
                         </div>
+                    {% else %}
+                        <div class="meta" style="color: #777;">Sin datos adicionales de encabezado.</div>
                     {% endif %}
                 </div>
             </td>
@@ -115,7 +125,7 @@
     <div style="margin-top:16px;" class="text-center">
         <div><strong>QR ARCA</strong></div>
         {% if qrDataUri is defined and qrDataUri %}
-            <img src="{{ qrDataUri }}" alt="QR ARCA" style="width:140px;height:140px;">
+            <img src="{{ qrDataUri }}" alt="QR ARCA" style="width:160px;height:160px; margin: 0 auto; display:block;">
             {% if qrUrl is defined and qrUrl %}
                 <div style="font-size: 10px; color: #666; margin-top: 4px; word-break: break-all;">{{ qrUrl }}</div>
             {% endif %}
@@ -137,11 +147,11 @@
 
     {% if business.ticketFooterImagePath %}
         <div style="margin-top: 8px;" class="text-center">
-            <img src="{{ business.ticketFooterImagePath }}" alt="Imagen final del ticket" style="max-height: 160px; max-width: 100%;">
+            <img src="{{ business.ticketFooterImagePath }}" alt="Imagen final del ticket" style="max-height: 160px; max-width: 100%; margin:0 auto; display:block;">
         </div>
     {% endif %}
 
-    <div class="legend text-center">
+    <div class="legend">
         Comprobante emitido electrónicamente mediante ARCA. Generado en ItaStock el {{ generatedAt|date('d/m/Y H:i') }}.
     </div>
 </body>
