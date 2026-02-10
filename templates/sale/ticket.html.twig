@@ -267,10 +267,7 @@
                         <div class="mt-3 text-center">
                             <div class="fw-semibold">QR ARCA</div>
                             {% if ticketQrDataUri %}
-                                <img src="{{ ticketQrDataUri }}" alt="QR ARCA" style="width: 140px; height: 140px;">
-                                {% if ticketQrUrl %}
-                                    <div class="small text-muted text-break">{{ ticketQrUrl }}</div>
-                                {% endif %}
+                                <img src="{{ ticketQrDataUri }}" alt="QR ARCA" style="width: 50%; height: auto;">
                             {% else %}
                                 <div class="small text-muted">QR no disponible</div>
                             {% endif %}
