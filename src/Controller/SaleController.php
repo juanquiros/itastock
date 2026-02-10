@@ -3,7 +3,10 @@
 namespace App\Controller;
 
 use App\Entity\Business;
+use App\Entity\BusinessArcaConfig;
 use App\Entity\Customer;
+use App\Entity\ArcaCreditNote;
+use App\Entity\ArcaInvoice;
 use App\Entity\Payment;
 use App\Entity\Product;
 use App\Entity\PriceList;
@@ -25,6 +28,7 @@ use App\Security\BusinessContext;
 use App\Service\CustomerAccountService;
 use App\Service\DiscountEngine;
 use App\Service\ArcaInvoiceService;
+use App\Service\ArcaQrService;
 use App\Service\PdfService;
 use App\Service\PricingService;
 use Doctrine\ORM\EntityManagerInterface;
@@ -56,6 +60,7 @@ class SaleController extends AbstractController
         private readonly ArcaInvoiceRepository $arcaInvoiceRepository,
         private readonly ArcaCreditNoteRepository $arcaCreditNoteRepository,
         private readonly ArcaInvoiceService $arcaInvoiceService,
+        private readonly ArcaQrService $arcaQrService,
     ) {
     }
 
@@ -333,6 +338,14 @@ class SaleController extends AbstractController
             && $membership?->getArcaPosNumber() !== null
             && !$arcaCreditNote;
 
+        $isAutoInvoicing = (bool) ($membership?->getArcaMode() === 'INVOICE' && $membership?->isArcaAutoIssueInvoice());
+        $showInvoiceAsTicket = (bool) (
+            $membership?->getArcaMode() === 'INVOICE'
+            && $membership?->isArcaAutoIssueInvoice()
+            && $arcaInvoice
+            && $arcaInvoice->getStatus() === ArcaInvoice::STATUS_AUTHORIZED
+        );
+
         $customers = [];
         if ($canInvoice && $sale->getCustomer() === null) {
             $customerRepository = $this->entityManager->getRepository(Customer::class);
@@ -346,6 +359,8 @@ class SaleController extends AbstractController
             'arcaCreditNote' => $arcaCreditNote,
             'canInvoice' => $canInvoice,
             'canCreditNote' => $canCreditNote,
+            'isAutoInvoicing' => $isAutoInvoicing,
+            'showInvoiceAsTicket' => $showInvoiceAsTicket,
             'customers' => $customers,
         ]);
     }
@@ -353,10 +368,34 @@ class SaleController extends AbstractController
     #[Route('/{id}/ticket/pdf', name: 'ticket_pdf', methods: ['GET'])]
     public function ticketPdf(Sale $sale): Response
     {
+        $user = $this->requireUser();
         $business = $this->requireBusinessContext();
 
         if ($sale->getBusiness() !== $business) {
             throw new AccessDeniedException('Solo podés ver tickets de tu comercio.');
+        }
+
+        $membership = $this->businessUserRepository->findActiveMembership($user, $business);
+        $arcaInvoice = $this->arcaInvoiceRepository->findOneBy([
+            'business' => $business,
+            'sale' => $sale,
+        ]);
+
+        $showInvoiceAsTicket = (bool) (
+            $membership?->getArcaMode() === 'INVOICE'
+            && $membership?->isArcaAutoIssueInvoice()
+            && $arcaInvoice
+            && $arcaInvoice->getStatus() === ArcaInvoice::STATUS_AUTHORIZED
+        );
+
+        if ($showInvoiceAsTicket) {
+            return $this->pdfService->render('arca/invoice_pdf.html.twig', [
+                'invoice' => $arcaInvoice,
+                'business' => $business,
+                'sale' => $sale,
+                'generatedAt' => new \DateTimeImmutable(),
+                'qrDataUri' => $this->buildInvoiceQrDataUri($arcaInvoice, $business->getArcaConfig()),
+            ], sprintf('factura-venta-%d.pdf', $sale->getId()));
         }
 
         return $this->pdfService->render('sale/ticket_pdf.html.twig', [
@@ -390,6 +429,8 @@ class SaleController extends AbstractController
             'business' => $business,
             'sale' => $sale,
             'generatedAt' => new \DateTimeImmutable(),
+            'qrDataUri' => $this->buildInvoiceQrDataUri($invoice, $business->getArcaConfig()),
+            'qrUrl' => $this->buildInvoiceQrUrl($invoice, $business->getArcaConfig()),
         ], sprintf('factura-venta-%d.pdf', $sale->getId()));
     }
 
@@ -416,6 +457,8 @@ class SaleController extends AbstractController
             'business' => $business,
             'sale' => $sale,
             'generatedAt' => new \DateTimeImmutable(),
+            'qrDataUri' => $this->buildCreditNoteQrDataUri($creditNote, $business->getArcaConfig()),
+            'qrUrl' => $this->buildCreditNoteQrUrl($creditNote, $business->getArcaConfig()),
         ], sprintf('nota-credito-venta-%d.pdf', $sale->getId()));
     }
 
@@ -904,6 +947,47 @@ class SaleController extends AbstractController
     private function requireBusinessContext(): Business
     {
         return $this->businessContext->requireCurrentBusiness();
+    }
+
+
+    private function buildInvoiceQrDataUri(ArcaInvoice $invoice, ?BusinessArcaConfig $config): ?string
+    {
+        $payload = $this->arcaQrService->buildPayloadForInvoice($invoice, $config);
+        if ($payload === []) {
+            return null;
+        }
+
+        return $this->arcaQrService->generatePngDataUri($this->arcaQrService->buildQrUrl($payload));
+    }
+
+    private function buildInvoiceQrUrl(ArcaInvoice $invoice, ?BusinessArcaConfig $config): ?string
+    {
+        $payload = $this->arcaQrService->buildPayloadForInvoice($invoice, $config);
+        if ($payload === []) {
+            return null;
+        }
+
+        return $this->arcaQrService->buildQrUrl($payload);
+    }
+
+    private function buildCreditNoteQrDataUri(ArcaCreditNote $creditNote, ?BusinessArcaConfig $config): ?string
+    {
+        $payload = $this->arcaQrService->buildPayloadForCreditNote($creditNote, $config);
+        if ($payload === []) {
+            return null;
+        }
+
+        return $this->arcaQrService->generatePngDataUri($this->arcaQrService->buildQrUrl($payload));
+    }
+
+    private function buildCreditNoteQrUrl(ArcaCreditNote $creditNote, ?BusinessArcaConfig $config): ?string
+    {
+        $payload = $this->arcaQrService->buildPayloadForCreditNote($creditNote, $config);
+        if ($payload === []) {
+            return null;
+        }
+
+        return $this->arcaQrService->buildQrUrl($payload);
     }
 
     private function requireUser(): User

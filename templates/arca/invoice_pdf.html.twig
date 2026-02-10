@@ -83,6 +83,18 @@
         <div><strong>Total:</strong> ${{ invoice.totalAmount }}</div>
     </div>
 
+    <div style="margin-top:16px;">
+        <div><strong>QR ARCA</strong></div>
+        {% if qrDataUri is defined and qrDataUri %}
+            <img src="{{ qrDataUri }}" alt="QR ARCA" style="width:140px;height:140px;">
+            {% if qrUrl is defined and qrUrl %}
+                <div style="font-size: 10px; color: #666; margin-top: 4px; word-break: break-all;">{{ qrUrl }}</div>
+            {% endif %}
+        {% else %}
+            <div style="font-size: 11px; color: #777;">QR no disponible</div>
+        {% endif %}
+    </div>
+
     <div class="legend">
         Comprobante emitido electrónicamente mediante ARCA. Generado en ItaStock el {{ generatedAt|date('d/m/Y H:i') }}.
     </div>

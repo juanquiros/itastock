@@ -32,9 +32,21 @@
                 <div class="card-body">
                     <div class="d-flex justify-content-between align-items-start mb-3">
                         <div>
-                            <p class="text-uppercase text-muted mb-1 small">Remito</p>
-                            <h1 class="h4 mb-0">N° {{ remitoNumber }}</h1>
-                            <p class="mb-0 text-muted">{{ sale.createdAt|date('d/m/Y H:i') }}</p>
+                            {% if showInvoiceAsTicket %}
+                                <p class="text-uppercase text-muted mb-1 small">Factura {{ arcaInvoice.cbteTipo == 'FACTURA_B' ? 'B' : 'C' }}</p>
+                                <h1 class="h4 mb-0">N° {{ '%04d'|format(arcaInvoice.arcaPosNumber) }}-{{ '%08d'|format(arcaInvoice.cbteNumero) }}</h1>
+                                <p class="mb-0 text-muted">{{ (arcaInvoice.issuedAt ?? sale.createdAt)|date('d/m/Y H:i') }}</p>
+                                {% if arcaInvoice.cae %}
+                                    <p class="mb-0 text-muted">CAE: {{ arcaInvoice.cae }}</p>
+                                {% endif %}
+                                {% if arcaInvoice.caeDueDate %}
+                                    <p class="mb-0 text-muted">Vto. CAE: {{ arcaInvoice.caeDueDate|date('d/m/Y') }}</p>
+                                {% endif %}
+                            {% else %}
+                                <p class="text-uppercase text-muted mb-1 small">Remito</p>
+                                <h1 class="h4 mb-0">N° {{ remitoNumber }}</h1>
+                                <p class="mb-0 text-muted">{{ sale.createdAt|date('d/m/Y H:i') }}</p>
+                            {% endif %}
                             <p class="mb-0 text-muted">Vendedor: {{ sale.createdBy ? sale.createdBy.fullName : 'N/D' }}</p>
                             <div class="mt-2">
                                 {% if sale.status == 'VOIDED' %}
@@ -48,9 +60,15 @@
                             <button type="button" class="btn btn-outline-secondary" onclick="window.print()">
                                 Imprimir
                             </button>
-                            <a class="btn btn-outline-primary" href="{{ path('app_sale_ticket_pdf', { id: sale.id }) }}">
-                                PDF
-                            </a>
+                            {% if showInvoiceAsTicket %}
+                                <a class="btn btn-outline-primary" href="{{ path('app_sale_arca_pdf', { id: sale.id }) }}">
+                                    Descargar factura PDF
+                                </a>
+                            {% else %}
+                                <a class="btn btn-outline-primary" href="{{ path('app_sale_ticket_pdf', { id: sale.id }) }}">
+                                    PDF
+                                </a>
+                            {% endif %}
                             {% if arcaInvoice and arcaInvoice.status == 'AUTHORIZED' %}
                                 <a class="btn btn-outline-success" href="{{ path('app_sale_arca_pdf', { id: sale.id }) }}">
                                     Ver factura
@@ -80,12 +98,19 @@
                     </div>
 
                     <div class="mt-3">
-                        <span class="badge bg-warning text-dark">
-                            NO VÁLIDO COMO TICKET FISCAL
-                        </span>
-                        <div class="small text-muted">
-                            Comprobante tipo remito no fiscal emitido desde ItaStock.
-                        </div>
+                        {% if showInvoiceAsTicket %}
+                            <span class="badge bg-success">COMPROBANTE FISCAL</span>
+                            <div class="small text-muted">
+                                Factura electrónica autorizada por ARCA.
+                            </div>
+                        {% else %}
+                            <span class="badge bg-warning text-dark">
+                                NO VÁLIDO COMO TICKET FISCAL
+                            </span>
+                            <div class="small text-muted">
+                                Comprobante tipo remito no fiscal emitido desde ItaStock.
+                            </div>
+                        {% endif %}
                     </div>
 
                     {% if sale.business.ticketHeaderImagePath %}
@@ -240,8 +265,12 @@
                 </div>
             </div>
             <div class="text-center text-muted small">
-                Este documento actúa como remito no fiscal.
-                <strong>NO VÁLIDO COMO TICKET FISCAL</strong>.
+                {% if showInvoiceAsTicket %}
+                    Este documento corresponde a una factura electrónica autorizada.
+                {% else %}
+                    Este documento actúa como remito no fiscal.
+                    <strong>NO VÁLIDO COMO TICKET FISCAL</strong>.
+                {% endif %}
             </div>
         </div>
     </div>
