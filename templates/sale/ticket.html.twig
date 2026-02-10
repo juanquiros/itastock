@@ -130,20 +130,6 @@
                     </div>
 
 
-                    {% if showInvoiceAsTicket %}
-                        <div class="mt-3">
-                            <div class="fw-semibold">QR ARCA</div>
-                            {% if ticketQrDataUri %}
-                                <img src="{{ ticketQrDataUri }}" alt="QR ARCA" style="width: 140px; height: 140px;">
-                                {% if ticketQrUrl %}
-                                    <div class="small text-muted text-break">{{ ticketQrUrl }}</div>
-                                {% endif %}
-                            {% else %}
-                                <div class="small text-muted">QR no disponible</div>
-                            {% endif %}
-                        </div>
-                    {% endif %}
-
                     {% if sale.business.ticketHeaderImagePath %}
                         <div class="mt-3 text-center">
                             <img src="{{ sale.business.ticketHeaderImagePath }}" alt="Icono del comercio" style="max-height: 120px; max-width: 100%;">
@@ -275,6 +261,20 @@
                                 <div class="mb-0">{{ sale.voidReason }}</div>
                             </div>
                         {% endif %}
+                    {% endif %}
+
+                    {% if showInvoiceAsTicket %}
+                        <div class="mt-3 text-center">
+                            <div class="fw-semibold">QR ARCA</div>
+                            {% if ticketQrDataUri %}
+                                <img src="{{ ticketQrDataUri }}" alt="QR ARCA" style="width: 140px; height: 140px;">
+                                {% if ticketQrUrl %}
+                                    <div class="small text-muted text-break">{{ ticketQrUrl }}</div>
+                                {% endif %}
+                            {% else %}
+                                <div class="small text-muted">QR no disponible</div>
+                            {% endif %}
+                        </div>
                     {% endif %}
 
                     {% set footerLines = sale.business.ticketFooterLines ? sale.business.ticketFooterLines|replace({'\r': ''})|split('\n') : [] %}
