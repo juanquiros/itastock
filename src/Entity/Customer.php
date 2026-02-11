@@ -43,6 +43,10 @@ class Customer
     #[ORM\Column(length: 50, nullable: true)]
     private ?string $phone = null;
 
+    #[ORM\Column(length: 180, nullable: true)]
+    #[Assert\Email(message: 'Ingresá un email válido.')]
+    private ?string $email = null;
+
     #[ORM\Column(length: 255, nullable: true)]
     private ?string $address = null;
 
@@ -133,9 +137,21 @@ class Customer
         return $this;
     }
 
-    public function getAddress(): ?string
+
+    public function getEmail(): ?string
     {
-        return $this->address;
+        return $this->email;
+    }
+
+    public function setEmail(?string $email): self
+    {
+        $this->email = $email !== null ? mb_strtolower(trim($email)) : null;
+
+        return $this;
+    }
+
+    public function getAddress(): ?string
+    {        return $this->address;
     }
 
     public function setAddress(?string $address): self

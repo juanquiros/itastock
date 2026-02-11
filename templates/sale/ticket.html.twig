@@ -107,6 +107,12 @@
                                     NC {{ arcaCreditNote.status|lower }}
                                 </button>
                             {% endif %}
+                            {% if sale.customer and sale.customer.email %}
+                                <form method="post" action="{{ path('app_sale_ticket_send_email', { id: sale.id }) }}" class="d-inline">
+                                    <input type="hidden" name="_token" value="{{ csrf_token('ticket_send_email_' ~ sale.id) }}">
+                                    <button type="submit" class="btn btn-outline-info">Enviar por email</button>
+                                </form>
+                            {% endif %}
                             <a class="btn btn-outline-secondary" href="{{ path('app_sale_new') }}">
                                 Nueva venta
                             </a>
@@ -163,6 +169,9 @@
                             {% endif %}
                             {% if sale.customer.phone %}
                                 <div class="text-muted">Teléfono: {{ sale.customer.phone }}</div>
+                            {% endif %}
+                            {% if sale.customer.email %}
+                                <div class="text-muted">Email: {{ sale.customer.email }}</div>
                             {% endif %}
                             {% if sale.customer.address %}
                                 <div class="text-muted">Dirección: {{ sale.customer.address }}</div>

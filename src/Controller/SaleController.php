@@ -36,6 +36,8 @@ use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\Mailer\MailerInterface;
+use Symfony\Component\Mime\Email;
 use Symfony\Component\Routing\Annotation\Route;
 use Symfony\Component\Security\Core\Exception\AccessDeniedException;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
@@ -61,6 +63,7 @@ class SaleController extends AbstractController
         private readonly ArcaCreditNoteRepository $arcaCreditNoteRepository,
         private readonly ArcaInvoiceService $arcaInvoiceService,
         private readonly ArcaQrService $arcaQrService,
+        private readonly MailerInterface $mailer,
     ) {
     }
 
@@ -366,6 +369,83 @@ class SaleController extends AbstractController
             'ticketQrUrl' => $showInvoiceAsTicket ? $this->buildInvoiceQrUrl($arcaInvoice, $business->getArcaConfig()) : null,
             'customers' => $customers,
         ]);
+    }
+
+
+
+    #[Route('/{id}/ticket/send-email', name: 'ticket_send_email', methods: ['POST'])]
+    public function sendTicketByEmail(Request $request, Sale $sale): Response
+    {
+        $user = $this->requireUser();
+        $business = $this->requireBusinessContext();
+
+        if ($sale->getBusiness() !== $business) {
+            throw new AccessDeniedException('Solo podés enviar tickets de tu comercio.');
+        }
+
+        if (!$this->isCsrfTokenValid('ticket_send_email_'.$sale->getId(), (string) $request->request->get('_token'))) {
+            $this->addFlash('danger', 'No se pudo validar la solicitud de envío.');
+
+            return $this->redirectToRoute('app_sale_ticket', ['id' => $sale->getId()]);
+        }
+
+        $customer = $sale->getCustomer();
+        $recipient = $customer?->getEmail();
+
+        if (!$customer || !$recipient) {
+            $this->addFlash('danger', 'La venta no tiene un cliente con email registrado.');
+
+            return $this->redirectToRoute('app_sale_ticket', ['id' => $sale->getId()]);
+        }
+
+        $membership = $this->businessUserRepository->findActiveMembership($user, $business);
+        $arcaInvoice = $this->arcaInvoiceRepository->findOneBy([
+            'business' => $business,
+            'sale' => $sale,
+        ]);
+
+        $showInvoiceAsTicket = (bool) (
+            $membership?->getArcaMode() === 'INVOICE'
+            && $membership?->isArcaAutoIssueInvoice()
+            && $arcaInvoice
+            && $arcaInvoice->getStatus() === ArcaInvoice::STATUS_AUTHORIZED
+        );
+
+        $generatedAt = new \DateTimeImmutable();
+
+        if ($showInvoiceAsTicket) {
+            $filename = sprintf('factura-venta-%d.pdf', $sale->getId());
+            $bytes = $this->pdfService->generateBytes('arca/invoice_pdf.html.twig', [
+                'invoice' => $arcaInvoice,
+                'business' => $business,
+                'sale' => $sale,
+                'generatedAt' => $generatedAt,
+                'qrDataUri' => $this->buildInvoiceQrDataUri($arcaInvoice, $business->getArcaConfig()),
+                'qrUrl' => $this->buildInvoiceQrUrl($arcaInvoice, $business->getArcaConfig()),
+            ]);
+            $subjectDoc = 'Factura';
+        } else {
+            $filename = sprintf('remito-venta-%d.pdf', $sale->getId());
+            $bytes = $this->pdfService->generateBytes('sale/ticket_pdf.html.twig', [
+                'business' => $business,
+                'sale' => $sale,
+                'remitoNumber' => $this->formatRemitoNumber($sale),
+                'generatedAt' => $generatedAt,
+            ]);
+            $subjectDoc = 'Remito';
+        }
+
+        $email = (new Email())
+            ->to($recipient)
+            ->subject(sprintf('%s venta #%d - %s', $subjectDoc, $sale->getId(), $business->getName()))
+            ->text(sprintf('Hola %s, te compartimos el %s de tu compra en %s.', $customer->getName(), strtolower($subjectDoc), $business->getName()))
+            ->attach($bytes, $filename, 'application/pdf');
+
+        $this->mailer->send($email);
+
+        $this->addFlash('success', sprintf('Comprobante enviado por email a %s.', $recipient));
+
+        return $this->redirectToRoute('app_sale_ticket', ['id' => $sale->getId()]);
     }
 
     #[Route('/{id}/ticket/pdf', name: 'ticket_pdf', methods: ['GET'])]
