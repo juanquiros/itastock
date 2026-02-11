@@ -37,6 +37,7 @@ use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Mailer\MailerInterface;
+use Symfony\Component\Mime\Address;
 use Symfony\Component\Mime\Email;
 use Symfony\Component\Routing\Annotation\Route;
 use Symfony\Component\Security\Core\Exception\AccessDeniedException;
@@ -64,6 +65,8 @@ class SaleController extends AbstractController
         private readonly ArcaInvoiceService $arcaInvoiceService,
         private readonly ArcaQrService $arcaQrService,
         private readonly MailerInterface $mailer,
+        private readonly string $mailFrom,
+        private readonly string $appName,
     ) {
     }
 
@@ -436,6 +439,7 @@ class SaleController extends AbstractController
         }
 
         $email = (new Email())
+            ->from(new Address($this->mailFrom, $this->appName))
             ->to($recipient)
             ->subject(sprintf('%s venta #%d - %s', $subjectDoc, $sale->getId(), $business->getName()))
             ->text(sprintf('Hola %s, te compartimos el %s de tu compra en %s.', $customer->getName(), strtolower($subjectDoc), $business->getName()))

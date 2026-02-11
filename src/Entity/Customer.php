@@ -151,7 +151,8 @@ class Customer
     }
 
     public function getAddress(): ?string
-    {        return $this->address;
+    {
+        return $this->address;
     }
 
     public function setAddress(?string $address): self
