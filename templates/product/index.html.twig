@@ -62,24 +62,11 @@
     <div class="card shadow-sm mb-3" data-controller="barcode-scanner" data-barcode-scanner-script-url-value="{{ asset('vendor/html5-qrcode.min.js') }}">
         <div class="card-body">
             <form method="get" class="row g-3 align-items-end">
-                <div class="col-lg-3 col-md-4">
-                    <label class="form-label">Nombre</label>
-                    <input type="text" name="name" class="form-control" value="{{ filters.name }}">
-                </div>
-                <div class="col-lg-2 col-md-4">
-                    <label class="form-label">SKU</label>
+                <div class="col-lg-5 col-md-12">
+                    <label class="form-label">Búsqueda</label>
                     <div class="input-group" data-barcode-scanner-input-group>
-                        <input type="text" name="sku" id="product-sku-filter" class="form-control" value="{{ filters.sku }}" data-barcode-scanner-target="input" data-barcode-scanner-input="true">
-                        <button class="btn btn-outline-secondary d-inline-flex d-lg-none" type="button" data-action="barcode-scanner#open" data-barcode-scanner-input-id-param="product-sku-filter">
-                            Escanear
-                        </button>
-                    </div>
-                </div>
-                <div class="col-lg-2 col-md-4">
-                    <label class="form-label">Código de barra</label>
-                    <div class="input-group" data-barcode-scanner-input-group>
-                        <input type="text" name="barcode" id="product-barcode-filter" class="form-control" value="{{ filters.barcode }}" data-barcode-scanner-target="input" data-barcode-scanner-input="true">
-                        <button class="btn btn-outline-secondary d-inline-flex d-lg-none" type="button" data-action="barcode-scanner#open" data-barcode-scanner-input-id-param="product-barcode-filter">
+                        <input type="search" name="q" id="product-search-filter" class="form-control" value="{{ filters.q }}" placeholder="Nombre, SKU, código de barra o características" data-barcode-scanner-target="input" data-barcode-scanner-input="true">
+                        <button class="btn btn-outline-secondary d-inline-flex d-lg-none" type="button" data-action="barcode-scanner#open" data-barcode-scanner-input-id-param="product-search-filter">
                             Escanear
                         </button>
                     </div>
@@ -104,10 +91,10 @@
                         {% endfor %}
                     </select>
                 </div>
-                <div class="col-lg-1 col-md-12 d-grid">
+                <div class="col-lg-1 col-md-6 d-grid">
                     <button class="btn btn-outline-secondary" type="submit">Filtrar</button>
                 </div>
-                <div class="col-lg-2 col-md-12 d-grid">
+                <div class="col-lg-2 col-md-6 d-grid">
                     <a class="btn btn-link text-decoration-none" href="{{ path('app_product_index') }}">Limpiar filtros</a>
                 </div>
             </form>

@@ -41,4 +41,25 @@ class ProductSearchTextBuilderTest extends TestCase
         self::assertStringContainsString('lado derecho', $searchText);
         self::assertStringContainsString('modelo 208', $searchText);
     }
+
+    public function testBuildForProductReadsLegacyCharacteristicsShape(): void
+    {
+        $builder = new ProductSearchTextBuilder();
+        $product = (new Product())
+            ->setName('Pastilla freno')
+            ->setSku('PF-10');
+
+        $reflection = new \ReflectionProperty(Product::class, 'characteristics');
+        $reflection->setAccessible(true);
+        $reflection->setValue($product, [
+            ['key' => 'marcaauto', 'value' => 'Peugeot'],
+            ['key' => 'modelo', 'value' => '208'],
+        ]);
+
+        $searchText = $builder->buildForProduct($product);
+
+        self::assertStringContainsString('marcaauto peugeot', $searchText);
+        self::assertStringContainsString('modelo 208', $searchText);
+    }
+
 }

@@ -16,6 +16,7 @@ use App\Repository\ProductRepository;
 use App\Security\BusinessContext;
 use App\Service\ProductCsvImportService;
 use App\Service\ProductCatalogSyncService;
+use App\Service\ProductSearchService;
 use App\Service\SkuGenerator;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -43,13 +44,12 @@ class ProductController extends AbstractController
         Request $request,
         ProductRepository $productRepository,
         CategoryRepository $categoryRepository,
-        BrandRepository $brandRepository
+        BrandRepository $brandRepository,
+        ProductSearchService $productSearchService,
     ): Response
     {
         $business = $this->requireBusinessContext();
-        $name = trim((string) $request->query->get('name'));
-        $sku = trim((string) $request->query->get('sku'));
-        $barcode = trim((string) $request->query->get('barcode'));
+        $q = trim((string) $request->query->get('q'));
         $categoryIds = array_values(array_filter(array_map(
             static fn (string $value): int => (int) $value,
             $request->query->all('categories')
@@ -59,12 +59,28 @@ class ProductController extends AbstractController
             $request->query->all('brands')
         )));
 
+        $products = $q !== ''
+            ? $productSearchService->search($q, 200)
+            : $productRepository->findForAdminFilters($business, null, null, null, $categoryIds, $brandIds);
+
+        if ($q !== '' && ($categoryIds !== [] || $brandIds !== [])) {
+            $products = array_values(array_filter($products, static function (Product $product) use ($categoryIds, $brandIds): bool {
+                if ($categoryIds !== [] && !in_array($product->getCategory()?->getId(), $categoryIds, true)) {
+                    return false;
+                }
+
+                if ($brandIds !== [] && !in_array($product->getBrand()?->getId(), $brandIds, true)) {
+                    return false;
+                }
+
+                return true;
+            }));
+        }
+
         return $this->render('product/index.html.twig', [
-            'products' => $productRepository->findForAdminFilters($business, $name, $sku, $barcode, $categoryIds, $brandIds),
+            'products' => $products,
             'filters' => [
-                'name' => $name,
-                'sku' => $sku,
-                'barcode' => $barcode,
+                'q' => $q,
                 'categories' => $categoryIds,
                 'brands' => $brandIds,
             ],

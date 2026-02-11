@@ -169,28 +169,57 @@ class Product
      */
     public function getCharacteristics(): array
     {
-        return $this->characteristics ?? [];
+        return $this->normalizeCharacteristics($this->characteristics ?? []);
     }
 
     /**
-     * @param array<string, scalar|null> $characteristics
+     * @param array<mixed> $characteristics
      */
     public function setCharacteristics(array $characteristics): self
     {
-        $normalized = [];
-        foreach ($characteristics as $key => $value) {
-            $normalizedKey = trim((string) $key);
-            $normalizedValue = trim((string) ($value ?? ''));
-            if ($normalizedKey === '' || $normalizedValue === '') {
-                continue;
-            }
-
-            $normalized[$normalizedKey] = $normalizedValue;
-        }
-
+        $normalized = $this->normalizeCharacteristics($characteristics);
         $this->characteristics = $normalized !== [] ? $normalized : null;
 
         return $this;
+    }
+
+
+    /**
+     * @param array<mixed> $characteristics
+     *
+     * @return array<string, string>
+     */
+    private function normalizeCharacteristics(array $characteristics): array
+    {
+        $normalized = [];
+
+        foreach ($characteristics as $key => $value) {
+            $candidateKey = null;
+            $candidateValue = null;
+
+            if (is_array($value) && array_key_exists('key', $value) && array_key_exists('value', $value)) {
+                $candidateKey = (string) $value['key'];
+                $candidateValue = (string) $value['value'];
+            } elseif (is_scalar($value) || $value === null) {
+                $candidateKey = (string) $key;
+                $candidateValue = (string) ($value ?? '');
+            }
+
+            if ($candidateKey === null || $candidateValue === null) {
+                continue;
+            }
+
+            $candidateKey = trim($candidateKey);
+            $candidateValue = trim($candidateValue);
+
+            if ($candidateKey === '' || $candidateValue === '') {
+                continue;
+            }
+
+            $normalized[$candidateKey] = $candidateValue;
+        }
+
+        return $normalized;
     }
 
     public function getSearchText(): ?string
