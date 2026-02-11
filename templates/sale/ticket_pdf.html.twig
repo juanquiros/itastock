@@ -32,7 +32,6 @@
     <table class="head-two">
         <tr>
             <td>
-                <div class="head-label">Datos del sistema</div>
                 <div class="meta">
                     <div><strong>Comercio:</strong> {{ business.name }}</div>
                     <div><strong>Fecha:</strong> {{ sale.createdAt|date('d/m/Y H:i') }}</div>
@@ -59,7 +58,6 @@
                 </div>
             </td>
             <td>
-                <div class="head-label">Datos configurados por el comercio</div>
                 <div class="text-center">
                     {% if business.ticketHeaderImagePath %}
                         <div style="margin-bottom: 8px;">
@@ -74,8 +72,6 @@
                                 {% endif %}
                             {% endfor %}
                         </div>
-                    {% else %}
-                        <div class="meta" style="color: #777;">Sin datos adicionales de encabezado.</div>
                     {% endif %}
                 </div>
             </td>
