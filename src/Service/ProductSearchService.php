@@ -25,7 +25,7 @@ class ProductSearchService
             return [];
         }
 
-        $business = $this->businessContext->getBusiness();
+        $business = $this->businessContext->getCurrentBusiness();
         if ($business === null) {
             return [];
         }

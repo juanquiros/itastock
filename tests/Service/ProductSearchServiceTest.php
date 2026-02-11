@@ -76,7 +76,7 @@ class ProductSearchServiceTest extends TestCase
     private function buildService(ProductRepository $repository, Business $business): ProductSearchService
     {
         $context = $this->createMock(BusinessContext::class);
-        $context->method('getBusiness')->willReturn($business);
+        $context->method('getCurrentBusiness')->willReturn($business);
 
         return new ProductSearchService($repository, $context, new ProductSearchTextBuilder());
     }
