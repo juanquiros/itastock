@@ -156,16 +156,7 @@ class ProductType extends AbstractType
                 'label' => 'Activo',
                 'required' => false,
             ])
-            ->add('characteristics', CollectionType::class, [
-                'label' => false,
-                'mapped' => false,
-                'required' => false,
-                'entry_type' => ProductCharacteristicType::class,
-                'allow_add' => true,
-                'allow_delete' => true,
-                'prototype' => true,
-                'by_reference' => false,
-            ])
+            ->add('characteristics', CollectionType::class, $this->characteristicsFieldOptions())
             ->add('stockAdjustment', NumberType::class, [
                 'label' => 'Ajuste de stock (± unidades)',
                 'mapped' => false,
@@ -204,7 +195,9 @@ class ProductType extends AbstractType
                 $characteristics[] = ['key' => $key, 'value' => $value];
             }
 
-            $event->getForm()->get('characteristics')->setData($characteristics);
+            $form = $event->getForm();
+            $form->remove('characteristics');
+            $form->add('characteristics', CollectionType::class, $this->characteristicsFieldOptions($characteristics));
         });
 
         $builder->addEventListener(FormEvents::PRE_SUBMIT, function (FormEvent $event) use (&$submittedCharacteristics): void {
@@ -288,6 +281,26 @@ class ProductType extends AbstractType
                 $event->getForm()->get('supplier')->addError(new FormError('Proveedor inválido.'));
             }
         });
+    }
+
+    /**
+     * @param array<int, array{key: string, value: string}> $data
+     *
+     * @return array<string, mixed>
+     */
+    private function characteristicsFieldOptions(array $data = []): array
+    {
+        return [
+            'label' => false,
+            'mapped' => false,
+            'required' => false,
+            'entry_type' => ProductCharacteristicType::class,
+            'allow_add' => true,
+            'allow_delete' => true,
+            'prototype' => true,
+            'by_reference' => false,
+            'data' => $data,
+        ];
     }
 
     public function configureOptions(OptionsResolver $resolver): void
