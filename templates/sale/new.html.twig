@@ -438,6 +438,7 @@
                             uomBase: candidate.uomBase,
                             allowsFractionalQty: candidate.allowsFractionalQty,
                             qtyStep: candidate.qtyStep,
+                            characteristicsSummary: candidate.characteristicsSummary || null,
                         });
 
                         return;
@@ -453,6 +454,7 @@
                         uomBase: candidate.uomBase,
                         allowsFractionalQty: candidate.allowsFractionalQty,
                         qtyStep: candidate.qtyStep,
+                        characteristicsSummary: candidate.characteristicsSummary || null,
                     });
                 });
             }
@@ -502,6 +504,7 @@
                         <div class="d-flex align-items-center justify-content-between border rounded-3 p-3 mb-2 bg-white">
                             <div>
                                 <div class="fw-semibold">${product.name}</div>
+                                ${product.characteristicsSummary ? `<div class="text-muted small">${product.characteristicsSummary}</div>` : ''}
                                 <div class="text-muted small">SKU: ${product.sku}${product.barcode ? ' · Código: ' + product.barcode : ''}</div>
                                 <div class="text-muted small">Stock disponible: ${product.stock} ${product.uomBase}</div>
                             </div>
@@ -548,6 +551,7 @@
                     const newItem = {
                         product_id: product.id,
                         name: product.name,
+                        characteristicsSummary: product.characteristicsSummary || null,
                         price: resolveUnitPrice(product.id),
                         stock: product.stock,
                         qty: defaultQty,
@@ -594,6 +598,7 @@
                     row.innerHTML = `
                         <td>
                             <div class="fw-semibold">${item.name}</div>
+                            ${item.characteristicsSummary ? `<div class="text-muted small">${item.characteristicsSummary}</div>` : ''}
                             <input type="hidden" name="items[${index}][product_id]" value="${item.product_id}">
                         </td>
                         <td class="text-end">${formatMoney(item.price)}</td>
@@ -814,6 +819,7 @@
                     }
 
                     item.name = product.name;
+                    item.characteristicsSummary = product.characteristicsSummary || null;
                     item.stock = product.stock;
                     item.uomBase = product.uomBase;
                     item.qtyStep = resolveQtyStep(product);

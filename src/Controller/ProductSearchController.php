@@ -30,6 +30,7 @@ class ProductSearchController extends AbstractController
             'uomBase' => $product->getUomBase(),
             'allowsFractionalQty' => $product->allowsFractionalQty(),
             'qtyStep' => $product->getQtyStep(),
+            'characteristicsSummary' => $product->getCharacteristicsSummary(),
         ], $products));
     }
 }

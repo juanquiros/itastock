@@ -222,6 +222,33 @@ class Product
         return $normalized;
     }
 
+
+    public function getCharacteristicsSummary(int $maxItems = 3): ?string
+    {
+        $characteristics = $this->getCharacteristics();
+        if ($characteristics === []) {
+            return null;
+        }
+
+        $chunks = [];
+        $count = 0;
+        foreach ($characteristics as $key => $value) {
+            $chunks[] = sprintf('%s: %s', $key, $value);
+            ++$count;
+
+            if ($count >= $maxItems) {
+                break;
+            }
+        }
+
+        $summary = implode(' · ', $chunks);
+        if (count($characteristics) > $maxItems) {
+            $summary .= ' · …';
+        }
+
+        return $summary;
+    }
+
     public function getSearchText(): ?string
     {
         return $this->searchText;

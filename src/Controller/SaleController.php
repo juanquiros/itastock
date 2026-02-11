@@ -109,6 +109,7 @@ class SaleController extends AbstractController
                 'uomBase' => $product->getUomBase(),
                 'allowsFractionalQty' => $product->allowsFractionalQty(),
                 'qtyStep' => $product->getQtyStep(),
+                'characteristicsSummary' => $product->getCharacteristicsSummary(),
             ], $products),
             'customersPayload' => array_map(static fn (Customer $customer) => [
                 'id' => $customer->getId(),
@@ -153,6 +154,7 @@ class SaleController extends AbstractController
                 'uomBase' => $product->getUomBase(),
                 'allowsFractionalQty' => $product->allowsFractionalQty(),
                 'qtyStep' => $product->getQtyStep(),
+                'characteristicsSummary' => $product->getCharacteristicsSummary(),
             ], $products),
             'customers' => array_map(static fn (Customer $customer) => [
                 'id' => $customer->getId(),
@@ -264,7 +266,7 @@ class SaleController extends AbstractController
 
             $item = new SaleItem();
             $item->setProduct($product);
-            $item->setDescription($product->getName());
+            $item->setDescription($this->buildSaleItemDescription($product));
             $item->setQty($qty);
             $item->setUnitPrice(number_format($unitPrice, 2, '.', ''));
             $item->setLineSubtotal($lineTotal);
@@ -778,7 +780,7 @@ class SaleController extends AbstractController
 
             $item = new SaleItem();
             $item->setProduct($product);
-            $item->setDescription($product->getName());
+            $item->setDescription($this->buildSaleItemDescription($product));
             $item->setQty($qty);
             $item->setUnitPrice(number_format($unitPrice, 2, '.', ''));
             $item->setLineSubtotal($lineTotal);
@@ -905,6 +907,16 @@ class SaleController extends AbstractController
         $this->addFlash('success', 'Venta registrada.');
 
         return $this->redirectToRoute('app_sale_ticket', ['id' => $sale->getId()]);
+    }
+
+    private function buildSaleItemDescription(Product $product): string
+    {
+        $summary = $product->getCharacteristicsSummary();
+        if ($summary === null) {
+            return (string) $product->getName();
+        }
+
+        return sprintf('%s (%s)', $product->getName(), $summary);
     }
 
     private function normalizeQuantity(mixed $value): ?string

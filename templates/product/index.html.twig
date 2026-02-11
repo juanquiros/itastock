@@ -127,6 +127,9 @@
                                     {% if lowStock %}
                                         <span class="badge bg-danger ms-2">Stock bajo</span>
                                     {% endif %}
+                                    {% if product.characteristicsSummary %}
+                                        <div class="small text-muted mt-1">{{ product.characteristicsSummary }}</div>
+                                    {% endif %}
                                 </td>
                                 <td class="text-muted">{{ product.sku }}</td>
                                 <td>{{ product.category ? product.category.name : 'Sin categoría' }}</td>

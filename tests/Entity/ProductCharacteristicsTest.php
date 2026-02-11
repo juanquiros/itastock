@@ -42,4 +42,15 @@ class ProductCharacteristicsTest extends TestCase
         self::assertStringContainsString('modelo 208', (string) $product->getSearchText());
     }
 
+
+    public function testCharacteristicsSummaryIsGenerated(): void
+    {
+        $product = (new Product())->setCharacteristics([
+            'marcaauto' => 'Peugeot',
+            'modelo' => '208',
+        ]);
+
+        self::assertSame('marcaauto: Peugeot · modelo: 208', $product->getCharacteristicsSummary());
+    }
+
 }
