@@ -40,6 +40,12 @@ class Product
     #[ORM\Column(length: 128, nullable: true)]
     private ?string $barcode = null;
 
+    #[ORM\Column(type: Types::JSON, nullable: true)]
+    private ?array $characteristics = null;
+
+    #[ORM\Column(name: 'search_text', type: Types::TEXT, nullable: true)]
+    private ?string $searchText = null;
+
     #[ORM\Column(type: Types::DATETIME_IMMUTABLE)]
     private ?\DateTimeImmutable $updatedAt = null;
 
@@ -154,6 +160,47 @@ class Product
     public function setBarcode(?string $barcode): self
     {
         $this->barcode = $barcode;
+
+        return $this;
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public function getCharacteristics(): array
+    {
+        return $this->characteristics ?? [];
+    }
+
+    /**
+     * @param array<string, scalar|null> $characteristics
+     */
+    public function setCharacteristics(array $characteristics): self
+    {
+        $normalized = [];
+        foreach ($characteristics as $key => $value) {
+            $normalizedKey = trim((string) $key);
+            $normalizedValue = trim((string) ($value ?? ''));
+            if ($normalizedKey === '' || $normalizedValue === '') {
+                continue;
+            }
+
+            $normalized[$normalizedKey] = $normalizedValue;
+        }
+
+        $this->characteristics = $normalized !== [] ? $normalized : null;
+
+        return $this;
+    }
+
+    public function getSearchText(): ?string
+    {
+        return $this->searchText;
+    }
+
+    public function setSearchText(?string $searchText): self
+    {
+        $this->searchText = $searchText;
 
         return $this;
     }

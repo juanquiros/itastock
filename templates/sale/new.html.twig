@@ -238,6 +238,7 @@
             const items = [];
             let selectedCustomer = null;
             const snapshotUrl = '{{ path('app_sale_snapshot') }}';
+            const productSearchUrl = '{{ path('app_products_search') }}';
             let snapshotInFlight = false;
             let snapshotTimer = null;
 
@@ -424,53 +425,111 @@
                 )) || null;
             }
 
-            function renderResults(query = '') {
-                const term = query.trim().toLowerCase();
+            function mergeProducts(incoming) {
+                incoming.forEach((candidate) => {
+                    const existing = products.find((item) => item.id === candidate.id);
+                    if (existing) {
+                        Object.assign(existing, {
+                            name: candidate.name,
+                            barcode: candidate.barcode,
+                            sku: candidate.sku,
+                            price: candidate.precio,
+                            stock: candidate.stock,
+                            uomBase: candidate.uomBase,
+                            allowsFractionalQty: candidate.allowsFractionalQty,
+                            qtyStep: candidate.qtyStep,
+                        });
+
+                        return;
+                    }
+
+                    products.push({
+                        id: candidate.id,
+                        name: candidate.name,
+                        barcode: candidate.barcode,
+                        sku: candidate.sku,
+                        price: candidate.precio,
+                        stock: candidate.stock,
+                        uomBase: candidate.uomBase,
+                        allowsFractionalQty: candidate.allowsFractionalQty,
+                        qtyStep: candidate.qtyStep,
+                    });
+                });
+            }
+
+            let currentSearchResults = [];
+            let searchController = null;
+
+            async function renderResults(query = '') {
+                const term = query.trim();
                 if (term === '') {
+                    currentSearchResults = [];
                     resultsContainer.innerHTML = '';
                     return [];
                 }
 
                 const exactMatch = findExactProduct(term);
                 if (exactMatch) {
+                    currentSearchResults = [exactMatch];
                     resultsContainer.innerHTML = '';
-                    return [exactMatch];
+                    return currentSearchResults;
                 }
 
-                const filtered = products.filter((p) => {
-                    return p.name.toLowerCase().includes(term) || (p.barcode && p.barcode.toLowerCase().includes(term)) || p.sku.toLowerCase().includes(term);
-                }).slice(0, 6);
-
-                if (filtered.length === 0) {
-                    resultsContainer.innerHTML = '';
-                    return filtered;
+                if (searchController) {
+                    searchController.abort();
                 }
+                searchController = new AbortController();
 
-                const list = filtered.map((product) => `
-                    <div class="d-flex align-items-center justify-content-between border rounded-3 p-3 mb-2 bg-white">
-                        <div>
-                            <div class="fw-semibold">${product.name}</div>
-                            <div class="text-muted small">SKU: ${product.sku}${product.barcode ? ' · Código: ' + product.barcode : ''}</div>
-                            <div class="text-muted small">Stock disponible: ${product.stock} ${product.uomBase}</div>
-                        </div>
-                        <div class="d-flex align-items-center gap-3">
-                            <span class="fw-semibold">${formatMoney(resolveUnitPrice(product.id))}</span>
-                            <button type="button" class="btn btn-sm btn-primary" data-product="${product.id}">Agregar</button>
-                        </div>
-                    </div>
-                `).join('');
-
-                resultsContainer.innerHTML = list;
-                resultsContainer.querySelectorAll('button[data-product]').forEach((btn) => {
-                    btn.addEventListener('click', () => {
-                        addItem(parseInt(btn.dataset.product, 10));
-                        searchInput.value = '';
-                        renderResults('');
-                        searchInput.focus();
+                try {
+                    const response = await fetch(`${productSearchUrl}?q=${encodeURIComponent(term)}&limit=50`, {
+                        headers: { Accept: 'application/json' },
+                        signal: searchController.signal,
                     });
-                });
+                    if (!response.ok) {
+                        return [];
+                    }
 
-                return filtered;
+                    const filtered = await response.json();
+                    mergeProducts(filtered);
+                    currentSearchResults = filtered.map((item) => products.find((product) => product.id === item.id)).filter(Boolean).slice(0, 6);
+
+                    if (currentSearchResults.length === 0) {
+                        resultsContainer.innerHTML = '';
+                        return [];
+                    }
+
+                    const list = currentSearchResults.map((product) => `
+                        <div class="d-flex align-items-center justify-content-between border rounded-3 p-3 mb-2 bg-white">
+                            <div>
+                                <div class="fw-semibold">${product.name}</div>
+                                <div class="text-muted small">SKU: ${product.sku}${product.barcode ? ' · Código: ' + product.barcode : ''}</div>
+                                <div class="text-muted small">Stock disponible: ${product.stock} ${product.uomBase}</div>
+                            </div>
+                            <div class="d-flex align-items-center gap-3">
+                                <span class="fw-semibold">${formatMoney(resolveUnitPrice(product.id))}</span>
+                                <button type="button" class="btn btn-sm btn-primary" data-product="${product.id}">Agregar</button>
+                            </div>
+                        </div>
+                    `).join('');
+
+                    resultsContainer.innerHTML = list;
+                    resultsContainer.querySelectorAll('button[data-product]').forEach((btn) => {
+                        btn.addEventListener('click', () => {
+                            addItem(parseInt(btn.dataset.product, 10));
+                            searchInput.value = '';
+                            renderResults('');
+                            searchInput.focus();
+                        });
+                    });
+
+                    return currentSearchResults;
+                } catch (error) {
+                    if (error.name !== 'AbortError') {
+                        console.warn('Error buscando productos', error);
+                    }
+
+                    return [];
+                }
             }
 
             function addItem(productId) {
@@ -841,7 +900,7 @@
             searchInput.addEventListener('keydown', (event) => {
                 if (event.key === 'Enter') {
                     event.preventDefault();
-                    const filtered = renderResults(searchInput.value);
+                    const filtered = currentSearchResults;
                     if (filtered.length > 0) {
                         addItem(filtered[0].id);
                         searchInput.select();
@@ -855,20 +914,25 @@
                     return;
                 }
 
-                const normalized = code.toLowerCase();
-                const match = products.find((product) => (
-                    (product.barcode && product.barcode.toLowerCase() === normalized)
-                    || (product.sku && product.sku.toLowerCase() === normalized)
-                ));
+                const match = findExactProduct(code);
                 if (match) {
                     addItem(match.id);
                     showScanAlert('');
-                } else {
-                    showScanAlert(`No se encontró coincidencia para el código "${code}".`);
+                    searchInput.value = '';
+                    renderResults('');
+                    return;
                 }
 
-                searchInput.value = '';
-                renderResults('');
+                renderResults(code).then((filtered) => {
+                    if (filtered.length > 0) {
+                        addItem(filtered[0].id);
+                        showScanAlert('');
+                    } else {
+                        showScanAlert(`No se encontró coincidencia para el código "${code}".`);
+                    }
+                    searchInput.value = '';
+                    renderResults('');
+                });
             });
 
             saleForm.addEventListener('keydown', (event) => {

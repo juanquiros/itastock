@@ -10,6 +10,7 @@ use Doctrine\ORM\EntityRepository;
 use Symfony\Bridge\Doctrine\Form\Type\EntityType;
 use Symfony\Component\Form\AbstractType;
 use Symfony\Component\Form\Extension\Core\Type\CheckboxType;
+use Symfony\Component\Form\Extension\Core\Type\CollectionType;
 use Symfony\Component\Form\Extension\Core\Type\ChoiceType;
 use Symfony\Component\Form\Extension\Core\Type\HiddenType;
 use Symfony\Component\Form\Extension\Core\Type\NumberType;
@@ -153,6 +154,16 @@ class ProductType extends AbstractType
                 'label' => 'Activo',
                 'required' => false,
             ])
+            ->add('characteristics', CollectionType::class, [
+                'label' => false,
+                'mapped' => false,
+                'required' => false,
+                'entry_type' => ProductCharacteristicType::class,
+                'allow_add' => true,
+                'allow_delete' => true,
+                'prototype' => true,
+                'by_reference' => false,
+            ])
             ->add('stockAdjustment', NumberType::class, [
                 'label' => 'Ajuste de stock (± unidades)',
                 'mapped' => false,
@@ -185,6 +196,13 @@ class ProductType extends AbstractType
                 $product->setAllowsFractionalQty(true);
                 $product->setQtyStep('0.001');
             }
+
+            $characteristics = [];
+            foreach ($product->getCharacteristics() as $key => $value) {
+                $characteristics[] = ['key' => $key, 'value' => $value];
+            }
+
+            $event->getForm()->get('characteristics')->setData($characteristics);
         });
 
         $builder->addEventListener(FormEvents::PRE_SUBMIT, function (FormEvent $event): void {
@@ -199,6 +217,37 @@ class ProductType extends AbstractType
                     $event->getForm()->get('ivaRate')->addError(new FormError('Ingresá un IVA válido (solo números y coma/punto).'));
                 }
                 $data['ivaRate'] = $normalized;
+            }
+
+            if (isset($data['characteristics']) && is_array($data['characteristics'])) {
+                $keys = [];
+                foreach ($data['characteristics'] as $index => $row) {
+                    if (!is_array($row)) {
+                        continue;
+                    }
+
+                    $key = trim((string) ($row['key'] ?? ''));
+                    $value = trim((string) ($row['value'] ?? ''));
+
+                    if (($key === '' && $value !== '') || ($key !== '' && $value === '')) {
+                        $event->getForm()->get('characteristics')->addError(new FormError('Cada característica debe tener clave y valor.'));
+                        continue;
+                    }
+
+                    if ($key === '' && $value === '') {
+                        unset($data['characteristics'][$index]);
+                        continue;
+                    }
+
+                    $normalized = mb_strtolower($key);
+                    if (isset($keys[$normalized])) {
+                        $event->getForm()->get('characteristics')->addError(new FormError('No se permiten claves de características duplicadas.'));
+                    }
+                    $keys[$normalized] = true;
+                    $data['characteristics'][$index]['key'] = $key;
+                    $data['characteristics'][$index]['value'] = $value;
+                }
+                $data['characteristics'] = array_values($data['characteristics']);
             }
 
             $uom = $data['uomBase'] ?? Product::UOM_UNIT;
@@ -224,6 +273,25 @@ class ProductType extends AbstractType
             if (!$product instanceof Product) {
                 return;
             }
+
+            $characteristicsRows = $event->getForm()->get('characteristics')->getData();
+            $characteristics = [];
+            if (is_array($characteristicsRows)) {
+                foreach ($characteristicsRows as $row) {
+                    if (!is_array($row)) {
+                        continue;
+                    }
+
+                    $key = trim((string) ($row['key'] ?? ''));
+                    $value = trim((string) ($row['value'] ?? ''));
+                    if ($key === '' || $value === '') {
+                        continue;
+                    }
+
+                    $characteristics[$key] = $value;
+                }
+            }
+            $product->setCharacteristics($characteristics);
 
             $supplier = $product->getSupplier();
             $business = $options['current_business'];

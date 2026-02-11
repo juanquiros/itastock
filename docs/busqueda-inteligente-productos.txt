@@ -1,0 +1,37 @@
+Búsqueda inteligente de productos (Sprint Final)
+
+Componentes implementados:
+- Nuevos campos en products:
+  - characteristics (JSON nullable)
+  - search_text (LONGTEXT)
+  - índice IDX_PRODUCTS_SEARCH_TEXT para search_text(255)
+- ProductSearchTextBuilder:
+  - normaliza texto (minúsculas, sin acentos, guiones a espacio, espacios colapsados)
+  - tokeniza query
+  - construye search_text con nombre, sku, barcode, marca/presentación de catálogo y characteristics
+- ProductSearchIndexSubscriber:
+  - recalcula search_text en prePersist y preUpdate
+- ProductSearchService::search(string $query, int $limit = 50):
+  1) barcode exacto
+  2) sku exacto
+  3) nombre parcial (LIKE)
+  4) tokens AND sobre search_text
+- Endpoint JSON GET /products/search?q=...&limit=50
+- Integración POS:
+  - búsqueda remota AJAX al endpoint
+  - prioridad exacta para escáner (barcode/sku)
+  - límite de resultados
+- Reindexación:
+  - comando: php bin/console app:products:reindex-search
+
+Características dinámicas en formulario:
+- Sección colapsable “Características adicionales (opcional)”
+- Alta y baja dinámica de filas key/value con Stimulus
+- Validaciones cliente:
+  - clave y valor obligatorios en conjunto
+  - sin claves duplicadas
+- Validaciones servidor equivalentes en ProductType
+
+Notas:
+- Mantiene la búsqueda histórica por nombre, SKU y barcode.
+- Base preparada para futura evolución a fulltext.

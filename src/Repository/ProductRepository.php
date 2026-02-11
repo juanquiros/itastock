@@ -39,6 +39,68 @@ class ProductRepository extends ServiceEntityRepository
             ->getOneOrNullResult();
     }
 
+
+    public function findOneByBusinessAndExactSku(Business $business, string $sku): ?Product
+    {
+        return $this->createQueryBuilder('p')
+            ->andWhere('p.business = :business')
+            ->andWhere('LOWER(p.sku) = :sku')
+            ->setParameter('business', $business)
+            ->setParameter('sku', mb_strtolower($sku))
+            ->setMaxResults(1)
+            ->getQuery()
+            ->getOneOrNullResult();
+    }
+
+    public function findOneByBusinessAndExactBarcode(Business $business, string $barcode): ?Product
+    {
+        return $this->createQueryBuilder('p')
+            ->andWhere('p.business = :business')
+            ->andWhere('p.barcode = :barcode')
+            ->setParameter('business', $business)
+            ->setParameter('barcode', $barcode)
+            ->setMaxResults(1)
+            ->getQuery()
+            ->getOneOrNullResult();
+    }
+
+    /**
+     * @return Product[]
+     */
+    public function findByBusinessAndNameLike(Business $business, string $name, int $limit = 50): array
+    {
+        return $this->createQueryBuilder('p')
+            ->andWhere('p.business = :business')
+            ->andWhere('LOWER(p.name) LIKE :name')
+            ->setParameter('business', $business)
+            ->setParameter('name', '%'.mb_strtolower($name).'%')
+            ->orderBy('p.name', 'ASC')
+            ->setMaxResults($limit)
+            ->getQuery()
+            ->getResult();
+    }
+
+    /**
+     * @param string[] $tokens
+     *
+     * @return Product[]
+     */
+    public function findByBusinessAndSearchTokens(Business $business, array $tokens, int $limit = 50): array
+    {
+        $qb = $this->createQueryBuilder('p')
+            ->andWhere('p.business = :business')
+            ->setParameter('business', $business)
+            ->orderBy('p.name', 'ASC')
+            ->setMaxResults($limit);
+
+        foreach ($tokens as $index => $token) {
+            $qb->andWhere(sprintf('LOWER(p.searchText) LIKE :token_%d', $index))
+                ->setParameter(sprintf('token_%d', $index), '%'.mb_strtolower($token).'%');
+        }
+
+        return $qb->getQuery()->getResult();
+    }
+
     /**
      * @return string[]
      */
