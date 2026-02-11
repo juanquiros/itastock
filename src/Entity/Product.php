@@ -482,6 +482,42 @@ class Product
         return $this;
     }
 
+
+    #[ORM\PrePersist]
+    #[ORM\PreUpdate]
+    public function rebuildSearchTextIndex(): void
+    {
+        $parts = [
+            $this->name,
+            $this->brand?->getName(),
+            $this->catalogProduct?->getName(),
+            $this->catalogProduct?->getPresentation(),
+            $this->sku,
+            $this->barcode,
+        ];
+
+        foreach ($this->getCharacteristics() as $key => $value) {
+            $parts[] = $key;
+            $parts[] = $value;
+        }
+
+        $raw = implode(' ', array_filter($parts, static fn (?string $value): bool => $value !== null && trim($value) !== ''));
+        $normalized = mb_strtolower(trim($raw));
+        $normalized = strtr($normalized, [
+            'á' => 'a',
+            'é' => 'e',
+            'í' => 'i',
+            'ó' => 'o',
+            'ú' => 'u',
+            'ü' => 'u',
+            'ñ' => 'n',
+        ]);
+        $normalized = str_replace(['-', '_'], ' ', $normalized);
+        $normalized = (string) preg_replace('/\s+/', ' ', $normalized);
+
+        $this->searchText = $normalized !== '' ? $normalized : null;
+    }
+
     #[ORM\PrePersist]
     #[ORM\PreUpdate]
     public function touch(): void

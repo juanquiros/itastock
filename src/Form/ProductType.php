@@ -25,6 +25,8 @@ class ProductType extends AbstractType
 {
     public function buildForm(FormBuilderInterface $builder, array $options): void
     {
+        $submittedCharacteristics = [];
+
         $builder
             ->add('catalogProductId', HiddenType::class, [
                 'mapped' => false,
@@ -205,7 +207,7 @@ class ProductType extends AbstractType
             $event->getForm()->get('characteristics')->setData($characteristics);
         });
 
-        $builder->addEventListener(FormEvents::PRE_SUBMIT, function (FormEvent $event): void {
+        $builder->addEventListener(FormEvents::PRE_SUBMIT, function (FormEvent $event) use (&$submittedCharacteristics): void {
             $data = $event->getData();
             if (!is_array($data)) {
                 return;
@@ -219,6 +221,7 @@ class ProductType extends AbstractType
                 $data['ivaRate'] = $normalized;
             }
 
+            $submittedCharacteristics = [];
             if (isset($data['characteristics']) && is_array($data['characteristics'])) {
                 $keys = [];
                 foreach ($data['characteristics'] as $index => $row) {
@@ -242,10 +245,13 @@ class ProductType extends AbstractType
                     $normalized = mb_strtolower($key);
                     if (isset($keys[$normalized])) {
                         $event->getForm()->get('characteristics')->addError(new FormError('No se permiten claves de características duplicadas.'));
+                        continue;
                     }
+
                     $keys[$normalized] = true;
                     $data['characteristics'][$index]['key'] = $key;
                     $data['characteristics'][$index]['value'] = $value;
+                    $submittedCharacteristics[$key] = $value;
                 }
                 $data['characteristics'] = array_values($data['characteristics']);
             }
@@ -267,31 +273,14 @@ class ProductType extends AbstractType
             $event->setData($data);
         });
 
-        $builder->addEventListener(FormEvents::POST_SUBMIT, function (FormEvent $event) use ($options): void {
+        $builder->addEventListener(FormEvents::POST_SUBMIT, function (FormEvent $event) use ($options, &$submittedCharacteristics): void {
             $product = $event->getData();
 
             if (!$product instanceof Product) {
                 return;
             }
 
-            $characteristicsRows = $event->getForm()->get('characteristics')->getData();
-            $characteristics = [];
-            if (is_array($characteristicsRows)) {
-                foreach ($characteristicsRows as $row) {
-                    if (!is_array($row)) {
-                        continue;
-                    }
-
-                    $key = trim((string) ($row['key'] ?? ''));
-                    $value = trim((string) ($row['value'] ?? ''));
-                    if ($key === '' || $value === '') {
-                        continue;
-                    }
-
-                    $characteristics[$key] = $value;
-                }
-            }
-            $product->setCharacteristics($characteristics);
+            $product->setCharacteristics($submittedCharacteristics);
 
             $supplier = $product->getSupplier();
             $business = $options['current_business'];
