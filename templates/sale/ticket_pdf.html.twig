@@ -37,24 +37,6 @@
                     <div><strong>Fecha:</strong> {{ sale.createdAt|date('d/m/Y H:i') }}</div>
                     <div><strong>Vendedor:</strong> {{ sale.createdBy ? sale.createdBy.fullName : 'N/D' }}</div>
                     <div><strong>Generado:</strong> {{ generatedAt|date('d/m/Y H:i') }}</div>
-                    <div><strong>Cliente:</strong> {{ sale.customer ? sale.customer.name : 'Consumidor Final' }}</div>
-                    {% if sale.customer %}
-                        {% if sale.customer.documentType or sale.customer.documentNumber %}
-                            <div><strong>{{ sale.customer.documentType ?: 'Documento' }}:</strong> {{ sale.customer.documentNumber ?: '-' }}</div>
-                        {% endif %}
-                        {% if sale.customer.phone %}
-                            <div><strong>Teléfono:</strong> {{ sale.customer.phone }}</div>
-                        {% endif %}
-                        {% if sale.customer.address %}
-                            <div><strong>Dirección:</strong> {{ sale.customer.address }}</div>
-                        {% endif %}
-                        {% if sale.customer.customerType %}
-                            <div><strong>Tipo:</strong> {{ sale.customer.customerType }}</div>
-                        {% endif %}
-                        {% if sale.customer.priceList %}
-                            <div><strong>Lista:</strong> {{ sale.customer.priceList.name }}</div>
-                        {% endif %}
-                    {% endif %}
                 </div>
             </td>
             <td>
@@ -71,6 +53,26 @@
                                     <div>{{ line }}</div>
                                 {% endif %}
                             {% endfor %}
+                        </div>
+                    {% endif %}
+                </div>
+            </td>
+        </tr>
+    </table>
+
+
+    <table class="head-two" style="margin-top: 0;">
+        <tr>
+            <td style="width: 100%;">
+                <div class="meta">
+                    <div><strong>Cliente:</strong> {{ sale.customer ? sale.customer.name : 'Consumidor Final' }}</div>
+                    {% if sale.customer %}
+                        <div>
+                            <strong>{{ sale.customer.documentType ?: 'Documento' }}:</strong> {{ sale.customer.documentNumber ?: '-' }}
+                            {% if sale.customer.phone %} · <strong>Teléfono:</strong> {{ sale.customer.phone }}{% endif %}
+                            {% if sale.customer.address %} · <strong>Dirección:</strong> {{ sale.customer.address }}{% endif %}
+                            {% if sale.customer.customerType %} · <strong>Tipo:</strong> {{ sale.customer.customerType }}{% endif %}
+                            {% if sale.customer.priceList %} · <strong>Lista:</strong> {{ sale.customer.priceList.name }}{% endif %}
                         </div>
                     {% endif %}
                 </div>
