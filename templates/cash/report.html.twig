@@ -150,7 +150,7 @@
                                     </td>
                                     <td>
                                         <div class="d-flex flex-column gap-1">
-                                            <a class="btn btn-sm btn-outline-secondary" href="{{ path('app_sale_ticket_pdf', { id: sale.saleId }) }}">Remito PDF</a>
+                                            <a class="btn btn-sm btn-outline-secondary" href="{{ path('app_sale_remito_pdf', { id: sale.saleId }) }}">Remito PDF</a>
                                             {% if sale.arcaInvoiceStatus == 'AUTHORIZED' %}
                                                 <a class="btn btn-sm btn-outline-success" href="{{ path('app_sale_arca_pdf', { id: sale.saleId }) }}">Factura PDF</a>
                                             {% elseif sale.arcaInvoiceId %}

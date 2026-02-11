@@ -493,6 +493,24 @@ class SaleController extends AbstractController
         ], sprintf('remito-venta-%d.pdf', $sale->getId()));
     }
 
+
+    #[Route('/{id}/remito/pdf', name: 'remito_pdf', methods: ['GET'])]
+    public function remitoPdf(Sale $sale): Response
+    {
+        $business = $this->requireBusinessContext();
+
+        if ($sale->getBusiness() !== $business) {
+            throw new AccessDeniedException('Solo podés ver tickets de tu comercio.');
+        }
+
+        return $this->pdfService->render('sale/ticket_pdf.html.twig', [
+            'business' => $business,
+            'sale' => $sale,
+            'remitoNumber' => $this->formatRemitoNumber($sale),
+            'generatedAt' => new \DateTimeImmutable(),
+        ], sprintf('remito-venta-%d.pdf', $sale->getId()));
+    }
+
     #[Route('/{id}/arca/pdf', name: 'arca_pdf', methods: ['GET'])]
     public function arcaPdf(Sale $sale): Response
     {
