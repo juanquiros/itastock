@@ -17,9 +17,11 @@
             <div class="card shadow-sm">
                 <div class="card-body">
                     {{ form_start(form, { attr: { enctype: 'multipart/form-data' } }) }}
+                        {{ form_errors(form) }}
                         <div class="mb-3">
                             {{ form_label(form.file) }}
                             {{ form_widget(form.file, { attr: { accept: '.csv,text/csv' } }) }}
+                            {{ form_errors(form.file) }}
                             <div class="form-text">
                                 Requeridas: <code>sku;name;basePrice</code>.<br>
                                 Soportadas: <code>barcode;cost;stockMin;isActive;category;brand;characteristics;ivaRate;targetStock;uomBase;allowsFractionalQty;qtyStep;supplierSku;purchasePrice;searchText</code>.

@@ -245,6 +245,20 @@ class ProductController extends AbstractController
             foreach (($results['fileErrors'] ?? []) as $fileError) {
                 $this->addFlash('danger', $fileError);
             }
+        } elseif ($form->isSubmitted()) {
+            $errors = [];
+            foreach ($form->getErrors(true) as $error) {
+                $errors[] = $error->getMessage();
+            }
+
+            if ($errors === []) {
+                $errors[] = 'No se pudo procesar el archivo. Revisá el formato e intentá nuevamente.';
+            }
+
+            $this->addFlash('danger', 'No se pudo procesar la importación.');
+            foreach (array_unique($errors) as $errorMessage) {
+                $this->addFlash('danger', $errorMessage);
+            }
         }
 
         return $this->render('product/import.html.twig', [
