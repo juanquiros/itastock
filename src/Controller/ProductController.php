@@ -218,8 +218,6 @@ class ProductController extends AbstractController
         $form = $this->createForm(ProductImportType::class);
         $form->handleRequest($request);
 
-        $results = null;
-
         if ($form->isSubmitted() && $form->isValid()) {
             $file = $form->get('file')->getData();
             $dryRun = (bool) $form->get('dryRun')->getData();
@@ -245,7 +243,21 @@ class ProductController extends AbstractController
             foreach (($results['fileErrors'] ?? []) as $fileError) {
                 $this->addFlash('danger', $fileError);
             }
-        } elseif ($form->isSubmitted()) {
+
+            $failedRows = $results['failed'] ?? [];
+            $maxFailuresToShow = 30;
+            foreach (array_slice($failedRows, 0, $maxFailuresToShow) as $fail) {
+                $this->addFlash('danger', sprintf('Línea %d: %s', (int) $fail['line'], (string) $fail['reason']));
+            }
+
+            if (count($failedRows) > $maxFailuresToShow) {
+                $this->addFlash('warning', sprintf('Se omitieron %d errores adicionales. Corregí el archivo y reintentá.', count($failedRows) - $maxFailuresToShow));
+            }
+
+            return $this->redirectToRoute('app_product_import');
+        }
+
+        if ($form->isSubmitted()) {
             $errors = [];
             foreach ($form->getErrors(true) as $error) {
                 $errors[] = $error->getMessage();
@@ -259,11 +271,13 @@ class ProductController extends AbstractController
             foreach (array_unique($errors) as $errorMessage) {
                 $this->addFlash('danger', $errorMessage);
             }
+
+            return $this->redirectToRoute('app_product_import');
         }
 
         return $this->render('product/import.html.twig', [
             'form' => $form,
-            'results' => $results,
+            'results' => null,
         ]);
     }
 

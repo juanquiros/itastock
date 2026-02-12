@@ -16,7 +16,7 @@
         <div class="col-lg-6">
             <div class="card shadow-sm">
                 <div class="card-body">
-                    {{ form_start(form, { attr: { enctype: 'multipart/form-data' } }) }}
+                    {{ form_start(form, { attr: { enctype: 'multipart/form-data', 'data-turbo': 'false' } }) }}
                         {{ form_errors(form) }}
                         <div class="mb-3">
                             {{ form_label(form.file) }}
