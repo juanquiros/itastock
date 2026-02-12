@@ -28,7 +28,7 @@ class ProductCsvImportService
     }
 
     /**
-     * @return array{created:int, updated:int, failed: array<int, array{line:int, reason:string}>}
+     * @return array{created:int, updated:int, failed: array<int, array{line:int, reason:string}>, fileErrors: string[], rowsRead: int}
      */
     public function import(UploadedFile $file, Business $business, User $user, bool $dryRun = false): array
     {
@@ -36,6 +36,8 @@ class ProductCsvImportService
             'created' => 0,
             'updated' => 0,
             'failed' => [],
+            'fileErrors' => [],
+            'rowsRead' => 0,
         ];
 
         $csv = new \SplFileObject($file->getPathname());
@@ -48,6 +50,7 @@ class ProductCsvImportService
         $categoryCache = $this->buildCategoryCache($business);
         $brandCache = $this->buildBrandCache($business);
         $processed = 0;
+        $dataRows = 0;
 
         foreach ($csv as $lineNumber => $row) {
             if ($row === [null] || $row === false) {
@@ -62,6 +65,7 @@ class ProductCsvImportService
                         'line' => 1,
                         'reason' => 'El CSV debe contener las columnas sku;name;basePrice',
                     ];
+                    $results['fileErrors'][] = 'Encabezado inválido o separador incorrecto. Verificá que el archivo use punto y coma (;).';
 
                     break;
                 }
@@ -69,6 +73,7 @@ class ProductCsvImportService
                 continue;
             }
 
+            ++$dataRows;
             $line = $lineNumber + 1;
             $mapped = $this->mapRow($header, $row);
 
@@ -189,6 +194,16 @@ class ProductCsvImportService
 
         if (!$dryRun) {
             $this->entityManager->flush();
+        }
+
+        $results['rowsRead'] = $dataRows;
+
+        if ($dataRows === 0) {
+            $results['fileErrors'][] = 'El archivo no contiene filas de datos para procesar.';
+        }
+
+        if ($dataRows > 0 && $results['created'] === 0 && $results['updated'] === 0 && count($results['failed']) === 0) {
+            $results['fileErrors'][] = 'No se pudieron procesar filas. Revisá columnas requeridas (sku,name,basePrice) y formato de datos.';
         }
 
         return $results;

@@ -234,7 +234,17 @@ class ProductController extends AbstractController
                 $dryRun ? ' (sin aplicar cambios)' : ''
             );
 
-            $this->addFlash('success', $message);
+            if (($results['fileErrors'] ?? []) !== [] || ($results['created'] === 0 && $results['updated'] === 0 && count($results['failed']) > 0)) {
+                $this->addFlash('danger', $message);
+            } elseif (count($results['failed']) > 0) {
+                $this->addFlash('warning', $message);
+            } else {
+                $this->addFlash('success', $message);
+            }
+
+            foreach (($results['fileErrors'] ?? []) as $fileError) {
+                $this->addFlash('danger', $fileError);
+            }
         }
 
         return $this->render('product/import.html.twig', [

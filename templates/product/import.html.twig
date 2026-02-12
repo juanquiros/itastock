@@ -58,6 +58,15 @@
                     </ul>
                     {% if results %}
                         <div class="alert alert-info">Resumen: {{ results.created }} creados, {{ results.updated }} actualizados, {{ results.failed|length }} fallidos.</div>
+                        {% if results.fileErrors is defined and results.fileErrors is not empty %}
+                            <div class="alert alert-danger">
+                                <ul class="mb-0">
+                                    {% for error in results.fileErrors %}
+                                        <li>{{ error }}</li>
+                                    {% endfor %}
+                                </ul>
+                            </div>
+                        {% endif %}
                         {% if results.failed is not empty %}
                             <div class="table-responsive" style="max-height: 280px;">
                                 <table class="table table-sm align-middle">
