@@ -95,16 +95,17 @@ class ProductCsvImportService
                 $product->setBusiness($business);
             }
 
-            if ($mapped['barcode'] !== null) {
-                $barcodeConflict = $this->barcodeConflicts($business, (string) $mapped['barcode'], $product, $barcodeCache);
+            $barcode = $mapped['barcode'] ?? null;
+            if ($barcode !== null) {
+                $barcodeConflict = $this->barcodeConflicts($business, (string) $barcode, $product, $barcodeCache);
                 if ($barcodeConflict) {
                     $results['failed'][] = ['line' => $line, 'reason' => 'barcode ya existe en otro producto del comercio'];
                     continue;
                 }
             }
 
-            $category = $this->resolveCategory($business, $mapped['category'], $categoryCache, $dryRun);
-            $brand = $this->resolveBrand($business, $mapped['brand'], $brandCache, $dryRun);
+            $category = $this->resolveCategory($business, $mapped['category'] ?? null, $categoryCache, $dryRun);
+            $brand = $this->resolveBrand($business, $mapped['brand'] ?? null, $brandCache, $dryRun);
 
             if (!$dryRun) {
                 $product->setSku($sku);
@@ -210,19 +211,19 @@ class ProductCsvImportService
             $values[$name] = $raw !== null ? trim((string) $raw) : null;
         }
 
-        if (!isset($values['sku'], $values['name'], $values['basePrice'])) {
-            return null;
-        }
-
-        if ($values['sku'] === '' || $values['name'] === '' || $values['basePrice'] === '') {
+        if ($values === [] || array_filter($values, static fn (mixed $value): bool => $value !== null && $value !== '') === []) {
             return null;
         }
 
         $mapped = [
-            'sku' => $values['sku'],
-            'name' => $values['name'],
-            'basePrice' => $values['basePrice'],
+            'sku' => $values['sku'] ?? '',
+            'name' => $values['name'] ?? '',
+            'basePrice' => $values['basePrice'] ?? '',
         ];
+
+        if ($mapped['sku'] === '' || $mapped['name'] === '' || $mapped['basePrice'] === '') {
+            $mapped['invalid'] = 'sku, name y basePrice son obligatorios';
+        }
 
         foreach (['barcode', 'cost', 'stockMin', 'ivaRate', 'targetStock', 'uomBase', 'qtyStep', 'supplierSku', 'purchasePrice', 'searchText'] as $field) {
             if (array_key_exists($field, $values)) {
@@ -341,6 +342,7 @@ class ProductCsvImportService
             }
 
             $normalized = strtolower(trim((string) $column));
+            $normalized = preg_replace('/^\xEF\xBB\xBF/u', '', $normalized) ?? $normalized;
             $key = match ($normalized) {
                 'sku' => 'sku',
                 'barcode', 'bar_code' => 'barcode',
