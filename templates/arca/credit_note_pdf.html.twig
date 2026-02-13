@@ -95,7 +95,7 @@
                 <div style="font-size: 10px; color: #666; margin-top: 4px; word-break: break-all;">{{ qrUrl }}</div>
             {% endif %}
         {% else %}
-            <div style="font-size: 11px; color: #777;">QR no disponible</div>
+            <div style="font-size: 11px; color: #777;">{{ creditNote.cae ? 'QR no disponible' : 'QR no disponible: sin CAE' }}</div>
         {% endif %}
     </div>
 

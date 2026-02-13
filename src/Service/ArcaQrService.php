@@ -10,10 +10,15 @@ use Endroid\QrCode\Encoding\Encoding;
 use Endroid\QrCode\ErrorCorrectionLevel;
 use Endroid\QrCode\RoundBlockSizeMode;
 use Endroid\QrCode\Writer\PngWriter;
+use Psr\Log\LoggerInterface;
 
 class ArcaQrService
 {
     private const BASE_URL = 'https://www.afip.gob.ar/fe/qr/';
+
+    public function __construct(private readonly LoggerInterface $logger)
+    {
+    }
 
     public function buildQrUrl(ArcaInvoice|ArcaCreditNote $comprobante, ?BusinessArcaConfig $config): ?string
     {
@@ -24,6 +29,8 @@ class ArcaQrService
         if ($payload === []) {
             return null;
         }
+
+        $this->logQrPayloadForSmokeTest($payload);
 
         $json = json_encode($payload, JSON_UNESCAPED_SLASHES);
         $b64 = base64_encode((string) $json);
@@ -120,6 +127,24 @@ class ArcaQrService
             && $note->getArcaPosNumber() > 0
             && $note->getCbteTipo() !== ''
             && $this->normalizeDigits((string) $config?->getCuitEmisor()) !== '';
+    }
+
+
+    /**
+     * @param array<string, mixed> $payload
+     */
+    private function logQrPayloadForSmokeTest(array $payload): void
+    {
+        $appEnv = strtolower((string) ($_SERVER['APP_ENV'] ?? $_ENV['APP_ENV'] ?? getenv('APP_ENV') ?: ''));
+        if (!in_array($appEnv, ['dev', 'test'], true)) {
+            return;
+        }
+
+        $this->logger->debug('ARCA QR payload smoke', [
+            'has_cuit' => isset($payload['cuit']) && (string) $payload['cuit'] !== '',
+            'has_codAut' => isset($payload['codAut']) && (string) $payload['codAut'] !== '',
+            'payload' => $payload,
+        ]);
     }
 
     private function normalizeDigits(string $value): string
