@@ -251,17 +251,19 @@ class ArcaWsfeService
             ],
         ]);
 
-        return new \SoapClient(null, [
+        $wsdl = $config->getArcaEnvironment() === BusinessArcaConfig::ENV_PROD
+            ? $this->arcaWsfeWsdlProd
+            : $this->arcaWsfeWsdlHomo;
+
+        return new \SoapClient($wsdl, [
             'location' => $this->getWsfeLocations($config)[0],
-            'uri' => self::WSFE_URI,
             'trace' => true,
             'exceptions' => true,
             'soap_version' => SOAP_1_2,
-            'style' => SOAP_DOCUMENT,
-            'use' => SOAP_LITERAL,
             'encoding' => 'UTF-8',
             'connection_timeout' => 30,
             'stream_context' => $streamContext,
+            'cache_wsdl' => WSDL_CACHE_NONE,
         ]);
     }
 
@@ -293,16 +295,10 @@ class ArcaWsfeService
 
             try {
                 if ($method === 'FECAESolicitar') {
-                    $wrapped = new \SoapVar(
-                        $this->normalizeSoapPayload($payload),
-                        SOAP_ENC_OBJECT,
-                        null,
-                        self::WSFE_URI,
-                        $method,
-                        self::WSFE_URI
-                    );
-
-                    $result = $client->__soapCall($method, [new \SoapParam($wrapped, $method)], [
+                    $result = $client->__soapCall($method, [
+                        new \SoapParam($this->normalizeSoapPayload($payload['Auth'] ?? []), 'Auth'),
+                        new \SoapParam($this->normalizeSoapPayload($payload['FeCAEReq'] ?? []), 'FeCAEReq'),
+                    ], [
                         'soapaction' => self::WSFE_URI.$method,
                     ]);
 
