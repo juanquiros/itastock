@@ -64,7 +64,7 @@ class ArcaWsfeService
         ];
 
         $cbteTipo = $this->resolveCbteTipoCode($invoice->getCbteTipo());
-        $last = $client->FECompUltimoAutorizado([
+        $last = $this->callWsfe($client, 'FECompUltimoAutorizado', [
             'Auth' => $auth,
             'PtoVta' => $invoice->getArcaPosNumber(),
             'CbteTipo' => $cbteTipo,
@@ -118,7 +118,7 @@ class ArcaWsfeService
             ],
         ];
 
-        $response = $client->FECAESolicitar($request);
+        $response = $this->callWsfe($client, 'FECAESolicitar', $request);
         $responseArray = json_decode(json_encode($response, JSON_THROW_ON_ERROR), true, 512, JSON_THROW_ON_ERROR);
 
         $detailResponse = $response->FECAESolicitarResult->FeDetResp->FECAEDetResponse ?? null;
@@ -153,7 +153,7 @@ class ArcaWsfeService
         ];
 
         $cbteTipo = $this->resolveCbteTipoCode($note->getCbteTipo());
-        $last = $client->FECompUltimoAutorizado([
+        $last = $this->callWsfe($client, 'FECompUltimoAutorizado', [
             'Auth' => $auth,
             'PtoVta' => $note->getArcaPosNumber(),
             'CbteTipo' => $cbteTipo,
@@ -214,7 +214,7 @@ class ArcaWsfeService
             ],
         ];
 
-        $response = $client->FECAESolicitar($request);
+        $response = $this->callWsfe($client, 'FECAESolicitar', $request);
         $responseArray = json_decode(json_encode($response, JSON_THROW_ON_ERROR), true, 512, JSON_THROW_ON_ERROR);
 
         $detailResponse = $response->FECAESolicitarResult->FeDetResp->FECAEDetResponse ?? null;
@@ -307,6 +307,57 @@ class ArcaWsfeService
         }
 
         throw new \RuntimeException('No se pudo inicializar WSFE ARCA (WSDL y non-WSDL). '.implode(' | ', array_slice($errors, 0, 4)));
+    }
+
+    /**
+     * @param array<string, mixed> $params
+     */
+    private function callWsfe(\SoapClient $client, string $method, array $params): mixed
+    {
+        if (!$this->isNonWsdlClient($client)) {
+            return $client->{$method}($params);
+        }
+
+        return $client->__soapCall(
+            $method,
+            $this->buildNonWsdlArguments($method, $params),
+            ['soapaction' => self::WSFE_URI.$method]
+        );
+    }
+
+    private function isNonWsdlClient(\SoapClient $client): bool
+    {
+        try {
+            $functions = $client->__getFunctions();
+
+            return !is_array($functions) || $functions === [];
+        } catch (\Throwable) {
+            return true;
+        }
+    }
+
+    /**
+     * @param array<string, mixed> $params
+     *
+     * @return array<int, mixed>
+     */
+    private function buildNonWsdlArguments(string $method, array $params): array
+    {
+        return match ($method) {
+            'FECompUltimoAutorizado' => [
+                new \SoapParam($params['Auth'] ?? null, 'Auth'),
+                new \SoapParam($params['PtoVta'] ?? null, 'PtoVta'),
+                new \SoapParam($params['CbteTipo'] ?? null, 'CbteTipo'),
+            ],
+            'FECAESolicitar' => [
+                new \SoapParam($params['Auth'] ?? null, 'Auth'),
+                new \SoapParam($params['FeCAEReq'] ?? null, 'FeCAEReq'),
+            ],
+            'FEParamGetCondicionIvaReceptor' => [
+                new \SoapParam($params['Auth'] ?? null, 'Auth'),
+            ],
+            default => [new \SoapParam($params, 'parameters')],
+        };
     }
 
     private function resolveCbteTipoCode(string $cbteTipo): int
@@ -406,7 +457,7 @@ class ArcaWsfeService
                 'Cuit' => $config->getCuitEmisor(),
             ];
 
-            $response = $client->FEParamGetCondicionIvaReceptor([
+            $response = $this->callWsfe($client, 'FEParamGetCondicionIvaReceptor', [
                 'Auth' => $auth,
             ]);
 
