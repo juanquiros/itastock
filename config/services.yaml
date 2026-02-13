@@ -29,6 +29,16 @@ parameters:
         - 'https://servicios1.afip.gov.ar/wsfev1/service.asmx'
         - 'https://wsfev1.afip.gov.ar/wsfev1/service.asmx'
 
+    arca.soap.timeout: 20
+    arca.soap.connection_timeout: 10
+    arca.soap.user_agent: 'ItaStock/ARCA SOAP'
+    arca.soap.ca_bundle: '%env(default::ARCA_CA_BUNDLE)%'
+
+    arca.wsfe.prod.ssl_ciphers: 'DEFAULT@SECLEVEL=1'
+    arca.wsfe.prod.lower_seclevel_enabled: true
+    arca.wsfe.homo.lower_seclevel_enabled: false
+    arca.wsfe.prod.disable_secondary_host: true
+
 services:
     _defaults:
         autowire: true
@@ -70,15 +80,19 @@ services:
             $wsfeProdWsdls: '%arca.wsfe.prod.wsdls%'
             $wsfeHomoLocations: '%arca.wsfe.homo.locations%'
             $wsfeProdLocations: '%arca.wsfe.prod.locations%'
-            $arcaCaBundle: '%env(default::ARCA_CA_BUNDLE)%'
+            $arcaCaBundle: '%arca.soap.ca_bundle%'
             $wsaaHomoWsdlOverride: '%env(default::ARCA_WSAA_HOMO_WSDL)%'
             $wsaaProdWsdlOverride: '%env(default::ARCA_WSAA_PROD_WSDL)%'
             $wsfeHomoWsdlOverride: '%env(default::ARCA_WSFE_HOMO_WSDL)%'
             $wsfeProdWsdlOverride: '%env(default::ARCA_WSFE_PROD_WSDL)%'
-            $httpTimeout: 30
-            $connectionTimeout: 30
-            $userAgent: 'ItaStock-ARCA-SOAP/1.0'
+            $httpTimeout: '%arca.soap.timeout%'
+            $connectionTimeout: '%arca.soap.connection_timeout%'
+            $userAgent: '%arca.soap.user_agent%'
             $trace: true
+            $wsfeProdSslCiphers: '%arca.wsfe.prod.ssl_ciphers%'
+            $wsfeProdLowerSecLevelEnabled: '%arca.wsfe.prod.lower_seclevel_enabled%'
+            $wsfeHomoLowerSecLevelEnabled: '%arca.wsfe.homo.lower_seclevel_enabled%'
+            $wsfeProdDisableSecondaryHost: '%arca.wsfe.prod.disable_secondary_host%'
 
     App\EventSubscriber\ProductSearchIndexSubscriber:
         tags:

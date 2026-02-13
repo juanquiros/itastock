@@ -38,6 +38,10 @@ class ArcaSoapClientFactory
         private readonly int $connectionTimeout = 30,
         private readonly string $userAgent = 'ItaStock-ARCA-SOAP/1.0',
         private readonly bool $trace = true,
+        private readonly ?string $wsfeProdSslCiphers = null,
+        private readonly bool $wsfeProdLowerSecLevelEnabled = false,
+        private readonly bool $wsfeHomoLowerSecLevelEnabled = false,
+        private readonly bool $wsfeProdDisableSecondaryHost = true,
     ) {
     }
 
@@ -47,7 +51,7 @@ class ArcaSoapClientFactory
 
         return $this->createClientWithFallback(
             $wsdls,
-            $this->buildCommonSoapOptions(),
+            $this->buildSoapOptionsForContext(false, false),
             'WSAA',
             $config
         );
@@ -62,8 +66,10 @@ class ArcaSoapClientFactory
 
     public function createWsfeClientForLocation(BusinessArcaConfig $config, ?string $location, ?string &$usedWsdl = null): \SoapClient
     {
+        $isProd = $config->getArcaEnvironment() === BusinessArcaConfig::ENV_PROD;
+        $isWsfeProd = $isProd;
         $wsdls = $this->getWsfeWsdls($config);
-        $options = $this->buildCommonSoapOptions() + [
+        $options = $this->buildSoapOptionsForContext(true, $isWsfeProd) + [
             'soap_version' => SOAP_1_2,
             'encoding' => 'UTF-8',
             'cache_wsdl' => WSDL_CACHE_NONE,
@@ -83,9 +89,15 @@ class ArcaSoapClientFactory
                 $this->logger->debug('ARCA SOAP: intentando WSDL', [
                     'service' => 'WSFE',
                     'environment' => $config->getArcaEnvironment(),
+                    'seclevel_downgrade' => $this->isWsfeSecLevelDowngradeEnabled($isWsfeProd) ? 'ON' : 'OFF',
                     'wsdl' => $wsdl,
                 ]);
                 $usedWsdl = $wsdl;
+                $this->logger->info('wsfe env={env} seclevel_downgrade={downgrade} wsdl={wsdl}', [
+                    'env' => $config->getArcaEnvironment(),
+                    'downgrade' => $this->isWsfeSecLevelDowngradeEnabled($isWsfeProd) ? 'ON' : 'OFF',
+                    'wsdl' => $wsdl,
+                ]);
 
                 return new \SoapClient($wsdl, $options);
             } catch (\Throwable $exception) {
@@ -116,6 +128,10 @@ class ArcaSoapClientFactory
         $locations = $config->getArcaEnvironment() === BusinessArcaConfig::ENV_PROD
             ? $this->wsfeProdLocations
             : $this->wsfeHomoLocations;
+
+        if ($config->getArcaEnvironment() === BusinessArcaConfig::ENV_PROD && $this->wsfeProdDisableSecondaryHost) {
+            $locations = $this->withoutSecondaryWsfeHost($locations);
+        }
 
         return array_values(array_filter(array_map('trim', $locations), static fn (string $url) => $url !== ''));
     }
@@ -154,38 +170,46 @@ class ArcaSoapClientFactory
     /**
      * @return array<string, mixed>
      */
-    private function buildCommonSoapOptions(): array
+    private function buildSoapOptionsForContext(bool $isWsfe, bool $isWsfeProd): array
     {
-        $streamSsl = [
-            'verify_peer' => true,
-            'verify_peer_name' => true,
-            'SNI_enabled' => true,
-        ];
-
-        $caBundle = trim((string) $this->arcaCaBundle);
-        if ($caBundle !== '' && is_readable($caBundle)) {
-            $streamSsl['cafile'] = $caBundle;
-        } elseif ($caBundle !== '') {
-            $this->logger->warning('ARCA: CA bundle configurado pero no legible.', ['cafile' => $caBundle]);
-        } else {
-            $detected = $this->detectCaBundles();
-            if ($detected !== []) {
-                $streamSsl['cafile'] = $detected[0];
-            }
-        }
-
         return [
             'trace' => $this->trace,
             'exceptions' => true,
             'connection_timeout' => $this->connectionTimeout,
-            'stream_context' => stream_context_create([
-                'ssl' => $streamSsl,
-                'http' => [
-                    'timeout' => $this->httpTimeout,
-                    'user_agent' => $this->userAgent,
-                ],
-            ]),
+            'stream_context' => $this->buildStreamContext($isWsfe && $isWsfeProd),
         ];
+    }
+
+    /**
+     * @return resource
+     */
+    private function buildStreamContext(bool $isWsfeProd)
+    {
+        $ssl = [
+            'verify_peer' => true,
+            'verify_peer_name' => true,
+            'SNI_enabled' => true,
+            'allow_self_signed' => false,
+        ];
+
+        $caBundle = $this->resolveCaBundle();
+        if ($caBundle !== null) {
+            $ssl['cafile'] = $caBundle;
+        }
+
+        if ($this->isWsfeSecLevelDowngradeEnabled($isWsfeProd)) {
+            $ssl['ciphers'] = trim((string) $this->wsfeProdSslCiphers) !== ''
+                ? trim((string) $this->wsfeProdSslCiphers)
+                : 'DEFAULT@SECLEVEL=1';
+        }
+
+        return stream_context_create([
+            'ssl' => $ssl,
+            'http' => [
+                'timeout' => $this->httpTimeout,
+                'user_agent' => $this->userAgent,
+            ],
+        ]);
     }
 
     /**
@@ -203,9 +227,55 @@ class ArcaSoapClientFactory
      */
     private function getWsfeWsdls(BusinessArcaConfig $config): array
     {
-        return $config->getArcaEnvironment() === BusinessArcaConfig::ENV_PROD
+        $wsdls = $config->getArcaEnvironment() === BusinessArcaConfig::ENV_PROD
             ? $this->buildWsdlCandidates($this->wsfeProdWsdls, $this->wsfeProdWsdlOverride)
             : $this->buildWsdlCandidates($this->wsfeHomoWsdls, $this->wsfeHomoWsdlOverride);
+
+        if ($config->getArcaEnvironment() === BusinessArcaConfig::ENV_PROD && $this->wsfeProdDisableSecondaryHost) {
+            return $this->withoutSecondaryWsfeHost($wsdls);
+        }
+
+        return $wsdls;
+    }
+
+    private function resolveCaBundle(): ?string
+    {
+        $caBundle = trim((string) $this->arcaCaBundle);
+        if ($caBundle !== '' && is_readable($caBundle)) {
+            return $caBundle;
+        }
+
+        if ($caBundle !== '') {
+            $this->logger->warning('ARCA: CA bundle configurado pero no legible.', ['cafile' => $caBundle]);
+
+            return null;
+        }
+
+        $detected = $this->detectCaBundles();
+
+        return $detected[0] ?? null;
+    }
+
+    private function isWsfeSecLevelDowngradeEnabled(bool $isWsfeProd): bool
+    {
+        if ($isWsfeProd) {
+            return $this->wsfeProdLowerSecLevelEnabled;
+        }
+
+        return $this->wsfeHomoLowerSecLevelEnabled;
+    }
+
+    /**
+     * @param array<int, string> $urls
+     * @return array<int, string>
+     */
+    private function withoutSecondaryWsfeHost(array $urls): array
+    {
+        return array_values(array_filter($urls, static function (string $url): bool {
+            $host = strtolower((string) parse_url($url, PHP_URL_HOST));
+
+            return $host !== 'wsfev1.afip.gov.ar';
+        }));
     }
 
     /**
