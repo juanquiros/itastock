@@ -306,6 +306,8 @@ class ArcaWsfeService
                 'location' => $location,
                 'uri' => self::WSFE_URI,
                 'soap_version' => SOAP_1_2,
+                'style' => SOAP_DOCUMENT,
+                'use' => SOAP_LITERAL,
                 'cache_wsdl' => WSDL_CACHE_NONE,
             ]);
         } catch (\Throwable $fallbackException) {
@@ -320,28 +322,21 @@ class ArcaWsfeService
      */
     private function callWsfe(\SoapClient $client, string $method, array $payload): mixed
     {
-        if ($method === 'FECAESolicitar') {
-            $wrappedPayload = new \SoapVar(
-                $payload,
-                SOAP_ENC_OBJECT,
-                null,
-                null,
-                $method,
-                self::WSFE_URI
-            );
+        if (!$this->isNonWsdlClient($client)) {
+            return $client->{$method}($payload);
+        }
 
+        if ($method === 'FECAESolicitar') {
             return $client->__soapCall(
                 $method,
-                [$wrappedPayload],
+                [$this->normalizeSoapPayload($payload)],
                 [
                     'soapaction' => self::WSFE_URI.$method,
                     'uri' => self::WSFE_URI,
+                    'style' => SOAP_DOCUMENT,
+                    'use' => SOAP_LITERAL,
                 ]
             );
-        }
-
-        if (!$this->isNonWsdlClient($client)) {
-            return $client->{$method}($payload);
         }
 
         return $client->__soapCall(
@@ -360,6 +355,27 @@ class ArcaWsfeService
         } catch (\Throwable) {
             return true;
         }
+    }
+
+    /**
+     * @param mixed $value
+     */
+    private function normalizeSoapPayload(mixed $value): mixed
+    {
+        if (!is_array($value)) {
+            return $value;
+        }
+
+        if (array_is_list($value)) {
+            return array_map(fn (mixed $item) => $this->normalizeSoapPayload($item), $value);
+        }
+
+        $object = new \stdClass();
+        foreach ($value as $key => $item) {
+            $object->{$key} = $this->normalizeSoapPayload($item);
+        }
+
+        return $object;
     }
 
     /**
