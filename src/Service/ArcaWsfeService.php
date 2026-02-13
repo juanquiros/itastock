@@ -10,6 +10,25 @@ use DateTimeImmutable;
 class ArcaWsfeService
 {
     /**
+     * Fallback local para entornos donde el catálogo WSFE no responde (ej. intermitencia en prod ARCA).
+     *
+     * @var array<int, string>
+     */
+    private const FALLBACK_CONDICION_IVA_RECEPTOR_OPTIONS = [
+        1 => 'IVA Responsable Inscripto',
+        4 => 'IVA Sujeto Exento',
+        5 => 'Consumidor Final',
+        6 => 'Responsable Monotributo',
+        7 => 'Sujeto no Categorizado',
+        8 => 'Proveedor del Exterior',
+        9 => 'Cliente del Exterior',
+        10 => 'IVA Liberado - Ley N° 19.640',
+        13 => 'Monotributista Social',
+        15 => 'IVA No Alcanzado',
+        16 => 'Monotributo Trabajador Independiente Promovido',
+    ];
+
+    /**
      * @var array<int, array<int, string>>
      */
     private array $condicionIvaReceptorOptions = [];
@@ -350,13 +369,32 @@ class ArcaWsfeService
                 }
             }
         } catch (\Throwable $exception) {
-            $this->condicionIvaReceptorErrors[$businessId] = $exception->getMessage();
-            $options = [];
+            $fallback = $this->getFallbackCondicionIvaReceptorOptions();
+            if ($fallback !== []) {
+                $options = $fallback;
+                $this->condicionIvaReceptorErrors[$businessId] = '';
+                error_log(sprintf('[ARCA] FEParamGetCondicionIvaReceptor falló y se aplicó fallback local. business=%d env=%s error=%s',
+                    $businessId,
+                    $config->getArcaEnvironment(),
+                    $exception->getMessage()
+                ));
+            } else {
+                $this->condicionIvaReceptorErrors[$businessId] = $exception->getMessage();
+                $options = [];
+            }
         }
 
         $this->condicionIvaReceptorOptions[$businessId] = $options;
 
         return $options;
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function getFallbackCondicionIvaReceptorOptions(): array
+    {
+        return self::FALLBACK_CONDICION_IVA_RECEPTOR_OPTIONS;
     }
 
     public function getCondicionIvaReceptorError(BusinessArcaConfig $config): ?string
