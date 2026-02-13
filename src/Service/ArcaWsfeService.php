@@ -291,16 +291,28 @@ class ArcaWsfeService
 
             try {
                 if ($method === 'FECAESolicitar') {
-                    $wrapped = new \SoapVar(
-                        $this->normalizeSoapPayload($payload),
+                    $auth = new \SoapVar(
+                        $this->normalizeSoapPayload($payload['Auth'] ?? []),
                         SOAP_ENC_OBJECT,
                         null,
                         self::WSFE_URI,
-                        $method,
+                        'Auth',
                         self::WSFE_URI
                     );
 
-                    $result = $client->__soapCall($method, [new \SoapParam($wrapped, $method)], [
+                    $feCaeReq = new \SoapVar(
+                        $this->normalizeSoapPayload($payload['FeCAEReq'] ?? []),
+                        SOAP_ENC_OBJECT,
+                        null,
+                        self::WSFE_URI,
+                        'FeCAEReq',
+                        self::WSFE_URI
+                    );
+
+                    $result = $client->__soapCall($method, [
+                        new \SoapParam($auth, 'Auth'),
+                        new \SoapParam($feCaeReq, 'FeCAEReq'),
+                    ], [
                         'soapaction' => self::WSFE_URI.$method,
                     ]);
 
