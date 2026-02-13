@@ -1,11 +1,5 @@
 # yaml-language-server: $schema=../vendor/symfony/dependency-injection/Loader/schema/services.schema.json
 
-# This file is the entry point to configure your own services.
-# Files in the packages/ subdirectory configure your dependencies.
-# See also https://symfony.com/doc/current/service_container/import.html
-
-# Put parameters here that don't need to change on each machine where the app is deployed
-# https://symfony.com/doc/current/best_practices.html#use-parameters-for-application-configuration
 parameters:
     app.trial_duration_days: 30
     app.mercadopago.access_token: '%env(MERCADOPAGO_ACCESS_TOKEN)%'
@@ -18,16 +12,27 @@ parameters:
     app.emails.enabled: '%env(bool:APP_EMAILS_ENABLED)%'
     app.recaptcha.site_key: '%env(RECAPTCHA_SITE_KEY)%'
     app.recaptcha.secret_key: '%env(RECAPTCHA_SECRET_KEY)%'
-    arca.wsaa.homo.wsdl: 'https://wsaahomo.afip.gov.ar/ws/services/LoginCms?wsdl'
-    arca.wsaa.prod.wsdl: 'https://wsaa.afip.gov.ar/ws/services/LoginCms?wsdl'
-    arca.wsfe.homo.wsdl: 'https://wswhomo.afip.gov.ar/wsfev1/service.asmx?wsdl'
-    arca.wsfe.prod.wsdl: 'https://wsfev1.afip.gov.ar/wsfev1/service.asmx?wsdl'
+
+    arca.wsaa.homo.wsdls:
+        - 'https://wsaahomo.afip.gov.ar/ws/services/LoginCms?WSDL'
+    arca.wsaa.prod.wsdls:
+        - 'https://wsaa.afip.gov.ar/ws/services/LoginCms?WSDL'
+    arca.wsfe.homo.wsdls:
+        - 'https://wswhomo.afip.gov.ar/wsfev1/service.asmx?WSDL'
+    arca.wsfe.prod.wsdls:
+        - 'https://servicios1.afip.gov.ar/wsfev1/service.asmx?WSDL'
+        - 'https://wsfev1.afip.gov.ar/wsfev1/service.asmx?WSDL'
+
+    arca.wsfe.homo.locations:
+        - 'https://wswhomo.afip.gov.ar/wsfev1/service.asmx'
+    arca.wsfe.prod.locations:
+        - 'https://servicios1.afip.gov.ar/wsfev1/service.asmx'
+        - 'https://wsfev1.afip.gov.ar/wsfev1/service.asmx'
 
 services:
-    # default configuration for services in *this* file
     _defaults:
-        autowire: true      # Automatically injects dependencies in your services.
-        autoconfigure: true # Automatically registers your services as commands, event subscribers, etc.
+        autowire: true
+        autoconfigure: true
         bind:
             $environment: '%kernel.environment%'
             $trialDurationDays: '%app.trial_duration_days%'
@@ -38,13 +43,7 @@ services:
             $emailsEnabled: '%app.emails.enabled%'
             $recaptchaSiteKey: '%app.recaptcha.site_key%'
             $recaptchaSecretKey: '%app.recaptcha.secret_key%'
-            $arcaWsaaWsdlHomo: '%arca.wsaa.homo.wsdl%'
-            $arcaWsaaWsdlProd: '%arca.wsaa.prod.wsdl%'
-            $arcaWsfeWsdlHomo: '%arca.wsfe.homo.wsdl%'
-            $arcaWsfeWsdlProd: '%arca.wsfe.prod.wsdl%'
 
-    # makes classes in src/ available to be used as services
-    # this creates a service per class whose id is the fully-qualified class name
     App\:
         resource: '../src/'
         exclude:
@@ -63,9 +62,23 @@ services:
             $mode: '%app.mercadopago.mode%'
             $webhookSecret: '%app.mercadopago.webhook_secret%'
 
-    # add more service definitions when explicit configuration is needed
-    # please note that last definitions always *replace* previous ones
-
+    App\Service\ArcaSoapClientFactory:
+        arguments:
+            $wsaaHomoWsdls: '%arca.wsaa.homo.wsdls%'
+            $wsaaProdWsdls: '%arca.wsaa.prod.wsdls%'
+            $wsfeHomoWsdls: '%arca.wsfe.homo.wsdls%'
+            $wsfeProdWsdls: '%arca.wsfe.prod.wsdls%'
+            $wsfeHomoLocations: '%arca.wsfe.homo.locations%'
+            $wsfeProdLocations: '%arca.wsfe.prod.locations%'
+            $arcaCaBundle: '%env(default::ARCA_CA_BUNDLE)%'
+            $wsaaHomoWsdlOverride: '%env(default::ARCA_WSAA_HOMO_WSDL)%'
+            $wsaaProdWsdlOverride: '%env(default::ARCA_WSAA_PROD_WSDL)%'
+            $wsfeHomoWsdlOverride: '%env(default::ARCA_WSFE_HOMO_WSDL)%'
+            $wsfeProdWsdlOverride: '%env(default::ARCA_WSFE_PROD_WSDL)%'
+            $httpTimeout: 30
+            $connectionTimeout: 30
+            $userAgent: 'ItaStock-ARCA-SOAP/1.0'
+            $trace: true
 
     App\EventSubscriber\ProductSearchIndexSubscriber:
         tags:

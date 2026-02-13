@@ -9,6 +9,7 @@ use App\Repository\ArcaTokenCacheRepository;
 use DateInterval;
 use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
+use Psr\Log\LoggerInterface;
 
 class ArcaWsaaService
 {
@@ -16,8 +17,8 @@ class ArcaWsaaService
         private readonly ArcaTokenCacheRepository $tokenCacheRepository,
         private readonly EntityManagerInterface $entityManager,
         private readonly ArcaPemNormalizer $pemNormalizer,
-        private readonly string $arcaWsaaWsdlHomo,
-        private readonly string $arcaWsaaWsdlProd,
+        private readonly ArcaSoapClientFactory $soapClientFactory,
+        private readonly LoggerInterface $logger,
     ) {
     }
 
@@ -46,18 +47,21 @@ class ArcaWsaaService
             ];
         }
 
-        $wsdl = $environment === BusinessArcaConfig::ENV_PROD ? $this->arcaWsaaWsdlProd : $this->arcaWsaaWsdlHomo;
-        if ($wsdl === '') {
-            throw new \RuntimeException('WSDL de WSAA no configurado.');
-        }
-
         $tra = $this->buildTra($service);
         $cms = $this->signTra($tra, $config);
 
-        $client = new \SoapClient($wsdl, [
-            'trace' => 1,
-            'exceptions' => true,
-        ]);
+        try {
+            $client = $this->soapClientFactory->createWsaaClient($config);
+        } catch (\Throwable $exception) {
+            $this->logger->error('WSAA: no se pudo inicializar cliente SOAP.', [
+                'businessId' => $business->getId(),
+                'environment' => $environment,
+                'service' => $service,
+                'error' => $exception->getMessage(),
+            ]);
+
+            throw new \RuntimeException('No se pudo conectar con WSAA para obtener Token/Sign.', 0, $exception);
+        }
 
         $response = $client->loginCms(['in0' => $cms]);
         $responseXml = new \SimpleXMLElement($response->loginCmsReturn ?? '');
