@@ -60,7 +60,7 @@ class ArcaQrService
             'tipoDocRec' => 99,
             'nroDocRec' => 0,
             'tipoCodAut' => 'E',
-            'codAut' => $this->normalizeDigits((string) $invoice->getCae()),
+            'codAut' => $this->normalizeCaeAsInt((string) $invoice->getCae()),
         ];
 
         $this->appendReceiverDocument($payload, $invoice->getReceiverCustomer() ?? $invoice->getSale()?->getCustomer());
@@ -89,7 +89,7 @@ class ArcaQrService
             'tipoDocRec' => 99,
             'nroDocRec' => 0,
             'tipoCodAut' => 'E',
-            'codAut' => $this->normalizeDigits((string) $note->getCae()),
+            'codAut' => $this->normalizeCaeAsInt((string) $note->getCae()),
         ];
 
         $this->appendReceiverDocument($payload, $sale?->getCustomer());
@@ -115,6 +115,7 @@ class ArcaQrService
     private function canBuildInvoicePayload(ArcaInvoice $invoice, ?BusinessArcaConfig $config): bool
     {
         return $invoice->getCae() !== null
+            && strlen($this->normalizeDigits((string) $invoice->getCae())) === 14
             && $invoice->getIssuedAt() !== null
             && $invoice->getCbteNumero() !== null
             && $invoice->getArcaPosNumber() > 0
@@ -125,6 +126,7 @@ class ArcaQrService
     private function canBuildCreditNotePayload(ArcaCreditNote $note, ?BusinessArcaConfig $config): bool
     {
         return $note->getCae() !== null
+            && strlen($this->normalizeDigits((string) $note->getCae())) === 14
             && $note->getIssuedAt() !== null
             && $note->getCbteNumero() !== null
             && $note->getArcaPosNumber() > 0
@@ -146,6 +148,7 @@ class ArcaQrService
         $this->logger->debug('ARCA QR payload smoke', [
             'has_cuit' => isset($payload['cuit']) && (string) $payload['cuit'] !== '',
             'has_codAut' => isset($payload['codAut']) && (string) $payload['codAut'] !== '',
+            'codAut_is_int_14_digits' => isset($payload['codAut']) && is_int($payload['codAut']) && preg_match('/^\d{14}$/', (string) $payload['codAut']) === 1,
             'payload' => $payload,
         ]);
     }
@@ -182,8 +185,18 @@ class ArcaQrService
         $this->logger->debug('ARCA QR URL decoded payload', [
             'json' => $decodedPayload,
             'cuit_is_numeric' => isset($decodedPayload['cuit']) && is_int($decodedPayload['cuit']),
-            'codAut_digits_only' => isset($decodedPayload['codAut']) && preg_match('/^\d+$/', (string) $decodedPayload['codAut']) === 1,
+            'codAut_is_int_14_digits' => isset($decodedPayload['codAut']) && is_int($decodedPayload['codAut']) && preg_match('/^\d{14}$/', (string) $decodedPayload['codAut']) === 1,
         ]);
+    }
+
+    private function normalizeCaeAsInt(string $cae): int
+    {
+        $digits = $this->normalizeDigits($cae);
+        if (strlen($digits) !== 14) {
+            return 0;
+        }
+
+        return (int) $digits;
     }
 
     private function normalizeDigits(string $value): string
