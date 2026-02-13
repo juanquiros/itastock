@@ -42,7 +42,9 @@ class ProductCsvImportService
 
         $csv = new \SplFileObject($file->getPathname());
         $csv->setFlags(\SplFileObject::READ_CSV | \SplFileObject::SKIP_EMPTY | \SplFileObject::DROP_NEW_LINE);
-        $csv->setCsvControl(';');
+
+        $delimiter = $this->detectCsvDelimiter($file->getPathname());
+        $csv->setCsvControl($delimiter);
 
         $header = null;
         $productCache = [];
@@ -66,7 +68,7 @@ class ProductCsvImportService
                         'line' => 1,
                         'reason' => 'El CSV debe contener las columnas sku;name;basePrice',
                     ];
-                    $results['fileErrors'][] = 'Encabezado inválido o separador incorrecto. Verificá que el archivo use punto y coma (;).';
+                    $results['fileErrors'][] = 'Encabezado inválido o separador incorrecto. Verificá columnas requeridas y delimitador (se acepta ; o ,).';
 
                     break;
                 }
@@ -570,6 +572,72 @@ class ProductCsvImportService
         return $used;
     }
 
+    private function detectCsvDelimiter(string $pathname): string
+    {
+        $file = new \SplFileObject($pathname, 'r');
+
+        while (!$file->eof()) {
+            $line = trim((string) $file->fgets());
+            if ($line === '') {
+                continue;
+            }
+
+            $line = preg_replace('/^ï»¿/u', '', $line) ?? $line;
+            $commaCount = substr_count($line, ',');
+            $semicolonCount = substr_count($line, ';');
+
+            if ($commaCount > $semicolonCount) {
+                return ',';
+            }
+
+            return ';';
+        }
+
+        return ';';
+    }
+
+    /**
+     * @return array<mixed>|null
+     */
+    private function decodeCharacteristicsJson(string $value): ?array
+    {
+        $candidates = [$value];
+
+        $trimmedQuotes = trim($value, "\"'");
+        if ($trimmedQuotes !== $value) {
+            $candidates[] = $trimmedQuotes;
+        }
+
+        if (str_contains($value, '""')) {
+            $candidates[] = str_replace('""', '"', $value);
+            $candidates[] = str_replace('""', '"', $trimmedQuotes);
+        }
+
+        $stripped = stripcslashes($trimmedQuotes);
+        if ($stripped !== $trimmedQuotes) {
+            $candidates[] = $stripped;
+        }
+
+        foreach (array_unique($candidates) as $candidate) {
+            $candidate = trim((string) $candidate);
+            if ($candidate === '' || !str_starts_with($candidate, '{')) {
+                continue;
+            }
+
+            try {
+                $decoded = json_decode($candidate, true, 512, JSON_THROW_ON_ERROR);
+            } catch (\JsonException) {
+                continue;
+            }
+
+            if (is_array($decoded)) {
+                return $decoded;
+            }
+        }
+
+        return null;
+    }
+
     private function normalizeLookup(string $value): string
     {
         $normalized = mb_strtolower(trim($value));
@@ -620,13 +688,9 @@ class ProductCsvImportService
         }
 
         $value = trim($raw);
-        if (str_starts_with($value, '{')) {
-            try {
-                $decoded = json_decode($value, true, 512, JSON_THROW_ON_ERROR);
-            } catch (\JsonException) {
-                return 'characteristics JSON inválido';
-            }
 
+        $decoded = $this->decodeCharacteristicsJson($value);
+        if ($decoded !== null) {
             if (!is_array($decoded)) {
                 return 'characteristics JSON debe ser un objeto';
             }
@@ -651,6 +715,10 @@ class ProductCsvImportService
             }
 
             return $normalized !== [] ? $normalized : null;
+        }
+
+        if (str_contains($value, '{') || str_contains($value, '}')) {
+            return 'characteristics JSON inválido';
         }
 
         $normalized = [];
