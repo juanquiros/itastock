@@ -101,7 +101,7 @@ class ArcaWsfeService
         $ivaItems = $this->buildIvaItems($invoice);
         if ($ivaItems) {
             $detail['Iva'] = [
-                'AlicIva' => $ivaItems,
+                'AlicIva' => count($ivaItems) === 1 ? $ivaItems[0] : $ivaItems,
             ];
         }
 
@@ -114,7 +114,7 @@ class ArcaWsfeService
                     'CbteTipo' => $cbteTipo,
                 ],
                 'FeDetReq' => [
-                    'FECAEDetRequest' => [$detail],
+                    'FECAEDetRequest' => $detail,
                 ],
             ],
         ];
@@ -200,7 +200,7 @@ class ArcaWsfeService
         $ivaItems = $this->buildIvaItemsFromSnapshot($note->getItemsSnapshot(), $note->getVatAmount());
         if ($ivaItems) {
             $detail['Iva'] = [
-                'AlicIva' => $ivaItems,
+                'AlicIva' => count($ivaItems) === 1 ? $ivaItems[0] : $ivaItems,
             ];
         }
 
@@ -213,7 +213,7 @@ class ArcaWsfeService
                     'CbteTipo' => $cbteTipo,
                 ],
                 'FeDetReq' => [
-                    'FECAEDetRequest' => [$detail],
+                    'FECAEDetRequest' => $detail,
                 ],
             ],
         ];
