@@ -49,6 +49,7 @@ class ProductCsvImportService
         $barcodeCache = [];
         $categoryCache = $this->buildCategoryCache($business);
         $brandCache = $this->buildBrandCache($business);
+        $usedBrandSlugs = $this->buildBrandSlugCache($business, $brandCache);
         $processed = 0;
         $dataRows = 0;
 
@@ -110,7 +111,7 @@ class ProductCsvImportService
             }
 
             $category = $this->resolveCategory($business, $mapped['category'] ?? null, $categoryCache, $dryRun);
-            $brand = $this->resolveBrand($business, $mapped['brand'] ?? null, $brandCache, $dryRun);
+            $brand = $this->resolveBrand($business, $mapped['brand'] ?? null, $brandCache, $usedBrandSlugs, $dryRun);
 
             if (!$dryRun) {
                 $product->setSku($sku);
@@ -329,6 +330,14 @@ class ProductCsvImportService
             $row['ivaRate'] = number_format((float) $row['ivaRate'], 2, '.', '');
         }
 
+        if (array_key_exists('category', $row) && $row['category'] !== null && mb_strlen((string) $row['category']) > 120) {
+            return 'category supera el máximo de 120 caracteres';
+        }
+
+        if (array_key_exists('brand', $row) && $row['brand'] !== null && mb_strlen((string) $row['brand']) > 150) {
+            return 'brand supera el máximo de 150 caracteres';
+        }
+
         return null;
     }
 
@@ -482,8 +491,9 @@ class ProductCsvImportService
 
     /**
      * @param array<string, Brand> $brandCache
+     * @param array<string, true> $usedBrandSlugs
      */
-    private function resolveBrand(Business $business, ?string $name, array &$brandCache, bool $dryRun): ?Brand
+    private function resolveBrand(Business $business, ?string $name, array &$brandCache, array &$usedBrandSlugs, bool $dryRun): ?Brand
     {
         if ($name === null || trim($name) === '') {
             return null;
@@ -503,7 +513,7 @@ class ProductCsvImportService
         $brand = new Brand();
         $brand->setBusiness($business);
         $brand->setName($name);
-        $brand->setSlug($this->buildUniqueBrandSlug($business, $name));
+        $brand->setSlug($this->buildUniqueBrandSlug($name, $usedBrandSlugs));
 
         $this->entityManager->persist($brand);
         $brandCache[$key] = $brand;
@@ -511,7 +521,10 @@ class ProductCsvImportService
         return $brand;
     }
 
-    private function buildUniqueBrandSlug(Business $business, string $name): string
+    /**
+     * @param array<string, true> $usedBrandSlugs
+     */
+    private function buildUniqueBrandSlug(string $name, array &$usedBrandSlugs): string
     {
         $base = strtolower($this->slugger->slug($name)->toString());
         if ($base === '') {
@@ -521,12 +534,40 @@ class ProductCsvImportService
         $slug = $base;
         $suffix = 2;
 
-        while ($this->brandRepository->findOneBy(['business' => $business, 'slug' => $slug]) instanceof Brand) {
+        while (isset($usedBrandSlugs[$slug])) {
             $slug = sprintf('%s-%d', $base, $suffix);
             ++$suffix;
         }
 
+        $usedBrandSlugs[$slug] = true;
+
         return $slug;
+    }
+
+    /**
+     * @param array<string, Brand> $brandCache
+     *
+     * @return array<string, true>
+     */
+    private function buildBrandSlugCache(Business $business, array $brandCache): array
+    {
+        $used = [];
+
+        foreach ($this->brandRepository->findBy(['business' => $business]) as $brand) {
+            $slug = strtolower(trim((string) $brand->getSlug()));
+            if ($slug !== '') {
+                $used[$slug] = true;
+            }
+        }
+
+        foreach ($brandCache as $brand) {
+            $slug = strtolower(trim((string) $brand->getSlug()));
+            if ($slug !== '') {
+                $used[$slug] = true;
+            }
+        }
+
+        return $used;
     }
 
     private function normalizeLookup(string $value): string
