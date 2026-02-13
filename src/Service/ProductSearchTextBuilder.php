@@ -12,6 +12,7 @@ class ProductSearchTextBuilder
             $product->getName(),
             $product->getSku(),
             $product->getBarcode(),
+            $product->getCategory()?->getName(),
             $product->getBrand()?->getName(),
             $product->getCatalogProduct()?->getPresentation(),
             $product->getCatalogProduct()?->getName(),

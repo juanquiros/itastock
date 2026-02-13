@@ -16,19 +16,25 @@
         <div class="col-lg-6">
             <div class="card shadow-sm">
                 <div class="card-body">
-                    {{ form_start(form, { attr: { enctype: 'multipart/form-data' } }) }}
+                    {{ form_start(form, { attr: { enctype: 'multipart/form-data', 'data-turbo': 'false' } }) }}
+                        {{ form_errors(form) }}
                         <div class="mb-3">
                             {{ form_label(form.file) }}
                             {{ form_widget(form.file, { attr: { accept: '.csv,text/csv' } }) }}
-                            <div class="form-text">Columnas requeridas: <code>sku;name;basePrice</code>. Opcionales: <code>barcode;cost;stockMin;isActive</code> (0/1 o true/false).</div>
+                            {{ form_errors(form.file) }}
+                            <div class="form-text">
+                                Requeridas: <code>sku;name;basePrice</code>.<br>
+                                Soportadas: <code>barcode;cost;stockMin;isActive;category;brand;characteristics;ivaRate;targetStock;uomBase;allowsFractionalQty;qtyStep;supplierSku;purchasePrice;searchText</code>.
+                            </div>
                         </div>
                         <div class="form-check mb-3">
                             {{ form_widget(form.dryRun, { attr: { class: 'form-check-input' } }) }}
                             {{ form_label(form.dryRun, null, { label_attr: { class: 'form-check-label' } }) }}
                         </div>
-                        <div class="d-flex gap-2">
+                        <div class="d-flex flex-wrap gap-2">
                             <button class="btn btn-primary" type="submit">Procesar CSV</button>
-                            <a class="btn btn-outline-secondary" href="{{ path('app_product_export') }}">Descargar plantilla</a>
+                            <a class="btn btn-outline-secondary" href="{{ path('app_product_import_template') }}">Descargar plantilla CSV</a>
+                            <a class="btn btn-outline-secondary" href="{{ path('app_product_export') }}">Exportar catálogo actual</a>
                         </div>
                     {{ form_end(form) }}
                 </div>
@@ -40,13 +46,29 @@
                     <h2 class="h6 text-uppercase text-muted mb-3">Formato esperado</h2>
                     <ul class="mb-4">
                         <li>Separador <strong>;</strong> (punto y coma).</li>
-                        <li><code>basePrice</code> y <code>cost</code> en decimal con punto.</li>
-                        <li><code>stockMin</code> número ≥ 0 (hasta 3 decimales).</li>
-                        <li><code>isActive</code>: 1/0 o true/false. Si se omite, no cambia el estado.</li>
-                        <li>Los productos se buscan por <strong>sku</strong>. Si no existe, se crea.</li>
+                        <li>Upsert por <strong>sku</strong>: si existe, actualiza; si no, crea.</li>
+                        <li><code>category</code> y <code>brand</code> se autogeneran si no existen (excepto en dryRun).</li>
+                        <li><code>characteristics</code> acepta JSON o formato <code>key=value|key2=value2</code>.</li>
+                        <li><code>isActive</code> y <code>allowsFractionalQty</code>: 1/0 o true/false.</li>
+                        <li>Columnas desconocidas se ignoran para mantener compatibilidad hacia atrás.</li>
+                    </ul>
+
+                    <h3 class="h6 mb-2">Ejemplos de <code>characteristics</code></h3>
+                    <ul class="small mb-4">
+                        <li>JSON: <code>{"marca_vehiculo":"Peugeot","modelo_vehiculo":"208","lado":"Der-Izq"}</code></li>
+                        <li>Key=Value: <code>marca_vehiculo=Peugeot|modelo_vehiculo=208|lado=Der-Izq</code></li>
                     </ul>
                     {% if results %}
                         <div class="alert alert-info">Resumen: {{ results.created }} creados, {{ results.updated }} actualizados, {{ results.failed|length }} fallidos.</div>
+                        {% if results.fileErrors is defined and results.fileErrors is not empty %}
+                            <div class="alert alert-danger">
+                                <ul class="mb-0">
+                                    {% for error in results.fileErrors %}
+                                        <li>{{ error }}</li>
+                                    {% endfor %}
+                                </ul>
+                            </div>
+                        {% endif %}
                         {% if results.failed is not empty %}
                             <div class="table-responsive" style="max-height: 280px;">
                                 <table class="table table-sm align-middle">

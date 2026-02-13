@@ -99,9 +99,32 @@ class ProductController extends AbstractController
         $response = new StreamedResponse();
         $response->setCallback(static function () use ($products): void {
             $handle = fopen('php://output', 'w');
-            fputcsv($handle, ['sku', 'barcode', 'name', 'cost', 'basePrice', 'stockMin', 'isActive'], ';');
+            fputcsv($handle, [
+                'sku',
+                'barcode',
+                'name',
+                'cost',
+                'basePrice',
+                'stockMin',
+                'stock',
+                'isActive',
+                'category',
+                'brand',
+                'characteristics',
+                'ivaRate',
+                'targetStock',
+                'uomBase',
+                'allowsFractionalQty',
+                'qtyStep',
+                'supplierSku',
+                'purchasePrice',
+                'searchText',
+            ], ';');
 
             foreach ($products as $product) {
+                $characteristics = $product->getCharacteristics();
+                ksort($characteristics);
+
                 fputcsv($handle, [
                     $product->getSku(),
                     $product->getBarcode(),
@@ -109,7 +132,19 @@ class ProductController extends AbstractController
                     number_format((float) $product->getCost(), 2, '.', ''),
                     number_format((float) $product->getBasePrice(), 2, '.', ''),
                     number_format((float) $product->getStockMin(), 3, '.', ''),
+                    number_format((float) $product->getStock(), 3, '.', ''),
                     $product->isActive() ? '1' : '0',
+                    $product->getCategory()?->getName(),
+                    $product->getBrand()?->getName(),
+                    $characteristics !== [] ? json_encode($characteristics, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) : null,
+                    $product->getIvaRate(),
+                    $product->getTargetStock(),
+                    $product->getUomBase(),
+                    $product->allowsFractionalQty() ? '1' : '0',
+                    $product->getQtyStep(),
+                    $product->getSupplierSku(),
+                    $product->getPurchasePrice(),
+                    $product->getSearchText(),
                 ], ';');
             }
 
@@ -122,14 +157,66 @@ class ProductController extends AbstractController
         return $response;
     }
 
+
+    #[Route('/import-template.csv', name: 'import_template', methods: ['GET'])]
+    public function importTemplate(): Response
+    {
+        $response = new StreamedResponse();
+        $response->setCallback(static function (): void {
+            $handle = fopen('php://output', 'w');
+            fputcsv($handle, [
+                'sku',
+                'barcode',
+                'name',
+                'cost',
+                'basePrice',
+                'stockMin',
+                'isActive',
+                'category',
+                'brand',
+                'characteristics',
+                'ivaRate',
+                'targetStock',
+                'uomBase',
+                'allowsFractionalQty',
+                'qtyStep',
+                'supplierSku',
+                'purchasePrice',
+            ], ';');
+            fputcsv($handle, [
+                'REP-0001',
+                '7791234567890',
+                'Amortiguador delantero',
+                '8500.00',
+                '12500.00',
+                '2.000',
+                '1',
+                'Suspensión',
+                'Monroe',
+                '{"lado":"Der-Izq","modelo_vehiculo":"208"}',
+                '21.00',
+                '5.000',
+                'UNIT',
+                '0',
+                '',
+                '',
+                '',
+            ], ';');
+            fclose($handle);
+        });
+
+        $response->headers->set('Content-Type', 'text/csv; charset=utf-8');
+        $response->headers->set('Content-Disposition', 'attachment; filename="products_import_template.csv"');
+
+        return $response;
+    }
+
     #[Route('/import', name: 'import', methods: ['GET', 'POST'])]
     public function import(Request $request, ProductCsvImportService $importService): Response
     {
         $business = $this->requireBusinessContext();
         $form = $this->createForm(ProductImportType::class);
         $form->handleRequest($request);
-
-        $results = null;
 
         if ($form->isSubmitted() && $form->isValid()) {
             $file = $form->get('file')->getData();
@@ -145,12 +232,52 @@ class ProductController extends AbstractController
                 $dryRun ? ' (sin aplicar cambios)' : ''
             );
 
-            $this->addFlash('success', $message);
+            if (($results['fileErrors'] ?? []) !== [] || ($results['created'] === 0 && $results['updated'] === 0 && count($results['failed']) > 0)) {
+                $this->addFlash('danger', $message);
+            } elseif (count($results['failed']) > 0) {
+                $this->addFlash('warning', $message);
+            } else {
+                $this->addFlash('success', $message);
+            }
+
+            foreach (($results['fileErrors'] ?? []) as $fileError) {
+                $this->addFlash('danger', $fileError);
+            }
+
+            $failedRows = $results['failed'] ?? [];
+            $maxFailuresToShow = 30;
+            foreach (array_slice($failedRows, 0, $maxFailuresToShow) as $fail) {
+                $this->addFlash('danger', sprintf('Línea %d: %s', (int) $fail['line'], (string) $fail['reason']));
+            }
+
+            if (count($failedRows) > $maxFailuresToShow) {
+                $this->addFlash('warning', sprintf('Se omitieron %d errores adicionales. Corregí el archivo y reintentá.', count($failedRows) - $maxFailuresToShow));
+            }
+
+            return $this->redirectToRoute('app_product_import');
+        }
+
+        if ($form->isSubmitted()) {
+            $errors = [];
+            foreach ($form->getErrors(true) as $error) {
+                $errors[] = $error->getMessage();
+            }
+
+            if ($errors === []) {
+                $errors[] = 'No se pudo procesar el archivo. Revisá el formato e intentá nuevamente.';
+            }
+
+            $this->addFlash('danger', 'No se pudo procesar la importación.');
+            foreach (array_unique($errors) as $errorMessage) {
+                $this->addFlash('danger', $errorMessage);
+            }
+
+            return $this->redirectToRoute('app_product_import');
         }
 
         return $this->render('product/import.html.twig', [
             'form' => $form,
-            'results' => $results,
+            'results' => null,
         ]);
     }
 

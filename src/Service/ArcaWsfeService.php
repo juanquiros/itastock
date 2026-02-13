@@ -10,6 +10,30 @@ use DateTimeImmutable;
 class ArcaWsfeService
 {
     /**
+     * Fallback local para entornos donde el catálogo WSFE no responde (ej. intermitencia en prod ARCA).
+     *
+     * @var array<int, string>
+     */
+    private const FALLBACK_CONDICION_IVA_RECEPTOR_OPTIONS = [
+        1 => 'IVA Responsable Inscripto',
+        4 => 'IVA Sujeto Exento',
+        5 => 'Consumidor Final',
+        6 => 'Responsable Monotributo',
+        7 => 'Sujeto no Categorizado',
+        8 => 'Proveedor del Exterior',
+        9 => 'Cliente del Exterior',
+        10 => 'IVA Liberado - Ley N° 19.640',
+        13 => 'Monotributista Social',
+        15 => 'IVA No Alcanzado',
+        16 => 'Monotributo Trabajador Independiente Promovido',
+    ];
+
+    private const WSFE_URI = 'http://ar.gov.afip.dif.FEV1/';
+    private const WSFE_LOCATION_PROD_PRIMARY = 'https://servicios1.afip.gov.ar/wsfev1/service.asmx';
+    private const WSFE_LOCATION_PROD_SECONDARY = 'https://wsfev1.afip.gov.ar/wsfev1/service.asmx';
+    private const WSFE_LOCATION_HOMO = 'https://wswhomo.afip.gov.ar/wsfev1/service.asmx';
+
+    /**
      * @var array<int, array<int, string>>
      */
     private array $condicionIvaReceptorOptions = [];
@@ -32,15 +56,7 @@ class ArcaWsfeService
      */
     public function requestCae(ArcaInvoice $invoice, BusinessArcaConfig $config, array $tokenSign): array
     {
-        $wsdl = $config->getArcaEnvironment() === BusinessArcaConfig::ENV_PROD ? $this->arcaWsfeWsdlProd : $this->arcaWsfeWsdlHomo;
-        if ($wsdl === '') {
-            throw new \RuntimeException('WSDL de WSFE no configurado.');
-        }
-
-        $client = new \SoapClient($wsdl, [
-            'trace' => 1,
-            'exceptions' => true,
-        ]);
+        $client = $this->createWsfeClient($config);
 
         $auth = [
             'Token' => $tokenSign['token'],
@@ -49,11 +65,11 @@ class ArcaWsfeService
         ];
 
         $cbteTipo = $this->resolveCbteTipoCode($invoice->getCbteTipo());
-        $last = $client->FECompUltimoAutorizado([
+        $last = $this->wsfeCall($client, 'FECompUltimoAutorizado', [
             'Auth' => $auth,
             'PtoVta' => $invoice->getArcaPosNumber(),
             'CbteTipo' => $cbteTipo,
-        ]);
+        ], $config);
 
         $lastNumber = (int) ($last->FECompUltimoAutorizadoResult->CbteNro ?? 0);
         $cbteNumero = $lastNumber + 1;
@@ -85,7 +101,7 @@ class ArcaWsfeService
         $ivaItems = $this->buildIvaItems($invoice);
         if ($ivaItems) {
             $detail['Iva'] = [
-                'AlicIva' => $ivaItems,
+                'AlicIva' => count($ivaItems) === 1 ? $ivaItems[0] : $ivaItems,
             ];
         }
 
@@ -103,12 +119,15 @@ class ArcaWsfeService
             ],
         ];
 
-        $response = $client->FECAESolicitar($request);
+        $response = $this->wsfeCall($client, 'FECAESolicitar', $request, $config);
         $responseArray = json_decode(json_encode($response, JSON_THROW_ON_ERROR), true, 512, JSON_THROW_ON_ERROR);
 
         $detailResponse = $response->FECAESolicitarResult->FeDetResp->FECAEDetResponse ?? null;
         $cae = $detailResponse->CAE ?? null;
         $caeDue = $detailResponse->CAEFchVto ?? null;
+
+        $responseArray['_soap_last_request'] = $client->__getLastRequest();
+        $responseArray['_soap_last_response'] = $client->__getLastResponse();
 
         return [
             'request' => $request,
@@ -129,15 +148,7 @@ class ArcaWsfeService
         array $tokenSign,
         ArcaInvoice $associatedInvoice
     ): array {
-        $wsdl = $config->getArcaEnvironment() === BusinessArcaConfig::ENV_PROD ? $this->arcaWsfeWsdlProd : $this->arcaWsfeWsdlHomo;
-        if ($wsdl === '') {
-            throw new \RuntimeException('WSDL de WSFE no configurado.');
-        }
-
-        $client = new \SoapClient($wsdl, [
-            'trace' => 1,
-            'exceptions' => true,
-        ]);
+        $client = $this->createWsfeClient($config);
 
         $auth = [
             'Token' => $tokenSign['token'],
@@ -146,11 +157,11 @@ class ArcaWsfeService
         ];
 
         $cbteTipo = $this->resolveCbteTipoCode($note->getCbteTipo());
-        $last = $client->FECompUltimoAutorizado([
+        $last = $this->wsfeCall($client, 'FECompUltimoAutorizado', [
             'Auth' => $auth,
             'PtoVta' => $note->getArcaPosNumber(),
             'CbteTipo' => $cbteTipo,
-        ]);
+        ], $config);
 
         $lastNumber = (int) ($last->FECompUltimoAutorizadoResult->CbteNro ?? 0);
         $cbteNumero = $lastNumber + 1;
@@ -189,7 +200,7 @@ class ArcaWsfeService
         $ivaItems = $this->buildIvaItemsFromSnapshot($note->getItemsSnapshot(), $note->getVatAmount());
         if ($ivaItems) {
             $detail['Iva'] = [
-                'AlicIva' => $ivaItems,
+                'AlicIva' => count($ivaItems) === 1 ? $ivaItems[0] : $ivaItems,
             ];
         }
 
@@ -207,12 +218,15 @@ class ArcaWsfeService
             ],
         ];
 
-        $response = $client->FECAESolicitar($request);
+        $response = $this->wsfeCall($client, 'FECAESolicitar', $request, $config);
         $responseArray = json_decode(json_encode($response, JSON_THROW_ON_ERROR), true, 512, JSON_THROW_ON_ERROR);
 
         $detailResponse = $response->FECAESolicitarResult->FeDetResp->FECAEDetResponse ?? null;
         $cae = $detailResponse->CAE ?? null;
         $caeDue = $detailResponse->CAEFchVto ?? null;
+
+        $responseArray['_soap_last_request'] = $client->__getLastRequest();
+        $responseArray['_soap_last_response'] = $client->__getLastResponse();
 
         return [
             'request' => $request,
@@ -221,6 +235,132 @@ class ArcaWsfeService
             'cae' => $cae ? (string) $cae : null,
             'caeDueDate' => $caeDue ? DateTimeImmutable::createFromFormat('Ymd', (string) $caeDue) ?: null : null,
         ];
+    }
+
+    private function createWsfeClient(BusinessArcaConfig $config): \SoapClient
+    {
+        $streamContext = stream_context_create([
+            'ssl' => [
+                'verify_peer' => true,
+                'verify_peer_name' => true,
+                'SNI_enabled' => true,
+            ],
+            'http' => [
+                'timeout' => 30,
+                'user_agent' => 'ItaStock-ARCA-WSFE/1.0',
+            ],
+        ]);
+
+        $wsdl = $config->getArcaEnvironment() === BusinessArcaConfig::ENV_PROD
+            ? $this->arcaWsfeWsdlProd
+            : $this->arcaWsfeWsdlHomo;
+
+        return new \SoapClient($wsdl, [
+            'location' => $this->getWsfeLocations($config)[0],
+            'trace' => true,
+            'exceptions' => true,
+            'soap_version' => SOAP_1_2,
+            'encoding' => 'UTF-8',
+            'connection_timeout' => 30,
+            'stream_context' => $streamContext,
+            'cache_wsdl' => WSDL_CACHE_NONE,
+        ]);
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function getWsfeLocations(BusinessArcaConfig $config): array
+    {
+        if ($config->getArcaEnvironment() === BusinessArcaConfig::ENV_PROD) {
+            return [
+                self::WSFE_LOCATION_PROD_PRIMARY,
+                self::WSFE_LOCATION_PROD_SECONDARY,
+            ];
+        }
+
+        return [self::WSFE_LOCATION_HOMO];
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     */
+    private function wsfeCall(\SoapClient $client, string $method, array $payload, BusinessArcaConfig $config): mixed
+    {
+        $locations = $this->getWsfeLocations($config);
+        $errors = [];
+
+        foreach ($locations as $location) {
+            $client->__setLocation($location);
+
+            try {
+                if ($method === 'FECAESolicitar') {
+                    $result = $client->__soapCall($method, [
+                        new \SoapParam($this->normalizeSoapPayload($payload['Auth'] ?? []), 'Auth'),
+                        new \SoapParam($this->normalizeSoapPayload($payload['FeCAEReq'] ?? []), 'FeCAEReq'),
+                    ], [
+                        'soapaction' => self::WSFE_URI.$method,
+                    ]);
+
+                    $this->logWrongWrapperIfNeeded($client, $method);
+
+                    return $result;
+                }
+
+                return match ($method) {
+                    'FECompUltimoAutorizado' => $client->__soapCall($method, [
+                        new \SoapParam($payload['Auth'] ?? null, 'Auth'),
+                        new \SoapParam($payload['PtoVta'] ?? null, 'PtoVta'),
+                        new \SoapParam($payload['CbteTipo'] ?? null, 'CbteTipo'),
+                    ], ['soapaction' => self::WSFE_URI.$method]),
+                    'FEParamGetCondicionIvaReceptor' => $client->__soapCall($method, [
+                        new \SoapParam($payload['Auth'] ?? null, 'Auth'),
+                    ], ['soapaction' => self::WSFE_URI.$method]),
+                    default => $client->__soapCall($method, [new \SoapParam($payload, $method)], ['soapaction' => self::WSFE_URI.$method]),
+                };
+            } catch (\Throwable $exception) {
+                $errors[] = sprintf('%s => %s', $location, $exception->getMessage());
+
+                if (!str_contains(strtolower($exception->getMessage()), 'could not connect to host')) {
+                    throw $exception;
+                }
+            }
+        }
+
+        throw new \RuntimeException('Could not connect to host. '.implode(' | ', $errors));
+    }
+
+    private function logWrongWrapperIfNeeded(\SoapClient $client, string $method): void
+    {
+        $request = $client->__getLastRequest() ?: '';
+        if ($request === '') {
+            return;
+        }
+
+        if (str_contains($request, '<param0>') && !str_contains($request, '<'.$method)) {
+            error_log(sprintf('[SOAP_WRONG_WRAPPER] method=%s', $method));
+        }
+    }
+
+    /**
+     * @param mixed $value
+     */
+    private function normalizeSoapPayload(mixed $value): mixed
+    {
+        if (!is_array($value)) {
+            return $value;
+        }
+
+        if (array_is_list($value)) {
+            return array_map(fn (mixed $item) => $this->normalizeSoapPayload($item), $value);
+        }
+
+        $object = new \stdClass();
+        foreach ($value as $key => $item) {
+            $object->{$key} = $this->normalizeSoapPayload($item);
+        }
+
+        return $object;
     }
 
     private function resolveCbteTipoCode(string $cbteTipo): int
@@ -306,21 +446,13 @@ class ArcaWsfeService
 
         $this->condicionIvaReceptorErrors[$businessId] = '';
         try {
-            $wsdl = $config->getArcaEnvironment() === BusinessArcaConfig::ENV_PROD ? $this->arcaWsfeWsdlProd : $this->arcaWsfeWsdlHomo;
-            if ($wsdl === '') {
-                throw new \RuntimeException('WSDL de WSFE no configurado.');
-            }
-
             $business = $config->getBusiness();
             if (!$business) {
                 throw new \RuntimeException('Comercio no asociado a la configuración ARCA.');
             }
 
             $tokenSign = $this->wsaaService->getTokenSign($business, $config, 'wsfe');
-            $client = new \SoapClient($wsdl, [
-                'trace' => 1,
-                'exceptions' => true,
-            ]);
+            $client = $this->createWsfeClient($config);
 
             $auth = [
                 'Token' => $tokenSign['token'],
@@ -328,9 +460,9 @@ class ArcaWsfeService
                 'Cuit' => $config->getCuitEmisor(),
             ];
 
-            $response = $client->FEParamGetCondicionIvaReceptor([
+            $response = $this->wsfeCall($client, 'FEParamGetCondicionIvaReceptor', [
                 'Auth' => $auth,
-            ]);
+            ], $config);
 
             $raw = $response->FEParamGetCondicionIvaReceptorResult->ResultGet->CondicionIvaReceptor ?? [];
             $items = json_decode(json_encode($raw, JSON_THROW_ON_ERROR), true, 512, JSON_THROW_ON_ERROR);
@@ -350,13 +482,32 @@ class ArcaWsfeService
                 }
             }
         } catch (\Throwable $exception) {
-            $this->condicionIvaReceptorErrors[$businessId] = $exception->getMessage();
-            $options = [];
+            $fallback = $this->getFallbackCondicionIvaReceptorOptions();
+            if ($fallback !== []) {
+                $options = $fallback;
+                $this->condicionIvaReceptorErrors[$businessId] = '';
+                error_log(sprintf('[ARCA] FEParamGetCondicionIvaReceptor falló y se aplicó fallback local. business=%d env=%s error=%s',
+                    $businessId,
+                    $config->getArcaEnvironment(),
+                    $exception->getMessage()
+                ));
+            } else {
+                $this->condicionIvaReceptorErrors[$businessId] = $exception->getMessage();
+                $options = [];
+            }
         }
 
         $this->condicionIvaReceptorOptions[$businessId] = $options;
 
         return $options;
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function getFallbackCondicionIvaReceptorOptions(): array
+    {
+        return self::FALLBACK_CONDICION_IVA_RECEPTOR_OPTIONS;
     }
 
     public function getCondicionIvaReceptorError(BusinessArcaConfig $config): ?string
