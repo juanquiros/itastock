@@ -28,6 +28,10 @@ class ArcaWsfeService
         16 => 'Monotributo Trabajador Independiente Promovido',
     ];
 
+    private const WSFE_URI = 'http://ar.gov.afip.dif.FEV1/';
+    private const WSFE_LOCATION_PROD = 'https://servicios1.afip.gov.ar/wsfev1/service.asmx';
+    private const WSFE_LOCATION_HOMO = 'https://wswhomo.afip.gov.ar/wsfev1/service.asmx';
+
     /**
      * @var array<int, array<int, string>>
      */
@@ -267,21 +271,42 @@ class ArcaWsfeService
             ],
         ]);
 
+        $baseOptions = [
+            'trace' => 1,
+            'exceptions' => true,
+            'connection_timeout' => 20,
+            'stream_context' => $streamContext,
+            'encoding' => 'UTF-8',
+        ];
+
         foreach ($this->getWsfeWsdls($config) as $wsdl) {
             try {
-                return new \SoapClient($wsdl, [
-                    'trace' => 1,
-                    'exceptions' => true,
+                return new \SoapClient($wsdl, $baseOptions + [
                     'cache_wsdl' => WSDL_CACHE_MEMORY,
-                    'connection_timeout' => 20,
-                    'stream_context' => $streamContext,
                 ]);
             } catch (\Throwable $exception) {
                 $errors[] = sprintf('%s => %s', $wsdl, $exception->getMessage());
             }
         }
 
-        throw new \RuntimeException('No se pudo cargar el WSDL de WSFE en ARCA. '.implode(' | ', array_slice($errors, 0, 3)));
+        $location = $config->getArcaEnvironment() === BusinessArcaConfig::ENV_PROD
+            ? self::WSFE_LOCATION_PROD
+            : self::WSFE_LOCATION_HOMO;
+
+        try {
+            error_log(sprintf('[ARCA] WSDL WSFE inaccesible. Se usa cliente non-WSDL. env=%s errors=%s', $config->getArcaEnvironment(), implode(' | ', array_slice($errors, 0, 3))));
+
+            return new \SoapClient(null, $baseOptions + [
+                'location' => $location,
+                'uri' => self::WSFE_URI,
+                'soap_version' => SOAP_1_2,
+                'cache_wsdl' => WSDL_CACHE_NONE,
+            ]);
+        } catch (\Throwable $fallbackException) {
+            $errors[] = sprintf('non-wsdl %s => %s', $location, $fallbackException->getMessage());
+        }
+
+        throw new \RuntimeException('No se pudo inicializar WSFE ARCA (WSDL y non-WSDL). '.implode(' | ', array_slice($errors, 0, 4)));
     }
 
     private function resolveCbteTipoCode(string $cbteTipo): int
