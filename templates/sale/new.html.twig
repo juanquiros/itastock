@@ -182,6 +182,29 @@
         </div>
     </div>
 
+    <div class="modal fade" id="productDetailsModal" tabindex="-1" aria-labelledby="productDetailsModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="productDetailsModalLabel">Detalle de producto</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <h6 class="fw-semibold mb-2" id="product-details-name">-</h6>
+                    <div class="text-muted small mb-3" id="product-details-meta">-</div>
+                    <div class="small mb-3" id="product-details-summary"></div>
+                    <div>
+                        <div class="fw-semibold mb-2">Características completas</div>
+                        <div id="product-details-characteristics" class="small text-muted">Sin características.</div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cerrar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div class="modal fade" id="paymentModal" tabindex="-1" aria-labelledby="paymentModalLabel" aria-hidden="true">
         <div class="modal-dialog">
             <div class="modal-content">
@@ -271,6 +294,10 @@
             const finalizeSale = document.getElementById('finalize-sale');
             const scanAlert = document.getElementById('barcode-scan-alert');
             const scanWarningModal = document.getElementById('barcode-scan-warning');
+            const productDetailsName = document.getElementById('product-details-name');
+            const productDetailsMeta = document.getElementById('product-details-meta');
+            const productDetailsSummary = document.getElementById('product-details-summary');
+            const productDetailsCharacteristics = document.getElementById('product-details-characteristics');
             const previewUrl = '{{ path('app_sale_preview') }}';
             let currentSubtotal = 0;
             let currentDiscountTotal = 0;
@@ -439,6 +466,9 @@
                             allowsFractionalQty: candidate.allowsFractionalQty,
                             qtyStep: candidate.qtyStep,
                             characteristicsSummary: candidate.characteristicsSummary || null,
+                            characteristics: candidate.characteristics || {},
+                            brand: candidate.brand || null,
+                            category: candidate.category || null,
                         });
 
                         return;
@@ -455,8 +485,40 @@
                         allowsFractionalQty: candidate.allowsFractionalQty,
                         qtyStep: candidate.qtyStep,
                         characteristicsSummary: candidate.characteristicsSummary || null,
+                        characteristics: candidate.characteristics || {},
+                        brand: candidate.brand || null,
+                        category: candidate.category || null,
                     });
                 });
+            }
+
+
+            function escapeHtml(value) {
+                return String(value ?? '')
+                    .replaceAll('&', '&amp;')
+                    .replaceAll('<', '&lt;')
+                    .replaceAll('>', '&gt;')
+                    .replaceAll('"', '&quot;')
+                    .replaceAll("'", '&#39;');
+            }
+
+            function openProductDetails(productId) {
+                const product = products.find((item) => item.id === productId);
+                if (!product) {
+                    return;
+                }
+
+                productDetailsName.textContent = product.name || '-';
+                productDetailsMeta.textContent = `SKU: ${product.sku || '-'}${product.barcode ? ` · Código: ${product.barcode}` : ''}${product.brand ? ` · Marca: ${product.brand}` : ''}${product.category ? ` · Categoría: ${product.category}` : ''}`;
+                productDetailsSummary.textContent = product.characteristicsSummary || 'Sin resumen de características.';
+
+                const entries = Object.entries(product.characteristics || {});
+                if (entries.length === 0) {
+                    productDetailsCharacteristics.textContent = 'Sin características.';
+                    return;
+                }
+
+                productDetailsCharacteristics.innerHTML = `<ul class="mb-0 ps-3">${entries.map(([key, value]) => `<li><strong>${escapeHtml(key)}:</strong> ${escapeHtml(value)}</li>`).join('')}</ul>`;
             }
 
             let currentSearchResults = [];
@@ -507,6 +569,7 @@
                                 ${product.characteristicsSummary ? `<div class="text-muted small">${product.characteristicsSummary}</div>` : ''}
                                 <div class="text-muted small">SKU: ${product.sku}${product.barcode ? ' · Código: ' + product.barcode : ''}</div>
                                 <div class="text-muted small">Stock disponible: ${product.stock} ${product.uomBase}</div>
+                                ${product.characteristicsSummary ? `<button type="button" class="btn btn-link btn-sm p-0 mt-1" data-product-details="${product.id}" data-bs-toggle="modal" data-bs-target="#productDetailsModal">Ver más</button>` : ''}
                             </div>
                             <div class="d-flex align-items-center gap-3">
                                 <span class="fw-semibold">${formatMoney(resolveUnitPrice(product.id))}</span>
@@ -522,6 +585,12 @@
                             searchInput.value = '';
                             renderResults('');
                             searchInput.focus();
+                        });
+                    });
+
+                    resultsContainer.querySelectorAll('button[data-product-details]').forEach((btn) => {
+                        btn.addEventListener('click', () => {
+                            openProductDetails(parseInt(btn.dataset.productDetails, 10));
                         });
                     });
 

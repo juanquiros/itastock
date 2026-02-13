@@ -110,6 +110,9 @@ class SaleController extends AbstractController
                 'allowsFractionalQty' => $product->allowsFractionalQty(),
                 'qtyStep' => $product->getQtyStep(),
                 'characteristicsSummary' => $product->getCharacteristicsSummary(),
+                'characteristics' => $product->getCharacteristics(),
+                'brand' => $product->getBrand()?->getName(),
+                'category' => $product->getCategory()?->getName(),
             ], $products),
             'customersPayload' => array_map(static fn (Customer $customer) => [
                 'id' => $customer->getId(),
@@ -155,6 +158,9 @@ class SaleController extends AbstractController
                 'allowsFractionalQty' => $product->allowsFractionalQty(),
                 'qtyStep' => $product->getQtyStep(),
                 'characteristicsSummary' => $product->getCharacteristicsSummary(),
+                'characteristics' => $product->getCharacteristics(),
+                'brand' => $product->getBrand()?->getName(),
+                'category' => $product->getCategory()?->getName(),
             ], $products),
             'customers' => array_map(static fn (Customer $customer) => [
                 'id' => $customer->getId(),

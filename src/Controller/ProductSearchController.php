@@ -31,6 +31,9 @@ class ProductSearchController extends AbstractController
             'allowsFractionalQty' => $product->allowsFractionalQty(),
             'qtyStep' => $product->getQtyStep(),
             'characteristicsSummary' => $product->getCharacteristicsSummary(),
+            'characteristics' => $product->getCharacteristics(),
+            'brand' => $product->getBrand()?->getName(),
+            'category' => $product->getCategory()?->getName(),
         ], $products));
     }
 }
