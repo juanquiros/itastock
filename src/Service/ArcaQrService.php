@@ -34,8 +34,11 @@ class ArcaQrService
 
         $json = json_encode($payload, JSON_UNESCAPED_SLASHES);
         $b64 = base64_encode((string) $json);
+        $url = self::BASE_URL.'?p='.rawurlencode($b64);
 
-        return self::BASE_URL.'?p='.rawurlencode($b64);
+        $this->logQrUrlVerification($url);
+
+        return $url;
     }
 
     public function buildPayloadForInvoice(ArcaInvoice $invoice, ?BusinessArcaConfig $config): array
@@ -47,7 +50,7 @@ class ArcaQrService
         $payload = [
             'ver' => 1,
             'fecha' => $invoice->getIssuedAt()?->format('Y-m-d'),
-            'cuit' => $this->normalizeDigits((string) $config?->getCuitEmisor()),
+            'cuit' => (int) $this->normalizeDigits((string) $config?->getCuitEmisor()),
             'ptoVta' => $invoice->getArcaPosNumber(),
             'tipoCmp' => $invoice->getCbteTipo() === ArcaInvoice::CBTE_FACTURA_B ? 6 : 11,
             'nroCmp' => $invoice->getCbteNumero(),
@@ -57,7 +60,7 @@ class ArcaQrService
             'tipoDocRec' => 99,
             'nroDocRec' => 0,
             'tipoCodAut' => 'E',
-            'codAut' => (string) $invoice->getCae(),
+            'codAut' => $this->normalizeDigits((string) $invoice->getCae()),
         ];
 
         $this->appendReceiverDocument($payload, $invoice->getReceiverCustomer() ?? $invoice->getSale()?->getCustomer());
@@ -76,7 +79,7 @@ class ArcaQrService
         $payload = [
             'ver' => 1,
             'fecha' => $note->getIssuedAt()?->format('Y-m-d'),
-            'cuit' => $this->normalizeDigits((string) $config?->getCuitEmisor()),
+            'cuit' => (int) $this->normalizeDigits((string) $config?->getCuitEmisor()),
             'ptoVta' => $note->getArcaPosNumber(),
             'tipoCmp' => $note->getCbteTipo() === ArcaCreditNote::CBTE_NC_B ? 8 : 13,
             'nroCmp' => $note->getCbteNumero(),
@@ -86,7 +89,7 @@ class ArcaQrService
             'tipoDocRec' => 99,
             'nroDocRec' => 0,
             'tipoCodAut' => 'E',
-            'codAut' => (string) $note->getCae(),
+            'codAut' => $this->normalizeDigits((string) $note->getCae()),
         ];
 
         $this->appendReceiverDocument($payload, $sale?->getCustomer());
@@ -144,6 +147,42 @@ class ArcaQrService
             'has_cuit' => isset($payload['cuit']) && (string) $payload['cuit'] !== '',
             'has_codAut' => isset($payload['codAut']) && (string) $payload['codAut'] !== '',
             'payload' => $payload,
+        ]);
+    }
+
+
+    private function logQrUrlVerification(string $url): void
+    {
+        $appEnv = strtolower((string) ($_SERVER['APP_ENV'] ?? $_ENV['APP_ENV'] ?? getenv('APP_ENV') ?: ''));
+        if (!in_array($appEnv, ['dev', 'test'], true)) {
+            return;
+        }
+
+        $query = parse_url($url, PHP_URL_QUERY);
+        if (!is_string($query)) {
+            return;
+        }
+
+        parse_str($query, $params);
+        $p = isset($params['p']) ? (string) $params['p'] : '';
+        if ($p === '') {
+            return;
+        }
+
+        $decodedJson = base64_decode(rawurldecode($p), true);
+        if ($decodedJson === false) {
+            return;
+        }
+
+        $decodedPayload = json_decode($decodedJson, true);
+        if (!is_array($decodedPayload)) {
+            return;
+        }
+
+        $this->logger->debug('ARCA QR URL decoded payload', [
+            'json' => $decodedPayload,
+            'cuit_is_numeric' => isset($decodedPayload['cuit']) && is_int($decodedPayload['cuit']),
+            'codAut_digits_only' => isset($decodedPayload['codAut']) && preg_match('/^\d+$/', (string) $decodedPayload['codAut']) === 1,
         ]);
     }
 
