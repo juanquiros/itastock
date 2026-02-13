@@ -62,7 +62,7 @@ class ArcaWsfeService
         ];
 
         $cbteTipo = $this->resolveCbteTipoCode($invoice->getCbteTipo());
-        $last = $client->FECompUltimoAutorizado([
+        $last = $this->wsfeCall($client, 'FECompUltimoAutorizado', [
             'Auth' => $auth,
             'PtoVta' => $invoice->getArcaPosNumber(),
             'CbteTipo' => $cbteTipo,
@@ -154,7 +154,7 @@ class ArcaWsfeService
         ];
 
         $cbteTipo = $this->resolveCbteTipoCode($note->getCbteTipo());
-        $last = $client->FECompUltimoAutorizado([
+        $last = $this->wsfeCall($client, 'FECompUltimoAutorizado', [
             'Auth' => $auth,
             'PtoVta' => $note->getArcaPosNumber(),
             'CbteTipo' => $cbteTipo,
@@ -234,35 +234,8 @@ class ArcaWsfeService
         ];
     }
 
-    /**
-     * @return array<int, string>
-     */
-    private function getWsfeWsdls(BusinessArcaConfig $config): array
-    {
-        $environment = $config->getArcaEnvironment();
-        $configured = $environment === BusinessArcaConfig::ENV_PROD ? $this->arcaWsfeWsdlProd : $this->arcaWsfeWsdlHomo;
-        $defaults = $environment === BusinessArcaConfig::ENV_PROD
-            ? [
-                'https://wsfev1.afip.gov.ar/wsfev1/service.asmx?wsdl',
-                'https://wsfev1.afip.gov.ar/wsfev1/service.asmx?WSDL',
-            ]
-            : [
-                'https://wswhomo.afip.gov.ar/wsfev1/service.asmx?wsdl',
-                'https://wswhomo.afip.gov.ar/wsfev1/service.asmx?WSDL',
-            ];
-
-        $all = array_values(array_filter(array_unique(array_merge([$configured], $defaults)), static fn (string $url): bool => trim($url) !== ''));
-
-        if ($all === []) {
-            throw new \RuntimeException('WSDL de WSFE no configurado.');
-        }
-
-        return $all;
-    }
-
     private function createWsfeClient(BusinessArcaConfig $config): \SoapClient
     {
-        $errors = [];
         $streamContext = stream_context_create([
             'ssl' => [
                 'verify_peer' => true,
@@ -270,28 +243,25 @@ class ArcaWsfeService
                 'SNI_enabled' => true,
             ],
             'http' => [
-                'timeout' => 20,
+                'timeout' => 30,
                 'user_agent' => 'ItaStock-ARCA-WSFE/1.0',
             ],
         ]);
 
-        foreach ($this->getWsfeWsdls($config) as $wsdl) {
-            try {
-                return new \SoapClient($wsdl, [
-                    'trace' => true,
-                    'exceptions' => true,
-                    'cache_wsdl' => WSDL_CACHE_NONE,
-                    'soap_version' => SOAP_1_2,
-                    'connection_timeout' => 20,
-                    'stream_context' => $streamContext,
-                    'encoding' => 'UTF-8',
-                ]);
-            } catch (\Throwable $exception) {
-                $errors[] = sprintf('%s => %s', $wsdl, $exception->getMessage());
-            }
-        }
+        $location = $config->getArcaEnvironment() === BusinessArcaConfig::ENV_PROD
+            ? 'https://wsfev1.afip.gov.ar/wsfev1/service.asmx'
+            : 'https://wswhomo.afip.gov.ar/wsfev1/service.asmx';
 
-        throw new \RuntimeException('No se pudo cargar el WSDL de WSFE en ARCA. '.implode(' | ', array_slice($errors, 0, 3)));
+        return new \SoapClient(null, [
+            'location' => $location,
+            'uri' => self::WSFE_URI,
+            'trace' => true,
+            'exceptions' => true,
+            'soap_version' => SOAP_1_2,
+            'encoding' => 'UTF-8',
+            'connection_timeout' => 30,
+            'stream_context' => $streamContext,
+        ]);
     }
 
     /**
@@ -299,26 +269,36 @@ class ArcaWsfeService
      */
     private function wsfeCall(\SoapClient $client, string $method, array $payload): mixed
     {
-        $wrapped = new \SoapVar(
-            $this->normalizeSoapPayload($payload),
-            SOAP_ENC_OBJECT,
-            $method,
-            self::WSFE_URI,
-            $method,
-            self::WSFE_URI
-        );
+        if ($method === 'FECAESolicitar') {
+            $wrapped = new \SoapVar(
+                $this->normalizeSoapPayload($payload),
+                SOAP_ENC_OBJECT,
+                null,
+                self::WSFE_URI,
+                $method,
+                self::WSFE_URI
+            );
 
-        $param = new \SoapParam($wrapped, $method);
+            $result = $client->__soapCall($method, [new \SoapParam($wrapped, $method)], [
+                'soapaction' => self::WSFE_URI.$method,
+            ]);
 
-        $result = $client->__soapCall($method, [$param], [
-            'soapaction' => self::WSFE_URI.$method,
-            'style' => SOAP_DOCUMENT,
-            'use' => SOAP_LITERAL,
-        ]);
+            $this->logWrongWrapperIfNeeded($client, $method);
 
-        $this->logWrongWrapperIfNeeded($client, $method);
+            return $result;
+        }
 
-        return $result;
+        return match ($method) {
+            'FECompUltimoAutorizado' => $client->__soapCall($method, [
+                new \SoapParam($payload['Auth'] ?? null, 'Auth'),
+                new \SoapParam($payload['PtoVta'] ?? null, 'PtoVta'),
+                new \SoapParam($payload['CbteTipo'] ?? null, 'CbteTipo'),
+            ], ['soapaction' => self::WSFE_URI.$method]),
+            'FEParamGetCondicionIvaReceptor' => $client->__soapCall($method, [
+                new \SoapParam($payload['Auth'] ?? null, 'Auth'),
+            ], ['soapaction' => self::WSFE_URI.$method]),
+            default => $client->__soapCall($method, [new \SoapParam($payload, $method)], ['soapaction' => self::WSFE_URI.$method]),
+        };
     }
 
     private function logWrongWrapperIfNeeded(\SoapClient $client, string $method): void
@@ -451,7 +431,7 @@ class ArcaWsfeService
                 'Cuit' => $config->getCuitEmisor(),
             ];
 
-            $response = $client->FEParamGetCondicionIvaReceptor([
+            $response = $this->wsfeCall($client, 'FEParamGetCondicionIvaReceptor', [
                 'Auth' => $auth,
             ]);
 
