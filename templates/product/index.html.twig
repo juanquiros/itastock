@@ -129,6 +129,9 @@
                                     {% endif %}
                                     {% if product.characteristicsSummary %}
                                         <div class="small text-muted mt-1">{{ product.characteristicsSummary }}</div>
+                                        <button type="button" class="btn btn-link btn-sm p-0 mt-1" data-bs-toggle="modal" data-bs-target="#productDetailsModal-{{ product.id }}">
+                                            Ver más
+                                        </button>
                                     {% endif %}
                                 </td>
                                 <td class="text-muted">{{ product.sku }}</td>
@@ -163,4 +166,40 @@
             </div>
         </div>
     </div>
+
+    {% for product in products %}
+        {% if product.characteristicsSummary %}
+            <div class="modal fade" id="productDetailsModal-{{ product.id }}" tabindex="-1" aria-labelledby="productDetailsModalLabel-{{ product.id }}" aria-hidden="true">
+                <div class="modal-dialog modal-lg modal-dialog-scrollable">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title" id="productDetailsModalLabel-{{ product.id }}">{{ product.name }}</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="small text-muted mb-3">SKU: {{ product.sku ?: '—' }}{% if product.barcode %} · Código: {{ product.barcode }}{% endif %}</div>
+                            <div class="small mb-3">{{ product.characteristicsSummary }}</div>
+                            <h6 class="fw-semibold mb-2">Características completas</h6>
+                            {% set characteristics = product.characteristics ?? {} %}
+                            {% if characteristics is iterable and characteristics is not empty %}
+                                <ul class="list-group list-group-flush">
+                                    {% for key, value in characteristics %}
+                                        <li class="list-group-item d-flex justify-content-between align-items-start">
+                                            <span class="text-muted me-3">{{ key }}</span>
+                                            <span class="fw-semibold text-break">{{ value }}</span>
+                                        </li>
+                                    {% endfor %}
+                                </ul>
+                            {% else %}
+                                <div class="text-muted small">Sin características detalladas.</div>
+                            {% endif %}
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cerrar</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        {% endif %}
+    {% endfor %}
 {% endblock %}
