@@ -119,6 +119,7 @@
                                 <th>Hora</th>
                                 <th>Cliente</th>
                                 <th>Método</th>
+                                <th>Estado</th>
                                 <th class="text-end">Total</th>
                                 <th class="text-end">Detalle</th>
                                 <th>Comprobantes</th>
@@ -133,11 +134,18 @@
                                     and sale.arcaEnabledForThisCashier
                                     and sale.arcaMode == 'INVOICE'
                                     and sale.arcaPosNumber %}
-                                <tr>
+                                <tr class="{{ sale.saleStatus == 'VOIDED' ? 'table-danger' : '' }}">
                                     <td>{{ sale.saleId }}</td>
                                     <td>{{ sale.createdAt ? sale.createdAt|date('d/m/Y H:i') : '' }}</td>
                                     <td>{{ sale.customerName }}</td>
                                     <td>{{ sale.paymentMethod }}</td>
+                                    <td>
+                                        {% if sale.saleStatus == 'VOIDED' %}
+                                            <span class="badge bg-danger">ANULADA</span>
+                                        {% else %}
+                                            <span class="badge bg-success">OK</span>
+                                        {% endif %}
+                                    </td>
                                     <td class="text-end fw-semibold">${{ sale.total }}</td>
                                     <td class="text-end">
                                         {% if (summary.saleDetails[sale.saleId] ?? []) is not empty %}
@@ -162,12 +170,17 @@
                                             {% else %}
                                                 <span class="small text-muted">Solo remito</span>
                                             {% endif %}
+                                            {% if sale.arcaCreditNoteStatus == 'AUTHORIZED' %}
+                                                <a class="btn btn-sm btn-outline-danger" href="{{ path('app_sale_arca_credit_note_pdf', { id: sale.saleId }) }}">Ver NC</a>
+                                            {% elseif sale.arcaCreditNoteId %}
+                                                <span class="small text-muted">NC {{ sale.arcaCreditNoteStatus|lower }}</span>
+                                            {% endif %}
                                         </div>
                                     </td>
                                 </tr>
                                 {% if (summary.saleDetails[sale.saleId] ?? []) is not empty %}
                                     <tr class="collapse" id="{{ detailId }}">
-                                        <td colspan="7" class="bg-light">
+                                        <td colspan="8" class="bg-light">
                                             <div class="table-responsive mb-0">
                                                 <table class="table table-sm mb-0">
                                                     <thead>
