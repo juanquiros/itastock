@@ -113,7 +113,7 @@ class ArcaWsfeService
                     'CbteTipo' => $cbteTipo,
                 ],
                 'FeDetReq' => [
-                    'FECAEDetRequest' => $detail,
+                    'FECAEDetRequest' => [$detail],
                 ],
             ],
         ];
@@ -124,6 +124,9 @@ class ArcaWsfeService
         $detailResponse = $response->FECAESolicitarResult->FeDetResp->FECAEDetResponse ?? null;
         $cae = $detailResponse->CAE ?? null;
         $caeDue = $detailResponse->CAEFchVto ?? null;
+
+        $responseArray['_soap_last_request'] = $client->__getLastRequest();
+        $responseArray['_soap_last_response'] = $client->__getLastResponse();
 
         return [
             'request' => $request,
@@ -209,7 +212,7 @@ class ArcaWsfeService
                     'CbteTipo' => $cbteTipo,
                 ],
                 'FeDetReq' => [
-                    'FECAEDetRequest' => $detail,
+                    'FECAEDetRequest' => [$detail],
                 ],
             ],
         ];
@@ -220,6 +223,9 @@ class ArcaWsfeService
         $detailResponse = $response->FECAESolicitarResult->FeDetResp->FECAEDetResponse ?? null;
         $cae = $detailResponse->CAE ?? null;
         $caeDue = $detailResponse->CAEFchVto ?? null;
+
+        $responseArray['_soap_last_request'] = $client->__getLastRequest();
+        $responseArray['_soap_last_response'] = $client->__getLastResponse();
 
         return [
             'request' => $request,
@@ -310,17 +316,37 @@ class ArcaWsfeService
     }
 
     /**
-     * @param array<string, mixed> $params
+     * @param array<string, mixed> $payload
      */
-    private function callWsfe(\SoapClient $client, string $method, array $params): mixed
+    private function callWsfe(\SoapClient $client, string $method, array $payload): mixed
     {
+        if ($method === 'FECAESolicitar') {
+            $wrappedPayload = new \SoapVar(
+                $payload,
+                SOAP_ENC_OBJECT,
+                null,
+                null,
+                $method,
+                self::WSFE_URI
+            );
+
+            return $client->__soapCall(
+                $method,
+                [$wrappedPayload],
+                [
+                    'soapaction' => self::WSFE_URI.$method,
+                    'uri' => self::WSFE_URI,
+                ]
+            );
+        }
+
         if (!$this->isNonWsdlClient($client)) {
-            return $client->{$method}($params);
+            return $client->{$method}($payload);
         }
 
         return $client->__soapCall(
             $method,
-            $this->buildNonWsdlArguments($method, $params),
+            $this->buildNonWsdlArguments($method, $payload),
             ['soapaction' => self::WSFE_URI.$method]
         );
     }
@@ -337,26 +363,22 @@ class ArcaWsfeService
     }
 
     /**
-     * @param array<string, mixed> $params
+     * @param array<string, mixed> $payload
      *
      * @return array<int, mixed>
      */
-    private function buildNonWsdlArguments(string $method, array $params): array
+    private function buildNonWsdlArguments(string $method, array $payload): array
     {
         return match ($method) {
             'FECompUltimoAutorizado' => [
-                new \SoapParam($params['Auth'] ?? null, 'Auth'),
-                new \SoapParam($params['PtoVta'] ?? null, 'PtoVta'),
-                new \SoapParam($params['CbteTipo'] ?? null, 'CbteTipo'),
-            ],
-            'FECAESolicitar' => [
-                new \SoapParam($params['Auth'] ?? null, 'Auth'),
-                new \SoapParam($params['FeCAEReq'] ?? null, 'FeCAEReq'),
+                new \SoapParam($payload['Auth'] ?? null, 'Auth'),
+                new \SoapParam($payload['PtoVta'] ?? null, 'PtoVta'),
+                new \SoapParam($payload['CbteTipo'] ?? null, 'CbteTipo'),
             ],
             'FEParamGetCondicionIvaReceptor' => [
-                new \SoapParam($params['Auth'] ?? null, 'Auth'),
+                new \SoapParam($payload['Auth'] ?? null, 'Auth'),
             ],
-            default => [new \SoapParam($params, 'parameters')],
+            default => [new \SoapParam($payload, 'parameters')],
         };
     }
 
