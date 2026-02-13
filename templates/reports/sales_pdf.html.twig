@@ -28,6 +28,8 @@
                 <th>Cliente</th>
                 <th>Método</th>
                 <th>Estado</th>
+                <th>PV</th>
+                <th>N° Factura</th>
                 <th>Total</th>
             </tr>
         </thead>
@@ -40,10 +42,12 @@
                     <td>{{ row.customerName }}</td>
                     <td>{{ row.paymentMethod }}</td>
                     <td>{{ row.saleStatus == 'VOIDED' ? 'ANULADA' : 'CONFIRMADA' }}</td>
+                    <td>{{ row.arcaInvoicePosNumber ?? '—' }}</td>
+                    <td>{{ row.arcaInvoiceNumber ?? '—' }}</td>
                     <td>${{ row.total }}</td>
                 </tr>
             {% else %}
-                <tr><td colspan="7">No hay ventas en el rango.</td></tr>
+                <tr><td colspan="9">No hay ventas en el rango.</td></tr>
             {% endfor %}
         </tbody>
     </table>

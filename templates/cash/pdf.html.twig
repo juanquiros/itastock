@@ -51,6 +51,8 @@
                 <th>Hora</th>
                 <th>Método</th>
                 <th>Estado</th>
+                <th>PV</th>
+                <th>N° Factura</th>
                 <th>Total</th>
             </tr>
         </thead>
@@ -61,11 +63,13 @@
                     <td>{{ sale.createdAt ? sale.createdAt|date('d/m/Y H:i') : '' }}</td>
                     <td>{{ sale.paymentMethod }}</td>
                     <td>{{ sale.saleStatus == 'VOIDED' ? 'ANULADA' : 'CONFIRMADA' }}</td>
+                    <td>{{ sale.arcaInvoicePosNumber ?? '—' }}</td>
+                    <td>{{ sale.arcaInvoiceNumber ?? '—' }}</td>
                     <td>${{ sale.total }}</td>
                 </tr>
                 {% if includeDetail and (summary.saleDetails[sale.saleId] ?? []) is not empty %}
                     <tr>
-                        <td colspan="5">
+                        <td colspan="7">
                             <table>
                                 <thead>
                                     <tr>
@@ -90,7 +94,7 @@
                     </tr>
                 {% endif %}
             {% else %}
-                <tr><td colspan="5">Sin ventas en el rango.</td></tr>
+                <tr><td colspan="7">Sin ventas en el rango.</td></tr>
             {% endfor %}
         </tbody>
     </table>

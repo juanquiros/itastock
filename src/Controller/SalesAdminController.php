@@ -81,7 +81,7 @@ class SalesAdminController extends AbstractController
         $response = new StreamedResponse();
         $response->setCallback(static function () use ($rows): void {
             $handle = fopen('php://output', 'w');
-            fputcsv($handle, ['date', 'saleId', 'sellerEmail', 'customerName', 'paymentMethod', 'status', 'total', 'itemsCount'], ';');
+            fputcsv($handle, ['date', 'saleId', 'sellerEmail', 'customerName', 'paymentMethod', 'status', 'invoicePos', 'invoiceNumber', 'total', 'itemsCount'], ';');
 
             foreach ($rows as $row) {
                 $createdAt = $row['createdAt'];
@@ -94,6 +94,8 @@ class SalesAdminController extends AbstractController
                     $row['customerName'],
                     $row['paymentMethod'],
                     $row['saleStatus'],
+                    $row['arcaInvoicePosNumber'] ?? '',
+                    $row['arcaInvoiceNumber'] ?? '',
                     number_format((float) $row['total'], 2, '.', ''),
                     $row['itemsCount'],
                 ], ';');
