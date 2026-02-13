@@ -51,15 +51,7 @@ class ArcaWsfeService
      */
     public function requestCae(ArcaInvoice $invoice, BusinessArcaConfig $config, array $tokenSign): array
     {
-        $wsdl = $config->getArcaEnvironment() === BusinessArcaConfig::ENV_PROD ? $this->arcaWsfeWsdlProd : $this->arcaWsfeWsdlHomo;
-        if ($wsdl === '') {
-            throw new \RuntimeException('WSDL de WSFE no configurado.');
-        }
-
-        $client = new \SoapClient($wsdl, [
-            'trace' => 1,
-            'exceptions' => true,
-        ]);
+        $client = $this->createWsfeClient($config);
 
         $auth = [
             'Token' => $tokenSign['token'],
@@ -148,15 +140,7 @@ class ArcaWsfeService
         array $tokenSign,
         ArcaInvoice $associatedInvoice
     ): array {
-        $wsdl = $config->getArcaEnvironment() === BusinessArcaConfig::ENV_PROD ? $this->arcaWsfeWsdlProd : $this->arcaWsfeWsdlHomo;
-        if ($wsdl === '') {
-            throw new \RuntimeException('WSDL de WSFE no configurado.');
-        }
-
-        $client = new \SoapClient($wsdl, [
-            'trace' => 1,
-            'exceptions' => true,
-        ]);
+        $client = $this->createWsfeClient($config);
 
         $auth = [
             'Token' => $tokenSign['token'],
@@ -242,6 +226,64 @@ class ArcaWsfeService
         ];
     }
 
+    /**
+     * @return array<int, string>
+     */
+    private function getWsfeWsdls(BusinessArcaConfig $config): array
+    {
+        $environment = $config->getArcaEnvironment();
+        $configured = $environment === BusinessArcaConfig::ENV_PROD ? $this->arcaWsfeWsdlProd : $this->arcaWsfeWsdlHomo;
+        $defaults = $environment === BusinessArcaConfig::ENV_PROD
+            ? [
+                'https://wsfev1.afip.gov.ar/wsfev1/service.asmx?wsdl',
+                'https://wsfev1.afip.gov.ar/wsfev1/service.asmx?WSDL',
+            ]
+            : [
+                'https://wswhomo.afip.gov.ar/wsfev1/service.asmx?wsdl',
+                'https://wswhomo.afip.gov.ar/wsfev1/service.asmx?WSDL',
+            ];
+
+        $all = array_values(array_filter(array_unique(array_merge([$configured], $defaults)), static fn (string $url): bool => trim($url) !== ''));
+
+        if ($all === []) {
+            throw new \RuntimeException('WSDL de WSFE no configurado.');
+        }
+
+        return $all;
+    }
+
+    private function createWsfeClient(BusinessArcaConfig $config): \SoapClient
+    {
+        $errors = [];
+        $streamContext = stream_context_create([
+            'ssl' => [
+                'verify_peer' => true,
+                'verify_peer_name' => true,
+                'SNI_enabled' => true,
+            ],
+            'http' => [
+                'timeout' => 20,
+                'user_agent' => 'ItaStock-ARCA-WSFE/1.0',
+            ],
+        ]);
+
+        foreach ($this->getWsfeWsdls($config) as $wsdl) {
+            try {
+                return new \SoapClient($wsdl, [
+                    'trace' => 1,
+                    'exceptions' => true,
+                    'cache_wsdl' => WSDL_CACHE_MEMORY,
+                    'connection_timeout' => 20,
+                    'stream_context' => $streamContext,
+                ]);
+            } catch (\Throwable $exception) {
+                $errors[] = sprintf('%s => %s', $wsdl, $exception->getMessage());
+            }
+        }
+
+        throw new \RuntimeException('No se pudo cargar el WSDL de WSFE en ARCA. '.implode(' | ', array_slice($errors, 0, 3)));
+    }
+
     private function resolveCbteTipoCode(string $cbteTipo): int
     {
         return match ($cbteTipo) {
@@ -325,21 +367,13 @@ class ArcaWsfeService
 
         $this->condicionIvaReceptorErrors[$businessId] = '';
         try {
-            $wsdl = $config->getArcaEnvironment() === BusinessArcaConfig::ENV_PROD ? $this->arcaWsfeWsdlProd : $this->arcaWsfeWsdlHomo;
-            if ($wsdl === '') {
-                throw new \RuntimeException('WSDL de WSFE no configurado.');
-            }
-
             $business = $config->getBusiness();
             if (!$business) {
                 throw new \RuntimeException('Comercio no asociado a la configuración ARCA.');
             }
 
             $tokenSign = $this->wsaaService->getTokenSign($business, $config, 'wsfe');
-            $client = new \SoapClient($wsdl, [
-                'trace' => 1,
-                'exceptions' => true,
-            ]);
+            $client = $this->createWsfeClient($config);
 
             $auth = [
                 'Token' => $tokenSign['token'],
