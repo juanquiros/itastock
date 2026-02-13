@@ -50,6 +50,7 @@
                 <th>ID</th>
                 <th>Hora</th>
                 <th>Método</th>
+                <th>Estado</th>
                 <th>Total</th>
             </tr>
         </thead>
@@ -59,11 +60,12 @@
                     <td>{{ sale.saleId }}</td>
                     <td>{{ sale.createdAt ? sale.createdAt|date('d/m/Y H:i') : '' }}</td>
                     <td>{{ sale.paymentMethod }}</td>
+                    <td>{{ sale.saleStatus == 'VOIDED' ? 'ANULADA' : 'CONFIRMADA' }}</td>
                     <td>${{ sale.total }}</td>
                 </tr>
                 {% if includeDetail and (summary.saleDetails[sale.saleId] ?? []) is not empty %}
                     <tr>
-                        <td colspan="4">
+                        <td colspan="5">
                             <table>
                                 <thead>
                                     <tr>
@@ -88,7 +90,7 @@
                     </tr>
                 {% endif %}
             {% else %}
-                <tr><td colspan="4">Sin ventas en el rango.</td></tr>
+                <tr><td colspan="5">Sin ventas en el rango.</td></tr>
             {% endfor %}
         </tbody>
     </table>
