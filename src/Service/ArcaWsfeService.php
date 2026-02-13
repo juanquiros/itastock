@@ -29,6 +29,9 @@ class ArcaWsfeService
     ];
 
     private const WSFE_URI = 'http://ar.gov.afip.dif.FEV1/';
+    private const WSFE_LOCATION_PROD_PRIMARY = 'https://servicios1.afip.gov.ar/wsfev1/service.asmx';
+    private const WSFE_LOCATION_PROD_SECONDARY = 'https://wsfev1.afip.gov.ar/wsfev1/service.asmx';
+    private const WSFE_LOCATION_HOMO = 'https://wswhomo.afip.gov.ar/wsfev1/service.asmx';
 
     /**
      * @var array<int, array<int, string>>
@@ -66,7 +69,7 @@ class ArcaWsfeService
             'Auth' => $auth,
             'PtoVta' => $invoice->getArcaPosNumber(),
             'CbteTipo' => $cbteTipo,
-        ]);
+        ], $config);
 
         $lastNumber = (int) ($last->FECompUltimoAutorizadoResult->CbteNro ?? 0);
         $cbteNumero = $lastNumber + 1;
@@ -116,7 +119,7 @@ class ArcaWsfeService
             ],
         ];
 
-        $response = $this->wsfeCall($client, 'FECAESolicitar', $request);
+        $response = $this->wsfeCall($client, 'FECAESolicitar', $request, $config);
         $responseArray = json_decode(json_encode($response, JSON_THROW_ON_ERROR), true, 512, JSON_THROW_ON_ERROR);
 
         $detailResponse = $response->FECAESolicitarResult->FeDetResp->FECAEDetResponse ?? null;
@@ -158,7 +161,7 @@ class ArcaWsfeService
             'Auth' => $auth,
             'PtoVta' => $note->getArcaPosNumber(),
             'CbteTipo' => $cbteTipo,
-        ]);
+        ], $config);
 
         $lastNumber = (int) ($last->FECompUltimoAutorizadoResult->CbteNro ?? 0);
         $cbteNumero = $lastNumber + 1;
@@ -215,7 +218,7 @@ class ArcaWsfeService
             ],
         ];
 
-        $response = $this->wsfeCall($client, 'FECAESolicitar', $request);
+        $response = $this->wsfeCall($client, 'FECAESolicitar', $request, $config);
         $responseArray = json_decode(json_encode($response, JSON_THROW_ON_ERROR), true, 512, JSON_THROW_ON_ERROR);
 
         $detailResponse = $response->FECAESolicitarResult->FeDetResp->FECAEDetResponse ?? null;
@@ -248,12 +251,8 @@ class ArcaWsfeService
             ],
         ]);
 
-        $location = $config->getArcaEnvironment() === BusinessArcaConfig::ENV_PROD
-            ? 'https://wsfev1.afip.gov.ar/wsfev1/service.asmx'
-            : 'https://wswhomo.afip.gov.ar/wsfev1/service.asmx';
-
         return new \SoapClient(null, [
-            'location' => $location,
+            'location' => $this->getWsfeLocations($config)[0],
             'uri' => self::WSFE_URI,
             'trace' => true,
             'exceptions' => true,
@@ -265,40 +264,72 @@ class ArcaWsfeService
     }
 
     /**
-     * @param array<string, mixed> $payload
+     * @return array<int, string>
      */
-    private function wsfeCall(\SoapClient $client, string $method, array $payload): mixed
+    private function getWsfeLocations(BusinessArcaConfig $config): array
     {
-        if ($method === 'FECAESolicitar') {
-            $wrapped = new \SoapVar(
-                $this->normalizeSoapPayload($payload),
-                SOAP_ENC_OBJECT,
-                null,
-                self::WSFE_URI,
-                $method,
-                self::WSFE_URI
-            );
-
-            $result = $client->__soapCall($method, [new \SoapParam($wrapped, $method)], [
-                'soapaction' => self::WSFE_URI.$method,
-            ]);
-
-            $this->logWrongWrapperIfNeeded($client, $method);
-
-            return $result;
+        if ($config->getArcaEnvironment() === BusinessArcaConfig::ENV_PROD) {
+            return [
+                self::WSFE_LOCATION_PROD_PRIMARY,
+                self::WSFE_LOCATION_PROD_SECONDARY,
+            ];
         }
 
-        return match ($method) {
-            'FECompUltimoAutorizado' => $client->__soapCall($method, [
-                new \SoapParam($payload['Auth'] ?? null, 'Auth'),
-                new \SoapParam($payload['PtoVta'] ?? null, 'PtoVta'),
-                new \SoapParam($payload['CbteTipo'] ?? null, 'CbteTipo'),
-            ], ['soapaction' => self::WSFE_URI.$method]),
-            'FEParamGetCondicionIvaReceptor' => $client->__soapCall($method, [
-                new \SoapParam($payload['Auth'] ?? null, 'Auth'),
-            ], ['soapaction' => self::WSFE_URI.$method]),
-            default => $client->__soapCall($method, [new \SoapParam($payload, $method)], ['soapaction' => self::WSFE_URI.$method]),
-        };
+        return [self::WSFE_LOCATION_HOMO];
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     */
+    private function wsfeCall(\SoapClient $client, string $method, array $payload, BusinessArcaConfig $config): mixed
+    {
+        $locations = $this->getWsfeLocations($config);
+        $errors = [];
+
+        foreach ($locations as $location) {
+            $client->__setLocation($location);
+
+            try {
+                if ($method === 'FECAESolicitar') {
+                    $wrapped = new \SoapVar(
+                        $this->normalizeSoapPayload($payload),
+                        SOAP_ENC_OBJECT,
+                        null,
+                        self::WSFE_URI,
+                        $method,
+                        self::WSFE_URI
+                    );
+
+                    $result = $client->__soapCall($method, [new \SoapParam($wrapped, $method)], [
+                        'soapaction' => self::WSFE_URI.$method,
+                    ]);
+
+                    $this->logWrongWrapperIfNeeded($client, $method);
+
+                    return $result;
+                }
+
+                return match ($method) {
+                    'FECompUltimoAutorizado' => $client->__soapCall($method, [
+                        new \SoapParam($payload['Auth'] ?? null, 'Auth'),
+                        new \SoapParam($payload['PtoVta'] ?? null, 'PtoVta'),
+                        new \SoapParam($payload['CbteTipo'] ?? null, 'CbteTipo'),
+                    ], ['soapaction' => self::WSFE_URI.$method]),
+                    'FEParamGetCondicionIvaReceptor' => $client->__soapCall($method, [
+                        new \SoapParam($payload['Auth'] ?? null, 'Auth'),
+                    ], ['soapaction' => self::WSFE_URI.$method]),
+                    default => $client->__soapCall($method, [new \SoapParam($payload, $method)], ['soapaction' => self::WSFE_URI.$method]),
+                };
+            } catch (\Throwable $exception) {
+                $errors[] = sprintf('%s => %s', $location, $exception->getMessage());
+
+                if (!str_contains(strtolower($exception->getMessage()), 'could not connect to host')) {
+                    throw $exception;
+                }
+            }
+        }
+
+        throw new \RuntimeException('Could not connect to host. '.implode(' | ', $errors));
     }
 
     private function logWrongWrapperIfNeeded(\SoapClient $client, string $method): void
@@ -433,7 +464,7 @@ class ArcaWsfeService
 
             $response = $this->wsfeCall($client, 'FEParamGetCondicionIvaReceptor', [
                 'Auth' => $auth,
-            ]);
+            ], $config);
 
             $raw = $response->FEParamGetCondicionIvaReceptorResult->ResultGet->CondicionIvaReceptor ?? [];
             $items = json_decode(json_encode($raw, JSON_THROW_ON_ERROR), true, 512, JSON_THROW_ON_ERROR);
