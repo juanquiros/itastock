@@ -279,21 +279,8 @@ class ArcaWsfeService
                 $client = $this->soapClientFactory->createWsfeClientForLocation($config, $location, $usedWsdl);
                 $client->__setLocation($location);
 
-                if ($method === 'FECAESolicitar') {
-                    $result = $client->__soapCall($method, [
-                        new \SoapParam($this->normalizeSoapPayload($payload['Auth'] ?? []), 'Auth'),
-                        new \SoapParam($this->normalizeSoapPayload($payload['FeCAEReq'] ?? []), 'FeCAEReq'),
-                    ], [
-                        'soapaction' => self::WSFE_URI.$method,
-                    ]);
-
-                    $this->logWrongWrapperIfNeeded($client, $method);
-                    $this->logSoapExchangeIfDev($client, $method, $location);
-
-                    return $result;
-                }
-
-                $result = $this->callWrapped($client, $method, $payload);
+                $result = $this->soapCallWrapped($client, $method, $payload);
+                $this->logAuthPresenceIfNeeded($client, $method);
                 $this->logSoapExchangeIfDev($client, $method, $location);
 
                 return $result;
@@ -329,7 +316,7 @@ class ArcaWsfeService
     /**
      * @param array<string, mixed> $payload
      */
-    private function callWrapped(\SoapClient $client, string $method, array $payload): mixed
+    private function soapCallWrapped(\SoapClient $client, string $method, array $payload): mixed
     {
         if ($method === 'FECompUltimoAutorizado') {
             $ptoVta = $payload['PtoVta'] ?? null;
@@ -342,17 +329,42 @@ class ArcaWsfeService
             $payload['CbteTipo'] = (int) $cbteTipo;
         }
 
-        $wrapped = $this->normalizeSoapPayload($payload);
+        if ($method === 'FECAESolicitar') {
+            $token = (string) ($payload['Auth']['Token'] ?? '');
+            $sign = (string) ($payload['Auth']['Sign'] ?? '');
+            $cuit = (string) ($payload['Auth']['Cuit'] ?? '');
+            $ptoVta = $payload['FeCAEReq']['FeCabReq']['PtoVta'] ?? null;
+            $cbteTipo = $payload['FeCAEReq']['FeCabReq']['CbteTipo'] ?? null;
 
-        $result = $client->__soapCall($method, [
-            new \SoapParam($wrapped, $method),
-        ], [
-            'soapaction' => self::WSFE_URI.$method,
-        ]);
+            if ($token === '' || $sign === '' || $cuit === '') {
+                throw new \RuntimeException('WSFE FECAESolicitar requiere Auth completo (Token/Sign/Cuit).');
+            }
+            if ($ptoVta === null || $cbteTipo === null) {
+                throw new \RuntimeException('WSFE FECAESolicitar requiere FeCAEReq.FeCabReq.PtoVta y CbteTipo.');
+            }
+
+            $payload['FeCAEReq']['FeCabReq']['PtoVta'] = (int) $ptoVta;
+            $payload['FeCAEReq']['FeCabReq']['CbteTipo'] = (int) $cbteTipo;
+        }
+
+        $payload = $this->normalizeSoapPayload($payload);
+        $result = $client->__soapCall($method, [$payload]);
 
         $this->logWrongWrapperIfNeeded($client, $method);
 
         return $result;
+    }
+
+    private function logAuthPresenceIfNeeded(\SoapClient $client, string $method): void
+    {
+        if ($method !== 'FECAESolicitar') {
+            return;
+        }
+
+        $request = $client->__getLastRequest() ?: '';
+        if ($request !== '' && !str_contains($request, '<Auth>')) {
+            $this->logger->error('Auth missing in SOAP request.', ['method' => $method]);
+        }
     }
 
     private function shouldRetryOnNextLocation(string $message): bool
