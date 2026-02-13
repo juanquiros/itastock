@@ -1075,42 +1075,32 @@ class SaleController extends AbstractController
 
     private function buildInvoiceQrDataUri(ArcaInvoice $invoice, ?BusinessArcaConfig $config): ?string
     {
-        $payload = $this->arcaQrService->buildPayloadForInvoice($invoice, $config);
-        if ($payload === []) {
+        $qrUrl = $this->arcaQrService->buildQrUrl($invoice, $config);
+        if ($qrUrl === null) {
             return null;
         }
 
-        return $this->arcaQrService->generatePngDataUri($this->arcaQrService->buildQrUrl($payload));
+        return $this->arcaQrService->generatePngDataUri($qrUrl);
     }
 
     private function buildInvoiceQrUrl(ArcaInvoice $invoice, ?BusinessArcaConfig $config): ?string
     {
-        $payload = $this->arcaQrService->buildPayloadForInvoice($invoice, $config);
-        if ($payload === []) {
-            return null;
-        }
-
-        return $this->arcaQrService->buildQrUrl($payload);
+        return $this->arcaQrService->buildQrUrl($invoice, $config);
     }
 
     private function buildCreditNoteQrDataUri(ArcaCreditNote $creditNote, ?BusinessArcaConfig $config): ?string
     {
-        $payload = $this->arcaQrService->buildPayloadForCreditNote($creditNote, $config);
-        if ($payload === []) {
+        $qrUrl = $this->arcaQrService->buildQrUrl($creditNote, $config);
+        if ($qrUrl === null) {
             return null;
         }
 
-        return $this->arcaQrService->generatePngDataUri($this->arcaQrService->buildQrUrl($payload));
+        return $this->arcaQrService->generatePngDataUri($qrUrl);
     }
 
     private function buildCreditNoteQrUrl(ArcaCreditNote $creditNote, ?BusinessArcaConfig $config): ?string
     {
-        $payload = $this->arcaQrService->buildPayloadForCreditNote($creditNote, $config);
-        if ($payload === []) {
-            return null;
-        }
-
-        return $this->arcaQrService->buildQrUrl($payload);
+        return $this->arcaQrService->buildQrUrl($creditNote, $config);
     }
 
     private function requireUser(): User
