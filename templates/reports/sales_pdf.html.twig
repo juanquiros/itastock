@@ -27,6 +27,7 @@
                 <th>Vendedor</th>
                 <th>Cliente</th>
                 <th>Método</th>
+                <th>Estado</th>
                 <th>Total</th>
             </tr>
         </thead>
@@ -38,10 +39,11 @@
                     <td>{{ row.sellerEmail ?? 'N/D' }}</td>
                     <td>{{ row.customerName }}</td>
                     <td>{{ row.paymentMethod }}</td>
+                    <td>{{ row.saleStatus == 'VOIDED' ? 'ANULADA' : 'CONFIRMADA' }}</td>
                     <td>${{ row.total }}</td>
                 </tr>
             {% else %}
-                <tr><td colspan="6">No hay ventas en el rango.</td></tr>
+                <tr><td colspan="7">No hay ventas en el rango.</td></tr>
             {% endfor %}
         </tbody>
     </table>
