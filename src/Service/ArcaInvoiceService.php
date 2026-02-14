@@ -146,6 +146,10 @@ class ArcaInvoiceService
 
     private function resolveIvaRate(SaleItem $item): float
     {
+        if ($item->getIvaRate() !== null) {
+            return (float) $item->getIvaRate();
+        }
+
         $product = $item->getProduct();
         if ($product && $product->getIvaRate() !== null) {
             return (float) $product->getIvaRate();

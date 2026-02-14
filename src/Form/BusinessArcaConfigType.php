@@ -7,11 +7,14 @@ use Symfony\Component\Form\AbstractType;
 use Symfony\Component\Form\Extension\Core\Type\CheckboxType;
 use Symfony\Component\Form\Extension\Core\Type\ChoiceType;
 use Symfony\Component\Form\Extension\Core\Type\FileType;
+use Symfony\Component\Form\Extension\Core\Type\NumberType;
 use Symfony\Component\Form\Extension\Core\Type\TextareaType;
 use Symfony\Component\Form\Extension\Core\Type\TextType;
 use Symfony\Component\Form\FormBuilderInterface;
 use Symfony\Component\Validator\Constraints\File;
+use Symfony\Component\Validator\Constraints\LessThanOrEqual;
 use Symfony\Component\Validator\Constraints\NotBlank;
+use Symfony\Component\Validator\Constraints\PositiveOrZero;
 use Symfony\Component\Validator\Constraints\When;
 use Symfony\Component\OptionsResolver\OptionsResolver;
 
@@ -44,6 +47,24 @@ class BusinessArcaConfigType extends AbstractType
                 'placeholder' => 'Seleccionar',
                 'choices' => array_flip($options['receiver_iva_options']),
                 'help' => $options['receiver_iva_help'],
+            ])
+            ->add('genericItemIvaEnabled', CheckboxType::class, [
+                'label' => 'Aplicar IVA en ítems genéricos',
+                'required' => false,
+            ])
+            ->add('genericItemIvaRate', NumberType::class, [
+                'label' => 'IVA por defecto ítems genéricos (%)',
+                'scale' => 2,
+                'html5' => true,
+                'attr' => [
+                    'step' => '0.01',
+                    'min' => '0',
+                    'max' => '100',
+                ],
+                'constraints' => [
+                    new PositiveOrZero(message: 'El IVA debe ser mayor o igual a 0.'),
+                    new LessThanOrEqual(value: 100, message: 'El IVA debe ser menor o igual a 100.'),
+                ],
             ])
             ->add('cuitEmisor', TextType::class, [
                 'label' => 'CUIT emisor',

@@ -90,6 +90,7 @@ class SaleController extends AbstractController
         $priceLists = $this->priceListRepository->findActiveForBusiness($business);
         $priceListPrices = $this->priceListItemRepository->findPricesByBusiness($business);
         $defaultPriceList = $this->priceListRepository->findDefaultActiveForBusiness($business);
+        $arcaConfig = $this->arcaConfigRepository->getOrCreate($business);
 
         if ($request->isMethod('POST')) {
             return $this->handleSubmission($request, $business, $products, $user);
@@ -130,6 +131,8 @@ class SaleController extends AbstractController
             'priceListPrices' => $priceListPrices,
             'defaultPriceListId' => $defaultPriceList?->getId(),
             'barcodeScanSoundPath' => $settings?->getBarcodeScanSoundPath(),
+            'genericItemIvaEnabled' => $arcaConfig->isGenericItemIvaEnabled(),
+            'genericItemIvaRate' => (float) $arcaConfig->getGenericItemIvaRate(),
         ]);
     }
 
@@ -145,6 +148,7 @@ class SaleController extends AbstractController
         $priceLists = $this->priceListRepository->findActiveForBusiness($business);
         $priceListPrices = $this->priceListItemRepository->findPricesByBusiness($business);
         $defaultPriceList = $this->priceListRepository->findDefaultActiveForBusiness($business);
+        $arcaConfig = $this->arcaConfigRepository->getOrCreate($business);
 
         return $this->json([
             'products' => array_map(static fn (Product $product) => [
@@ -177,6 +181,8 @@ class SaleController extends AbstractController
             ], $priceLists),
             'priceListPrices' => $priceListPrices,
             'defaultPriceListId' => $defaultPriceList?->getId(),
+            'genericItemIvaEnabled' => $arcaConfig->isGenericItemIvaEnabled(),
+            'genericItemIvaRate' => (float) $arcaConfig->getGenericItemIvaRate(),
         ]);
     }
 
@@ -218,6 +224,8 @@ class SaleController extends AbstractController
             return $this->json(['error' => 'Elegí un cliente activo para vender en cuenta corriente.'], Response::HTTP_BAD_REQUEST);
         }
 
+        $arcaConfig = $this->arcaConfigRepository->getOrCreate($business);
+
         if (!is_array($itemsData) || count($itemsData) === 0) {
             return $this->json([
                 'subtotal' => '0.00',
@@ -237,48 +245,62 @@ class SaleController extends AbstractController
             $productId = (int) ($row['product_id'] ?? 0);
             $qty = $this->normalizeQuantity($row['qty'] ?? null);
 
-            if ($productId === 0 || $qty === null || bccomp($qty, '0', 3) <= 0) {
+            if ($qty === null || bccomp($qty, '0', 3) <= 0) {
                 continue;
             }
 
-            if (!isset($productIndex[$productId])) {
-                return $this->json(['error' => 'Producto inválido.'], Response::HTTP_BAD_REQUEST);
+            if ($productId > 0) {
+                if (!isset($productIndex[$productId])) {
+                    return $this->json(['error' => 'Producto inválido.'], Response::HTTP_BAD_REQUEST);
+                }
+
+                $product = $productIndex[$productId];
+
+                $qtyStep = $product->getQtyStep() ?? '0.100';
+                $allowsFractional = $product->allowsFractionalQty();
+
+                if ($product->getUomBase() === Product::UOM_UNIT && $allowsFractional === false && !$this->isIntegerQuantity($qty)) {
+                    return $this->json(['error' => sprintf('La cantidad de %s debe ser entera.', $product->getName())], Response::HTTP_BAD_REQUEST);
+                }
+
+                if ($allowsFractional === false && bccomp($qty, '1', 3) < 0) {
+                    return $this->json(['error' => sprintf('La cantidad mínima para %s es 1.', $product->getName())], Response::HTTP_BAD_REQUEST);
+                }
+
+                if ($allowsFractional && !$this->isMultipleOfStep($qty, $qtyStep)) {
+                    return $this->json(['error' => sprintf('La cantidad de %s debe ser múltiplo de %s.', $product->getName(), $qtyStep)], Response::HTTP_BAD_REQUEST);
+                }
+
+                if (bccomp($qty, $product->getStock(), 3) === 1) {
+                    return $this->json(['error' => sprintf('No hay stock suficiente para %s.', $product->getName())], Response::HTTP_BAD_REQUEST);
+                }
+
+                $unitPrice = $this->pricingService->resolveUnitPrice($product, $customer);
+                [$lineTotal, $lineCents] = $this->calculateLineTotal(number_format($unitPrice, 2, '.', ''), $qty);
+                $subtotalCents += $lineCents;
+
+                $item = new SaleItem();
+                $item->setProduct($product);
+                $item->setDescription($this->buildSaleItemDescription($product));
+                $item->setQty($qty);
+                $item->setUnitPrice(number_format($unitPrice, 2, '.', ''));
+                $item->setLineSubtotal($lineTotal);
+                $item->setLineDiscount('0.00');
+                $item->setLineTotal($lineTotal);
+                $sale->addItem($item);
+
+                continue;
             }
 
-            $product = $productIndex[$productId];
-
-            $qtyStep = $product->getQtyStep() ?? '0.100';
-            $allowsFractional = $product->allowsFractionalQty();
-
-            if ($product->getUomBase() === Product::UOM_UNIT && $allowsFractional === false && !$this->isIntegerQuantity($qty)) {
-                return $this->json(['error' => sprintf('La cantidad de %s debe ser entera.', $product->getName())], Response::HTTP_BAD_REQUEST);
+            $customItem = $this->buildCustomSaleItem($row, $qty, $arcaConfig);
+            if (!$customItem['ok']) {
+                return $this->json(['error' => $customItem['error']], Response::HTTP_BAD_REQUEST);
             }
 
-            if ($allowsFractional === false && bccomp($qty, '1', 3) < 0) {
-                return $this->json(['error' => sprintf('La cantidad mínima para %s es 1.', $product->getName())], Response::HTTP_BAD_REQUEST);
-            }
-
-            if ($allowsFractional && !$this->isMultipleOfStep($qty, $qtyStep)) {
-                return $this->json(['error' => sprintf('La cantidad de %s debe ser múltiplo de %s.', $product->getName(), $qtyStep)], Response::HTTP_BAD_REQUEST);
-            }
-
-            if (bccomp($qty, $product->getStock(), 3) === 1) {
-                return $this->json(['error' => sprintf('No hay stock suficiente para %s.', $product->getName())], Response::HTTP_BAD_REQUEST);
-            }
-
-            $unitPrice = $this->pricingService->resolveUnitPrice($product, $customer);
-            [$lineTotal, $lineCents] = $this->calculateLineTotal(number_format($unitPrice, 2, '.', ''), $qty);
-            $subtotalCents += $lineCents;
-
-            $item = new SaleItem();
-            $item->setProduct($product);
-            $item->setDescription($this->buildSaleItemDescription($product));
-            $item->setQty($qty);
-            $item->setUnitPrice(number_format($unitPrice, 2, '.', ''));
-            $item->setLineSubtotal($lineTotal);
-            $item->setLineDiscount('0.00');
-            $item->setLineTotal($lineTotal);
+            /** @var SaleItem $item */
+            $item = $customItem['item'];
             $sale->addItem($item);
+            $subtotalCents += $customItem['lineCents'];
         }
 
         if (count($sale->getItems()) === 0) {
@@ -309,6 +331,9 @@ class SaleController extends AbstractController
             ], $sale->getSaleDiscounts()->toArray()),
             'lines' => array_map(static fn (SaleItem $item) => [
                 'product_id' => $item->getProduct()?->getId(),
+                'kind' => $item->getProduct() ? 'product' : 'custom',
+                'description' => $item->getDescription(),
+                'iva_rate' => $item->getIvaRate(),
                 'lineSubtotal' => $item->getLineSubtotal(),
                 'lineDiscount' => $item->getLineDiscount(),
                 'lineTotal' => $item->getLineTotal(),
@@ -737,73 +762,90 @@ class SaleController extends AbstractController
         $sale->setPosNumber($posNumber);
         $sale->setPosSequence($this->nextPosSequence($business, $posNumber));
 
+        $arcaConfig = $this->arcaConfigRepository->getOrCreate($business);
         $subtotalCents = 0;
 
         foreach ($itemsData as $row) {
             $productId = (int) ($row['product_id'] ?? 0);
             $qty = $this->normalizeQuantity($row['qty'] ?? null);
 
-            if ($productId === 0 || $qty === null || bccomp($qty, '0', 3) <= 0) {
+            if ($qty === null || bccomp($qty, '0', 3) <= 0) {
                 continue;
             }
 
-            if (!isset($productIndex[$productId])) {
-                throw new AccessDeniedException('El producto no pertenece a tu comercio.');
+            if ($productId > 0) {
+                if (!isset($productIndex[$productId])) {
+                    throw new AccessDeniedException('El producto no pertenece a tu comercio.');
+                }
+
+                $product = $productIndex[$productId];
+
+                $qtyStep = $product->getQtyStep() ?? '0.100';
+                $allowsFractional = $product->allowsFractionalQty();
+
+                if ($product->getUomBase() === Product::UOM_UNIT && $allowsFractional === false && !$this->isIntegerQuantity($qty)) {
+                    $this->addFlash('danger', sprintf('La cantidad de %s debe ser entera.', $product->getName()));
+
+                    return $this->redirectToRoute('app_sale_new');
+                }
+
+                if ($allowsFractional === false && bccomp($qty, '1', 3) < 0) {
+                    $this->addFlash('danger', sprintf('La cantidad mínima para %s es 1.', $product->getName()));
+
+                    return $this->redirectToRoute('app_sale_new');
+                }
+
+                if ($allowsFractional && !$this->isMultipleOfStep($qty, $qtyStep)) {
+                    $this->addFlash('danger', sprintf('La cantidad de %s debe ser múltiplo de %s.', $product->getName(), $qtyStep));
+
+                    return $this->redirectToRoute('app_sale_new');
+                }
+
+                if (bccomp($qty, $product->getStock(), 3) === 1) {
+                    $this->addFlash('danger', sprintf('No hay stock suficiente para %s.', $product->getName()));
+
+                    return $this->redirectToRoute('app_sale_new');
+                }
+
+                $unitPrice = $this->pricingService->resolveUnitPrice($product, $customer);
+                [$lineTotal, $lineCents] = $this->calculateLineTotal(number_format($unitPrice, 2, '.', ''), $qty);
+                $subtotalCents += $lineCents;
+
+                $item = new SaleItem();
+                $item->setProduct($product);
+                $item->setDescription($this->buildSaleItemDescription($product));
+                $item->setQty($qty);
+                $item->setUnitPrice(number_format($unitPrice, 2, '.', ''));
+                $item->setLineSubtotal($lineTotal);
+                $item->setLineDiscount('0.00');
+                $item->setLineTotal($lineTotal);
+                $sale->addItem($item);
+
+                $product->adjustStock(bcsub('0', $qty, 3));
+
+                $movement = new StockMovement();
+                $movement->setProduct($product);
+                $movement->setType(StockMovement::TYPE_SALE);
+                $movement->setQty(bcsub('0', $qty, 3));
+                $movement->setReference('Venta');
+                $movement->setCreatedBy($user);
+
+                $this->entityManager->persist($movement);
+
+                continue;
             }
 
-            $product = $productIndex[$productId];
-
-            $qtyStep = $product->getQtyStep() ?? '0.100';
-            $allowsFractional = $product->allowsFractionalQty();
-
-            if ($product->getUomBase() === Product::UOM_UNIT && $allowsFractional === false && !$this->isIntegerQuantity($qty)) {
-                $this->addFlash('danger', sprintf('La cantidad de %s debe ser entera.', $product->getName()));
+            $customItem = $this->buildCustomSaleItem($row, $qty, $arcaConfig);
+            if (!$customItem['ok']) {
+                $this->addFlash('danger', $customItem['error']);
 
                 return $this->redirectToRoute('app_sale_new');
             }
 
-            if ($allowsFractional === false && bccomp($qty, '1', 3) < 0) {
-                $this->addFlash('danger', sprintf('La cantidad mínima para %s es 1.', $product->getName()));
-
-                return $this->redirectToRoute('app_sale_new');
-            }
-
-            if ($allowsFractional && !$this->isMultipleOfStep($qty, $qtyStep)) {
-                $this->addFlash('danger', sprintf('La cantidad de %s debe ser múltiplo de %s.', $product->getName(), $qtyStep));
-
-                return $this->redirectToRoute('app_sale_new');
-            }
-
-            if (bccomp($qty, $product->getStock(), 3) === 1) {
-                $this->addFlash('danger', sprintf('No hay stock suficiente para %s.', $product->getName()));
-
-                return $this->redirectToRoute('app_sale_new');
-            }
-
-            $unitPrice = $this->pricingService->resolveUnitPrice($product, $customer);
-            [$lineTotal, $lineCents] = $this->calculateLineTotal(number_format($unitPrice, 2, '.', ''), $qty);
-            $subtotalCents += $lineCents;
-
-            $item = new SaleItem();
-            $item->setProduct($product);
-            $item->setDescription($this->buildSaleItemDescription($product));
-            $item->setQty($qty);
-            $item->setUnitPrice(number_format($unitPrice, 2, '.', ''));
-            $item->setLineSubtotal($lineTotal);
-            $item->setLineDiscount('0.00');
-            $item->setLineTotal($lineTotal);
+            /** @var SaleItem $item */
+            $item = $customItem['item'];
             $sale->addItem($item);
-
-            $product->adjustStock(bcsub('0', $qty, 3));
-
-            $movement = new StockMovement();
-            $movement->setProduct($product);
-            $movement->setType(StockMovement::TYPE_SALE);
-            $movement->setQty(bcsub('0', $qty, 3));
-            $movement->setReference('Venta');
-            $movement->setCreatedBy($user);
-
-            $this->entityManager->persist($movement);
+            $subtotalCents += $customItem['lineCents'];
         }
 
         if (count($sale->getItems()) === 0) {
@@ -913,6 +955,94 @@ class SaleController extends AbstractController
         $this->addFlash('success', 'Venta registrada.');
 
         return $this->redirectToRoute('app_sale_ticket', ['id' => $sale->getId()]);
+    }
+
+    /**
+     * @param array<string, mixed> $row
+     *
+     * @return array{ok: bool, error?: string, item?: SaleItem, lineCents?: int}
+     */
+    private function buildCustomSaleItem(array $row, string $qty, BusinessArcaConfig $arcaConfig): array
+    {
+        $description = trim((string) ($row['description'] ?? ''));
+        if (mb_strlen($description) < 3) {
+            return ['ok' => false, 'error' => 'La descripción del producto no cargado debe tener al menos 3 caracteres.'];
+        }
+
+        $unitPrice = $this->normalizeMoney($row['unit_price'] ?? null);
+        if ($unitPrice === null || bccomp($unitPrice, '0', 2) <= 0) {
+            return ['ok' => false, 'error' => 'El precio unitario del producto no cargado debe ser mayor a 0.'];
+        }
+
+        $ivaRate = $this->resolveCustomIvaRate($row['iva_rate'] ?? null, $arcaConfig);
+        if ($ivaRate === null) {
+            return ['ok' => false, 'error' => 'El IVA del producto no cargado debe estar entre 0 y 100.'];
+        }
+
+        [$lineTotal, $lineCents] = $this->calculateLineTotal($unitPrice, $qty);
+
+        $item = new SaleItem();
+        $item->setProduct(null);
+        $item->setDescription($description);
+        $item->setQty($qty);
+        $item->setUnitPrice($unitPrice);
+        $item->setLineSubtotal($lineTotal);
+        $item->setLineDiscount('0.00');
+        $item->setLineTotal($lineTotal);
+        $item->setIvaRate($ivaRate);
+
+        return [
+            'ok' => true,
+            'item' => $item,
+            'lineCents' => $lineCents,
+        ];
+    }
+
+    private function resolveCustomIvaRate(mixed $inputRate, BusinessArcaConfig $arcaConfig): ?string
+    {
+        if ($inputRate !== null && $inputRate !== '') {
+            return $this->normalizeIvaRate($inputRate);
+        }
+
+        if (!$arcaConfig->isGenericItemIvaEnabled()) {
+            return '0.00';
+        }
+
+        return $this->normalizeIvaRate($arcaConfig->getGenericItemIvaRate()) ?? '0.00';
+    }
+
+    private function normalizeIvaRate(mixed $value): ?string
+    {
+        $normalized = $this->normalizeMoney($value);
+        if ($normalized === null) {
+            return null;
+        }
+
+        if (bccomp($normalized, '0', 2) < 0 || bccomp($normalized, '100', 2) > 0) {
+            return null;
+        }
+
+        return $normalized;
+    }
+
+    private function normalizeMoney(mixed $value): ?string
+    {
+        if ($value === null) {
+            return null;
+        }
+
+        $stringValue = is_string($value) ? trim($value) : (string) $value;
+        $stringValue = str_replace(',', '.', $stringValue);
+
+        if ($stringValue === '') {
+            return null;
+        }
+
+        if (!preg_match('/^\d+(?:\.\d{1,2})?$/', $stringValue)) {
+            return null;
+        }
+
+        return number_format((float) $stringValue, 2, '.', '');
     }
 
     private function buildSaleItemDescription(Product $product): string

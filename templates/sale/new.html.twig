@@ -127,9 +127,12 @@
                             <div class="col-lg-7">
                                 <div class="card shadow-sm mb-3">
                                     <div class="card-body">
-                                        <div class="d-flex align-items-center justify-content-between mb-3">
+                                        <div class="d-flex align-items-center justify-content-between mb-3 gap-2 flex-wrap">
                                             <h2 class="h5 mb-0">Detalle del ticket</h2>
-                                            <span class="badge text-bg-dark">Stock se descuenta al confirmar</span>
+                                            <div class="d-flex align-items-center gap-2">
+                                                <button type="button" class="btn btn-outline-primary btn-sm" id="add-custom-item" data-bs-toggle="modal" data-bs-target="#customItemModal">+ Producto no cargado</button>
+                                                <span class="badge text-bg-dark">Stock se descuenta al confirmar</span>
+                                            </div>
                                         </div>
                                         <div class="table-responsive sale-items-table">
                                             <table class="table align-middle mb-0">
@@ -205,6 +208,47 @@
         </div>
     </div>
 
+    <div class="modal fade" id="customItemModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Producto no cargado</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label" for="custom-description">Descripción</label>
+                        <input type="text" id="custom-description" class="form-control" required>
+                    </div>
+                    <div class="row g-2">
+                        <div class="col-6">
+                            <label class="form-label" for="custom-qty">Cantidad</label>
+                            <input type="number" id="custom-qty" class="form-control" min="0.001" step="0.001" value="1.000" required>
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label" for="custom-unit-price">Precio unitario</label>
+                            <input type="number" id="custom-unit-price" class="form-control" min="0.01" step="0.01" required>
+                        </div>
+                    </div>
+                    <div class="form-check mt-3">
+                        <input class="form-check-input" type="checkbox" id="custom-apply-iva">
+                        <label class="form-check-label" for="custom-apply-iva">Aplicar IVA</label>
+                    </div>
+                    <div class="mt-2">
+                        <label class="form-label" for="custom-iva-rate">IVA (%)</label>
+                        <input type="number" id="custom-iva-rate" class="form-control" min="0" max="100" step="0.01">
+                    </div>
+                    <div class="text-danger small mt-2 d-none" id="custom-item-error"></div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-primary" id="custom-add-confirm">Agregar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
     <div class="modal fade" id="paymentModal" tabindex="-1" aria-labelledby="paymentModalLabel" aria-hidden="true">
         <div class="modal-dialog">
             <div class="modal-content">
@@ -258,6 +302,8 @@
             let priceLists = {{ priceLists|json_encode|raw }};
             let priceListPrices = {{ priceListPrices|json_encode|raw }};
             let defaultPriceListId = {{ defaultPriceListId|json_encode|raw }};
+            let genericItemIvaEnabled = {{ genericItemIvaEnabled ? 'true' : 'false' }};
+            let genericItemIvaRate = parseFloat({{ genericItemIvaRate|json_encode|raw }} || '0');
             const items = [];
             let selectedCustomer = null;
             const snapshotUrl = '{{ path('app_sale_snapshot') }}';
@@ -299,6 +345,14 @@
             const productDetailsSummary = document.getElementById('product-details-summary');
             const productDetailsCharacteristics = document.getElementById('product-details-characteristics');
             const previewUrl = '{{ path('app_sale_preview') }}';
+            const customItemModalElement = document.getElementById('customItemModal');
+            const customDescription = document.getElementById('custom-description');
+            const customQty = document.getElementById('custom-qty');
+            const customUnitPrice = document.getElementById('custom-unit-price');
+            const customApplyIva = document.getElementById('custom-apply-iva');
+            const customIvaRate = document.getElementById('custom-iva-rate');
+            const customAddConfirm = document.getElementById('custom-add-confirm');
+            const customItemError = document.getElementById('custom-item-error');
             let currentSubtotal = 0;
             let currentDiscountTotal = 0;
             let currentTotal = 0;
@@ -307,6 +361,15 @@
 
             function formatMoney(value) {
                 return `$${value.toFixed(2)}`;
+            }
+
+            function normalizeIvaRate(value) {
+                const numeric = parseFloat(value);
+                if (Number.isNaN(numeric) || numeric < 0 || numeric > 100) {
+                    return null;
+                }
+
+                return parseFloat(numeric.toFixed(2));
             }
 
             function resolvePriceListId() {
@@ -641,7 +704,9 @@
 
             function recalculatePrices() {
                 items.forEach((item) => {
-                    item.price = resolveUnitPrice(item.product_id);
+                    if (item.kind !== 'custom') {
+                        item.price = resolveUnitPrice(item.product_id);
+                    }
                 });
                 renderItems();
             }
@@ -664,16 +729,23 @@
                     const row = document.createElement('tr');
                     const min = item.allowsFractional ? item.qtyStep : 1;
                     const step = item.allowsFractional ? item.qtyStep : 1;
+                    const max = item.kind === 'custom' ? '' : `max="${item.stock}"`;
                     row.innerHTML = `
                         <td>
-                            <div class="fw-semibold">${item.name}</div>
+                            <div class="fw-semibold">${item.name}${item.kind === 'custom' ? ' <span class="badge text-bg-secondary">No cargado</span>' : ''}</div>
                             ${item.characteristicsSummary ? `<div class="text-muted small">${item.characteristicsSummary}</div>` : ''}
                             <input type="hidden" name="items[${index}][product_id]" value="${item.product_id}">
+                            ${item.kind === 'custom' ? `<input type="hidden" name="items[${index}][description]" value="${item.name}">` : ''}
+                            ${item.kind === 'custom' ? `<input type="hidden" name="items[${index}][iva_rate]" value="${item.ivaRate.toFixed(2)}">` : ''}
                         </td>
-                        <td class="text-end">${formatMoney(item.price)}</td>
+                        <td class="text-end">
+                            ${item.kind === 'custom'
+                                ? `<input type="number" min="0.01" step="0.01" name="items[${index}][unit_price]" value="${item.price.toFixed(2)}" class="form-control form-control-sm text-end" data-price-index="${index}">`
+                                : formatMoney(item.price)}
+                        </td>
                         <td>
                             <div class="input-group input-group-sm">
-                                <input type="number" min="${min}" max="${item.stock}" step="${step}" name="items[${index}][qty]" value="${item.qty.toFixed(3)}" class="form-control form-control-sm" data-index="${index}">
+                                <input type="number" min="${min}" ${max} step="${step}" name="items[${index}][qty]" value="${item.qty.toFixed(3)}" class="form-control form-control-sm" data-index="${index}">
                                 <span class="input-group-text">${item.uomBase}</span>
                             </div>
                         </td>
@@ -685,11 +757,20 @@
                     itemsTable.appendChild(row);
                 });
 
-                itemsTable.querySelectorAll('input[type="number"]').forEach((input) => {
+                itemsTable.querySelectorAll('input[data-index]').forEach((input) => {
                     input.addEventListener('change', (event) => {
                         const idx = parseInt(event.target.dataset.index, 10);
                         const value = parseFloat(event.target.value);
                         items[idx].qty = normalizeQty(value, items[idx]);
+                        renderItems();
+                    });
+                });
+
+                itemsTable.querySelectorAll('input[data-price-index]').forEach((input) => {
+                    input.addEventListener('change', (event) => {
+                        const idx = parseInt(event.target.dataset.priceIndex, 10);
+                        const value = parseFloat(event.target.value);
+                        items[idx].price = Number.isNaN(value) || value <= 0 ? 0.01 : parseFloat(value.toFixed(2));
                         renderItems();
                     });
                 });
@@ -779,7 +860,11 @@
                         body: JSON.stringify({
                             items: items.map((item) => ({
                                 product_id: item.product_id,
+                                kind: item.kind || 'product',
+                                description: item.kind === 'custom' ? item.name : undefined,
                                 qty: item.qty.toFixed(3),
+                                unit_price: item.kind === 'custom' ? item.price.toFixed(2) : undefined,
+                                iva_rate: item.kind === 'custom' ? item.ivaRate.toFixed(2) : undefined,
                             })),
                             customer_id: selectedCustomer ? selectedCustomer.id : 0,
                             payment_method: paymentMethodModal.value,
@@ -870,6 +955,8 @@
                 priceLists = snapshot.priceLists || [];
                 priceListPrices = snapshot.priceListPrices || {};
                 defaultPriceListId = snapshot.defaultPriceListId;
+                genericItemIvaEnabled = snapshot.genericItemIvaEnabled !== false;
+                genericItemIvaRate = parseFloat(snapshot.genericItemIvaRate || '0');
 
                 if (selectedCustomer) {
                     selectedCustomer = customers.find((customer) => customer.id === selectedCustomer.id) || null;
@@ -880,6 +967,10 @@
 
                 for (let i = items.length - 1; i >= 0; i--) {
                     const item = items[i];
+                    if (item.kind === 'custom') {
+                        continue;
+                    }
+
                     const product = productIndex.get(item.product_id);
                     if (!product) {
                         removedItems.push(item);
@@ -925,6 +1016,51 @@
                 } finally {
                     snapshotInFlight = false;
                 }
+            }
+
+
+            if (customApplyIva) {
+                customApplyIva.checked = genericItemIvaEnabled;
+                customIvaRate.value = genericItemIvaRate.toFixed(2);
+                customIvaRate.disabled = !customApplyIva.checked;
+                customApplyIva.addEventListener('change', () => {
+                    customIvaRate.disabled = !customApplyIva.checked;
+                });
+
+                customAddConfirm.addEventListener('click', () => {
+                    customItemError.classList.add('d-none');
+                    const description = customDescription.value.trim();
+                    const qty = parseFloat(customQty.value || '0');
+                    const unitPrice = parseFloat(customUnitPrice.value || '0');
+                    const ivaRate = customApplyIva.checked ? normalizeIvaRate(customIvaRate.value) : 0;
+
+                    if (description.length < 3 || Number.isNaN(qty) || qty <= 0 || Number.isNaN(unitPrice) || unitPrice <= 0 || ivaRate === null) {
+                        customItemError.textContent = 'Completá descripción (mín. 3), cantidad, precio e IVA válido (0-100).';
+                        customItemError.classList.remove('d-none');
+                        return;
+                    }
+
+                    items.push({
+                        product_id: 0,
+                        kind: 'custom',
+                        name: description,
+                        qty: parseFloat(qty.toFixed(3)),
+                        price: parseFloat(unitPrice.toFixed(2)),
+                        ivaRate,
+                        qtyStep: 0.001,
+                        allowsFractional: true,
+                        uomBase: 'UN',
+                        stock: null,
+                    });
+
+                    renderItems();
+                    customDescription.value = '';
+                    customQty.value = '1.000';
+                    customUnitPrice.value = '';
+
+                    const modal = bootstrap.Modal.getInstance(customItemModalElement);
+                    modal?.hide();
+                });
             }
 
             customerSearch.addEventListener('input', (event) => {

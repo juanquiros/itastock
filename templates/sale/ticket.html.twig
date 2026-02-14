@@ -200,7 +200,7 @@
                             <tbody>
                                 {% for item in sale.items %}
                                     <tr>
-                                        <td>{{ item.description }}</td>
+                                        <td>{{ item.description }}{% if item.product is null %} <span class="badge text-bg-secondary">No cargado</span>{% endif %}</td>
                                         <td class="text-end">{{ item.qty|number_format(3, '.', ',') }}</td>
                                         <td class="text-end">${{ item.unitPrice }}</td>
                                         <td class="text-end">${{ item.lineTotal }}</td>

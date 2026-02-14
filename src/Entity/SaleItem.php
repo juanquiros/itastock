@@ -40,6 +40,9 @@ class SaleItem
     #[ORM\Column(type: 'decimal', precision: 10, scale: 2)]
     private ?string $lineDiscount = '0.00';
 
+    #[ORM\Column(type: 'decimal', precision: 5, scale: 2, nullable: true)]
+    private ?string $ivaRate = null;
+
     public function getId(): ?int
     {
         return $this->id;
@@ -137,6 +140,18 @@ class SaleItem
     public function setLineDiscount(string $lineDiscount): self
     {
         $this->lineDiscount = $lineDiscount;
+
+        return $this;
+    }
+
+    public function getIvaRate(): ?string
+    {
+        return $this->ivaRate;
+    }
+
+    public function setIvaRate(?string $ivaRate): self
+    {
+        $this->ivaRate = $ivaRate !== null ? number_format((float) $ivaRate, 2, '.', '') : null;
 
         return $this;
     }
