@@ -50,6 +50,12 @@ class BusinessArcaConfig
     #[ORM\Column(nullable: true)]
     private ?int $defaultReceiverIvaConditionId = null;
 
+    #[ORM\Column(options: ['default' => true])]
+    private bool $genericItemIvaEnabled = true;
+
+    #[ORM\Column(type: 'decimal', precision: 5, scale: 2, options: ['default' => '21.00'])]
+    private string $genericItemIvaRate = '21.00';
+
     #[ORM\Column]
     private ?DateTimeImmutable $createdAt = null;
 
@@ -185,6 +191,31 @@ class BusinessArcaConfig
     public function setDefaultReceiverIvaConditionId(?int $defaultReceiverIvaConditionId): self
     {
         $this->defaultReceiverIvaConditionId = $defaultReceiverIvaConditionId;
+
+        return $this;
+    }
+
+
+    public function isGenericItemIvaEnabled(): bool
+    {
+        return $this->genericItemIvaEnabled;
+    }
+
+    public function setGenericItemIvaEnabled(bool $genericItemIvaEnabled): self
+    {
+        $this->genericItemIvaEnabled = $genericItemIvaEnabled;
+
+        return $this;
+    }
+
+    public function getGenericItemIvaRate(): string
+    {
+        return $this->genericItemIvaRate;
+    }
+
+    public function setGenericItemIvaRate(string $genericItemIvaRate): self
+    {
+        $this->genericItemIvaRate = number_format((float) $genericItemIvaRate, 2, '.', '');
 
         return $this;
     }
