@@ -271,7 +271,7 @@ class SaleController extends AbstractController
                     return $this->json(['error' => sprintf('La cantidad de %s debe ser múltiplo de %s.', $product->getName(), $qtyStep)], Response::HTTP_BAD_REQUEST);
                 }
 
-                if (bccomp($qty, $product->getStock(), 3) === 1) {
+                if ($this->isStockBlocking($business, $product, $qty)) {
                     return $this->json(['error' => sprintf('No hay stock suficiente para %s.', $product->getName())], Response::HTTP_BAD_REQUEST);
                 }
 
@@ -801,7 +801,7 @@ class SaleController extends AbstractController
                     return $this->redirectToRoute('app_sale_new');
                 }
 
-                if (bccomp($qty, $product->getStock(), 3) === 1) {
+                if ($this->isStockBlocking($business, $product, $qty)) {
                     $this->addFlash('danger', sprintf('No hay stock suficiente para %s.', $product->getName()));
 
                     return $this->redirectToRoute('app_sale_new');
@@ -955,6 +955,16 @@ class SaleController extends AbstractController
         $this->addFlash('success', 'Venta registrada.');
 
         return $this->redirectToRoute('app_sale_ticket', ['id' => $sale->getId()]);
+    }
+
+
+    private function isStockBlocking(Business $business, Product $product, string $qty): bool
+    {
+        if ($business->allowsNegativeStock()) {
+            return false;
+        }
+
+        return bccomp($qty, $product->getStock(), 3) === 1;
     }
 
     /**

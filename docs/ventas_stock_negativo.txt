@@ -1,0 +1,17 @@
+Ventas con stock negativo (configurable)
+========================================
+
+Se incorpora una configuración por comercio (`Business`) para permitir ventas
+aunque la cantidad vendida supere el stock actual.
+
+- Campo: `allowNegativeStock` (booleano, default `false`).
+- UI: nueva pantalla en `/app/settings/stock` para `BUSINESS_ADMIN`.
+- Validaciones de ventas:
+  - Preview JSON: bloquea por stock solo cuando `allowNegativeStock = false`.
+  - Confirmación de venta: idem, conserva flash + redirect cuando bloquea.
+
+Comportamiento
+--------------
+
+- Default (`false`): mantiene comportamiento existente.
+- Activo (`true`): permite vender y que el stock quede en negativo.

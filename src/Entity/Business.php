@@ -81,6 +81,9 @@ class Business
     #[ORM\OneToOne(mappedBy: 'business', targetEntity: BusinessArcaConfig::class, cascade: ['persist', 'remove'])]
     private ?BusinessArcaConfig $arcaConfig = null;
 
+    #[ORM\Column(options: ['default' => false])]
+    private bool $allowNegativeStock = false;
+
 
     public function __construct()
     {
@@ -414,6 +417,23 @@ class Business
                 $businessUser->setBusiness(null);
             }
         }
+
+        return $this;
+    }
+
+    public function allowsNegativeStock(): bool
+    {
+        return $this->allowNegativeStock;
+    }
+
+    public function isAllowNegativeStock(): bool
+    {
+        return $this->allowsNegativeStock();
+    }
+
+    public function setAllowNegativeStock(bool $value): self
+    {
+        $this->allowNegativeStock = $value;
 
         return $this;
     }
