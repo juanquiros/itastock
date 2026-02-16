@@ -304,6 +304,7 @@
             let defaultPriceListId = {{ defaultPriceListId|json_encode|raw }};
             let genericItemIvaEnabled = {{ genericItemIvaEnabled ? 'true' : 'false' }};
             let genericItemIvaRate = parseFloat({{ genericItemIvaRate|json_encode|raw }} || '0');
+            let allowNegativeStock = {{ business.allowsNegativeStock ? 'true' : 'false' }};
             const items = [];
             let selectedCustomer = null;
             const snapshotUrl = '{{ path('app_sale_snapshot') }}';
@@ -428,6 +429,11 @@
                 const scaledStep = Math.max(1, Math.round(step * 1000));
                 const scaledValue = Math.max(min * 1000, Math.round(numeric * 1000));
                 const snapped = Math.round(scaledValue / scaledStep) * scaledStep;
+
+                if (allowNegativeStock || item.kind === 'custom' || item.stock === null || item.stock === undefined) {
+                    return snapped / 1000;
+                }
+
                 const limited = Math.min(snapped, Math.round(item.stock * 1000));
 
                 return limited / 1000;
@@ -729,7 +735,7 @@
                     const row = document.createElement('tr');
                     const min = item.allowsFractional ? item.qtyStep : 1;
                     const step = item.allowsFractional ? item.qtyStep : 1;
-                    const max = item.kind === 'custom' ? '' : `max="${item.stock}"`;
+                    const max = (item.kind === 'custom' || allowNegativeStock) ? '' : `max="${item.stock}"`;
                     row.innerHTML = `
                         <td>
                             <div class="fw-semibold">${item.name}${item.kind === 'custom' ? ' <span class="badge text-bg-secondary">No cargado</span>' : ''}</div>
@@ -957,6 +963,7 @@
                 defaultPriceListId = snapshot.defaultPriceListId;
                 genericItemIvaEnabled = snapshot.genericItemIvaEnabled !== false;
                 genericItemIvaRate = parseFloat(snapshot.genericItemIvaRate || '0');
+                allowNegativeStock = snapshot.allowNegativeStock === true;
 
                 if (selectedCustomer) {
                     selectedCustomer = customers.find((customer) => customer.id === selectedCustomer.id) || null;

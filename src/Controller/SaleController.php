@@ -99,6 +99,7 @@ class SaleController extends AbstractController
         $settings = $this->platformSettingsRepository->findOneBy([]);
 
         return $this->render('sale/new.html.twig', [
+            'business' => $business,
             'products' => $products,
             'productPayload' => array_map(fn (Product $product) => [
                 'id' => $product->getId(),
@@ -183,6 +184,7 @@ class SaleController extends AbstractController
             'defaultPriceListId' => $defaultPriceList?->getId(),
             'genericItemIvaEnabled' => $arcaConfig->isGenericItemIvaEnabled(),
             'genericItemIvaRate' => (float) $arcaConfig->getGenericItemIvaRate(),
+            'allowNegativeStock' => $business->allowsNegativeStock(),
         ]);
     }
 
