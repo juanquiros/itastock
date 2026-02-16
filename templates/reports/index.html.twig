@@ -9,102 +9,123 @@
         <p class="text-secondary mb-0">Exportá y descargá reportes clave del negocio.</p>
     </div>
 
-    <div class="row g-3">
-        <div class="col-md-6 col-lg-4">
-            <div class="card shadow-sm h-100">
-                <div class="card-body">
-                    <h2 class="h6 fw-semibold">Ventas</h2>
-                    <p class="text-muted small mb-3">Exportá ventas por rango de fechas en CSV o PDF.</p>
-                    <div class="d-flex gap-2">
-                        <a class="btn btn-outline-secondary btn-sm" href="{{ path('app_admin_sales_export') }}">CSV</a>
-                        <a class="btn btn-primary btn-sm" href="{{ path('app_admin_sales_pdf') }}">PDF</a>
+    <section class="mb-4">
+        <div class="mb-2">
+            <h2 class="h6 text-uppercase text-muted fw-semibold mb-0">Operación diaria</h2>
+        </div>
+        <div class="row g-3">
+            <div class="col-md-6 col-lg-4">
+                <div class="card shadow-sm h-100">
+                    <div class="card-body">
+                        <h3 class="h6 fw-semibold">Ventas</h3>
+                        <p class="text-muted small mb-3">Exportá ventas por rango de fechas en CSV o PDF.</p>
+                        <div class="d-flex gap-2">
+                            <a class="btn btn-outline-secondary btn-sm" href="{{ path('app_admin_sales_export') }}">CSV</a>
+                            <a class="btn btn-primary btn-sm" href="{{ path('app_admin_sales_pdf') }}">PDF</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6 col-lg-4">
+                <div class="card shadow-sm h-100">
+                    <div class="card-body">
+                        <h3 class="h6 fw-semibold">Cajas</h3>
+                        <p class="text-muted small mb-3">Descargá el PDF de cada cierre desde su reporte.</p>
+                        <a class="btn btn-outline-secondary btn-sm" href="{{ path('app_cash_status') }}">Ir a Cajas</a>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6 col-lg-4">
+                <div class="card shadow-sm h-100">
+                    <div class="card-body">
+                        <h3 class="h6 fw-semibold">Deudores</h3>
+                        <p class="text-muted small mb-3">Ver y exportar clientes con saldo pendiente.</p>
+                        <div class="d-flex gap-2">
+                            <a class="btn btn-outline-secondary btn-sm" href="{{ path('app_reports_debtors') }}">Ver</a>
+                            <a class="btn btn-primary btn-sm" href="{{ path('app_reports_debtors_pdf') }}">PDF</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6 col-lg-4">
+                <div class="card shadow-sm h-100">
+                    <div class="card-body">
+                        <h3 class="h6 fw-semibold">Stock bajo</h3>
+                        <p class="text-muted small mb-3">Listado de productos críticos para reposición.</p>
+                        <a class="btn btn-primary btn-sm" href="{{ path('app_reports_stock_low_pdf') }}">PDF</a>
                     </div>
                 </div>
             </div>
         </div>
-        <div class="col-md-6 col-lg-4">
-            <div class="card shadow-sm h-100">
-                <div class="card-body">
-                    <h2 class="h6 fw-semibold">ARCA</h2>
-                    <p class="text-muted small mb-3">Listado de comprobantes electrónicos emitidos.</p>
-                    <a class="btn btn-primary btn-sm" href="{{ path('app_reports_arca_index') }}">Ver reporte</a>
+    </section>
+
+    <section class="mb-4">
+        <div class="mb-2">
+            <h2 class="h6 text-uppercase text-muted fw-semibold mb-0">Fiscal y contable</h2>
+        </div>
+        <div class="row g-3">
+            <div class="col-md-6 col-lg-4">
+                <div class="card shadow-sm h-100">
+                    <div class="card-body">
+                        <h3 class="h6 fw-semibold">ARCA</h3>
+                        <p class="text-muted small mb-3">Listado de comprobantes electrónicos emitidos.</p>
+                        <a class="btn btn-primary btn-sm" href="{{ path('app_reports_arca_index') }}">Ver reporte</a>
+                    </div>
                 </div>
             </div>
-        </div>
-        <div class="col-md-6 col-lg-4">
-            <div class="card shadow-sm h-100">
-                <div class="card-body">
-                    <h2 class="h6 fw-semibold">Cajas</h2>
-                    <p class="text-muted small mb-3">Descargá el PDF de cada cierre desde su reporte.</p>
-                    <a class="btn btn-outline-secondary btn-sm" href="{{ path('app_cash_status') }}">Ir a Cajas</a>
+            <div class="col-md-6 col-lg-4">
+                <div class="card shadow-sm h-100">
+                    <div class="card-body">
+                        <h3 class="h6 fw-semibold">IVA ventas</h3>
+                        <p class="text-muted small mb-3">Facturas y notas de crédito autorizadas.</p>
+                        <a class="btn btn-primary btn-sm" href="{{ path('app_reports_sales_vat') }}">Ver reporte</a>
+                    </div>
                 </div>
             </div>
-        </div>
-        <div class="col-md-6 col-lg-4">
-            <div class="card shadow-sm h-100">
-                <div class="card-body">
-                    <h2 class="h6 fw-semibold">Stock bajo</h2>
-                    <p class="text-muted small mb-3">Listado de productos críticos para reposición.</p>
-                    <a class="btn btn-primary btn-sm" href="{{ path('app_reports_stock_low_pdf') }}">PDF</a>
+            <div class="col-md-6 col-lg-4">
+                <div class="card shadow-sm h-100">
+                    <div class="card-body">
+                        <h3 class="h6 fw-semibold">IVA compras</h3>
+                        <p class="text-muted small mb-3">Resumen de compras confirmadas para IVA.</p>
+                        <a class="btn btn-primary btn-sm" href="{{ path('app_reports_purchase_vat') }}">Ver reporte</a>
+                    </div>
                 </div>
             </div>
-        </div>
-        <div class="col-md-6 col-lg-4">
-            <div class="card shadow-sm h-100">
-                <div class="card-body">
-                    <h2 class="h6 fw-semibold">Deudores</h2>
-                    <p class="text-muted small mb-3">Ver y exportar clientes con saldo pendiente.</p>
-                    <div class="d-flex gap-2">
-                        <a class="btn btn-outline-secondary btn-sm" href="{{ path('app_reports_debtors') }}">Ver</a>
-                        <a class="btn btn-primary btn-sm" href="{{ path('app_reports_debtors_pdf') }}">PDF</a>
+            <div class="col-md-6 col-lg-4">
+                <div class="card shadow-sm h-100">
+                    <div class="card-body">
+                        <h3 class="h6 fw-semibold">Libro maestro</h3>
+                        <p class="text-muted small mb-3">Movimientos contables básicos por período.</p>
+                        <a class="btn btn-primary btn-sm" href="{{ path('app_reports_ledger') }}">Ver reporte</a>
                     </div>
                 </div>
             </div>
         </div>
-        <div class="col-md-6 col-lg-4">
-            <div class="card shadow-sm h-100">
-                <div class="card-body">
-                    <h2 class="h6 fw-semibold">Impacto de descuentos</h2>
-                    <p class="text-muted small mb-3">Analizá el total descontado y las promociones más usadas.</p>
-                    <a class="btn btn-primary btn-sm" href="{{ path('app_reports_discounts') }}">Ver reporte</a>
+    </section>
+
+    <section>
+        <div class="mb-2">
+            <h2 class="h6 text-uppercase text-muted fw-semibold mb-0">Análisis comercial</h2>
+        </div>
+        <div class="row g-3">
+            <div class="col-md-6 col-lg-4">
+                <div class="card shadow-sm h-100">
+                    <div class="card-body">
+                        <h3 class="h6 fw-semibold">Impacto de descuentos</h3>
+                        <p class="text-muted small mb-3">Analizá el total descontado y las promociones más usadas.</p>
+                        <a class="btn btn-primary btn-sm" href="{{ path('app_reports_discounts') }}">Ver reporte</a>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6 col-lg-4">
+                <div class="card shadow-sm h-100">
+                    <div class="card-body">
+                        <h3 class="h6 fw-semibold">Compras por proveedor</h3>
+                        <p class="text-muted small mb-3">Totales confirmados agrupados por proveedor.</p>
+                        <a class="btn btn-primary btn-sm" href="{{ path('app_reports_purchase_suppliers') }}">Ver reporte</a>
+                    </div>
                 </div>
             </div>
         </div>
-        <div class="col-md-6 col-lg-4">
-            <div class="card shadow-sm h-100">
-                <div class="card-body">
-                    <h2 class="h6 fw-semibold">IVA compras</h2>
-                    <p class="text-muted small mb-3">Resumen de compras confirmadas para IVA.</p>
-                    <a class="btn btn-primary btn-sm" href="{{ path('app_reports_purchase_vat') }}">Ver reporte</a>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-6 col-lg-4">
-            <div class="card shadow-sm h-100">
-                <div class="card-body">
-                    <h2 class="h6 fw-semibold">IVA ventas</h2>
-                    <p class="text-muted small mb-3">Facturas y notas de crédito autorizadas.</p>
-                    <a class="btn btn-primary btn-sm" href="{{ path('app_reports_sales_vat') }}">Ver reporte</a>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-6 col-lg-4">
-            <div class="card shadow-sm h-100">
-                <div class="card-body">
-                    <h2 class="h6 fw-semibold">Libro maestro</h2>
-                    <p class="text-muted small mb-3">Movimientos contables básicos por período.</p>
-                    <a class="btn btn-primary btn-sm" href="{{ path('app_reports_ledger') }}">Ver reporte</a>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-6 col-lg-4">
-            <div class="card shadow-sm h-100">
-                <div class="card-body">
-                    <h2 class="h6 fw-semibold">Compras por proveedor</h2>
-                    <p class="text-muted small mb-3">Totales confirmados agrupados por proveedor.</p>
-                    <a class="btn btn-primary btn-sm" href="{{ path('app_reports_purchase_suppliers') }}">Ver reporte</a>
-                </div>
-            </div>
-        </div>
-    </div>
+    </section>
 {% endblock %}
