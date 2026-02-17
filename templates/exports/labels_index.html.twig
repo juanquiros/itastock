@@ -11,17 +11,20 @@
         <a class="btn btn-outline-secondary" href="{{ path('app_product_labels') }}">Nueva exportación</a>
     </div>
 
-    <div class="card shadow-sm">
+    <div class="card shadow-sm" data-exports-list>
         <div class="card-body">
             <div class="table-responsive">
                 <table class="table align-middle">
                     <thead><tr><th>ID</th><th>Estado</th><th>Progreso</th><th>Creado</th><th></th></tr></thead>
                     <tbody>
                     {% for job in jobs %}
-                        <tr>
+                        <tr data-job-row data-status-url="{{ path('app_exports_labels_status', {id: job.id}) }}" data-final="{{ job.status in ['READY', 'FAILED', 'EXPIRED'] ? '1' : '0' }}">
                             <td>#{{ job.id }}</td>
-                            <td><span class="badge text-bg-secondary">{{ job.status }}</span></td>
-                            <td>{{ job.progressPercent }}% · {{ job.progressText }}</td>
+                            <td><span class="badge text-bg-secondary" data-job-status>{{ job.status }}</span></td>
+                            <td>
+                                <div class="small" data-job-progress-text>{{ job.progressText }}</div>
+                                <div class="small text-muted" data-job-progress>{{ job.progressPercent }}% · {{ job.doneBatches }}/{{ job.totalBatches }}</div>
+                            </td>
                             <td>{{ job.createdAt|date('d/m/Y H:i') }}</td>
                             <td><a class="btn btn-sm btn-outline-primary" href="{{ path('app_exports_labels_show', {id: job.id}) }}">Ver</a></td>
                         </tr>
@@ -33,4 +36,52 @@
             </div>
         </div>
     </div>
+{% endblock %}
+
+{% block javascripts %}
+    {{ parent() }}
+    <script>
+        (() => {
+            const container = document.querySelector('[data-exports-list]');
+            if (!container) return;
+
+            const rows = Array.from(container.querySelectorAll('[data-job-row]'));
+            if (rows.length === 0) return;
+
+            const isFinal = (status) => ['READY', 'FAILED', 'EXPIRED'].includes(status);
+
+            const updateRow = (row, data) => {
+                const statusEl = row.querySelector('[data-job-status]');
+                const progressTextEl = row.querySelector('[data-job-progress-text]');
+                const progressEl = row.querySelector('[data-job-progress]');
+                if (statusEl) statusEl.textContent = data.status;
+                if (progressTextEl) progressTextEl.textContent = data.progressText;
+                if (progressEl) progressEl.textContent = `${data.progressPercent}% · ${data.doneBatches}/${data.totalBatches}`;
+                row.dataset.final = isFinal(data.status) ? '1' : '0';
+            };
+
+            const tick = async () => {
+                const activeRows = rows.filter((row) => row.dataset.final !== '1');
+                if (activeRows.length === 0) return;
+
+                await Promise.all(activeRows.map(async (row) => {
+                    const url = row.dataset.statusUrl;
+                    if (!url) return;
+                    try {
+                        const response = await fetch(url, {headers: {'Accept': 'application/json'}});
+                        if (!response.ok) return;
+                        updateRow(row, await response.json());
+                    } catch (error) {
+                        console.error('No se pudo refrescar el estado de exportación', error);
+                    }
+                }));
+
+                if (rows.some((row) => row.dataset.final !== '1')) {
+                    setTimeout(tick, 3000);
+                }
+            };
+
+            setTimeout(tick, 3000);
+        })();
+    </script>
 {% endblock %}
