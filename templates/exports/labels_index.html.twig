@@ -1,0 +1,36 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Exportaciones de etiquetas · ItaStock{% endblock %}
+
+{% block body %}
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <div>
+            <p class="text-uppercase text-muted mb-1 small fw-semibold">Exportaciones</p>
+            <h1 class="h4 mb-0">Etiquetas en cola</h1>
+        </div>
+        <a class="btn btn-outline-secondary" href="{{ path('app_product_labels') }}">Nueva exportación</a>
+    </div>
+
+    <div class="card shadow-sm">
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table align-middle">
+                    <thead><tr><th>ID</th><th>Estado</th><th>Progreso</th><th>Creado</th><th></th></tr></thead>
+                    <tbody>
+                    {% for job in jobs %}
+                        <tr>
+                            <td>#{{ job.id }}</td>
+                            <td><span class="badge text-bg-secondary">{{ job.status }}</span></td>
+                            <td>{{ job.progressPercent }}% · {{ job.progressText }}</td>
+                            <td>{{ job.createdAt|date('d/m/Y H:i') }}</td>
+                            <td><a class="btn btn-sm btn-outline-primary" href="{{ path('app_exports_labels_show', {id: job.id}) }}">Ver</a></td>
+                        </tr>
+                    {% else %}
+                        <tr><td colspan="5" class="text-muted">Todavía no hay exportaciones.</td></tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+{% endblock %}

@@ -1,0 +1,80 @@
+ItaStock - Arquitectura async de exportación de etiquetas
+=========================================================
+
+Resumen
+-------
+Para evitar OutOfMemory en exportaciones grandes de etiquetas se separó el flujo en dos modos:
+
+1) Sync (dompdf): hasta 50 productos
+2) Async (wkhtmltopdf + cola): más de 50 productos
+
+Flujo sync vs async
+-------------------
+- Pantalla: /app/admin/products/labels
+- Si la selección tiene <= 50 productos:
+  - Se renderiza en línea el PDF con el servicio existente PdfService (dompdf).
+- Si la selección tiene > 50 productos:
+  - Se crea LabelExportJob con estado QUEUED.
+  - Se envía GenerateLabelExportJobMessage(jobId) al transport "exports".
+  - El usuario es redirigido a /app/admin/exports/labels/{id} para ver progreso.
+
+Motores PDF
+-----------
+- dompdf se mantiene para exportaciones chicas (compatibilidad total).
+- wkhtmltopdf se usa solo en exportaciones pesadas por lotes.
+- Wrapper Symfony: knplabs/knp-snappy-bundle.
+- Configuración:
+  - config/packages/knp_snappy.yaml
+  - ENV: WKHTMLTOPDF_PATH=/usr/bin/wkhtmltopdf
+
+Worker y memoria
+----------------
+Ejecutar worker dedicado con 512M:
+
+php -d memory_limit=512M bin/console messenger:consume exports --time-limit=0 --memory-limit=512M
+
+El handler procesa por lotes y hace flush + gc_collect_cycles() por lote para reducir uso de RAM.
+
+Progreso UI
+-----------
+Rutas:
+- GET /app/admin/exports/labels
+- GET /app/admin/exports/labels/{id}
+- GET /app/admin/exports/labels/{id}/status
+- GET /app/admin/exports/labels/{id}/download/zip
+- GET /app/admin/exports/labels/{id}/download/batch/{batchId}
+
+La vista detalle hace polling cada 3 segundos al endpoint /status y actualiza:
+- status
+- progressPercent
+- progressText
+- lotes completados
+
+TTL y cleanup
+-------------
+- Cada job vence a las 12 horas (expiresAt = createdAt + 12h).
+- Comando: app:exports:cleanup
+  - Marca jobs vencidos como EXPIRED.
+  - Borra carpeta: var/exports/labels/{businessId}/{jobId}
+
+Cron sugerido
+-------------
+Ejecutar cada 15 minutos:
+
+*/15 * * * * php /ruta/proyecto/bin/console app:exports:cleanup --no-interaction
+
+Troubleshooting
+---------------
+1) "No se pudo crear el ZIP"
+   - Verificar permisos de escritura sobre var/exports.
+
+2) Worker no consume
+   - Confirmar transport "exports" en config/packages/messenger.yaml.
+   - Confirmar tabla messenger_messages migrada.
+
+3) wkhtmltopdf no encontrado
+   - Revisar WKHTMLTOPDF_PATH.
+   - Probar: /usr/bin/wkhtmltopdf --version
+
+4) Exportación en FAILED
+   - Revisar errorMessage del job en pantalla detalle.

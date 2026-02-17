@@ -1,0 +1,68 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Exportación #{{ job.id }} · ItaStock{% endblock %}
+
+{% block body %}
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <div>
+            <p class="text-uppercase text-muted mb-1 small fw-semibold">Exportaciones</p>
+            <h1 class="h4 mb-0">Exportación de etiquetas #{{ job.id }}</h1>
+        </div>
+        <a class="btn btn-outline-secondary" href="{{ path('app_exports_labels_index') }}">Volver</a>
+    </div>
+
+    <div class="card shadow-sm" data-export-status data-status-url="{{ path('app_exports_labels_status', {id: job.id}) }}">
+        <div class="card-body">
+            <p class="mb-2"><strong>Estado:</strong> <span data-job-status>{{ job.status }}</span></p>
+            <p class="mb-2" data-job-progress-text>{{ job.progressText }}</p>
+            <div class="progress mb-3" role="progressbar" aria-valuemin="0" aria-valuemax="100">
+                <div class="progress-bar" data-job-progress style="width: {{ job.progressPercent }}%">{{ job.progressPercent }}%</div>
+            </div>
+            <p class="text-muted small mb-3">Lotes: <span data-job-batches>{{ job.doneBatches }}/{{ job.totalBatches }}</span></p>
+
+            <div class="d-flex gap-2 flex-wrap">
+                {% if job.status == 'READY' %}
+                    <a class="btn btn-primary" data-download-zip href="{{ path('app_exports_labels_download_zip', {id: job.id}) }}">Descargar ZIP</a>
+                {% endif %}
+                {% for batch in job.batches %}
+                    {% if batch.status == 'READY' %}
+                        <a class="btn btn-outline-secondary btn-sm" href="{{ path('app_exports_labels_download_batch', {id: job.id, batchId: batch.id}) }}">Lote {{ batch.batchIndex }}</a>
+                    {% endif %}
+                {% endfor %}
+            </div>
+
+            <p class="text-danger mt-3 mb-0" data-job-error>{% if job.errorMessage %}{{ job.errorMessage }}{% endif %}</p>
+        </div>
+    </div>
+{% endblock %}
+
+{% block javascripts %}
+    {{ parent() }}
+    <script>
+        (() => {
+            const container = document.querySelector('[data-export-status]');
+            if (!container) return;
+            const url = container.dataset.statusUrl;
+
+            const tick = async () => {
+                const response = await fetch(url, {headers: {'Accept': 'application/json'}});
+                if (!response.ok) return;
+                const data = await response.json();
+                container.querySelector('[data-job-status]').textContent = data.status;
+                container.querySelector('[data-job-progress-text]').textContent = data.progressText;
+                container.querySelector('[data-job-batches]').textContent = `${data.doneBatches}/${data.totalBatches}`;
+                const bar = container.querySelector('[data-job-progress]');
+                bar.style.width = `${data.progressPercent}%`;
+                bar.textContent = `${data.progressPercent}%`;
+                container.querySelector('[data-job-error]').textContent = data.errorMessage || '';
+                if (!['READY', 'FAILED', 'EXPIRED'].includes(data.status)) {
+                    setTimeout(tick, 3000);
+                } else if (data.status === 'READY' && !container.querySelector('[data-download-zip]')) {
+                    window.location.reload();
+                }
+            };
+
+            setTimeout(tick, 3000);
+        })();
+    </script>
+{% endblock %}

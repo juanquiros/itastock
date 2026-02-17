@@ -150,6 +150,77 @@ class ProductRepository extends ServiceEntityRepository
         return $qb->getQuery()->getResult();
     }
 
+
+    /**
+     * @return Product[]
+     */
+    public function findForLabelExportChunk(Business $business, array $filters, int $lastId, int $limit): array
+    {
+        $qb = $this->createQueryBuilder('p')
+            ->andWhere('p.business = :business')
+            ->andWhere('p.id > :lastId')
+            ->setParameter('business', $business)
+            ->setParameter('lastId', $lastId)
+            ->orderBy('p.id', 'ASC')
+            ->setMaxResults($limit);
+
+        $productIds = $this->parseIds((string) ($filters['products'] ?? ''));
+        $categoryIds = $this->parseIds((string) ($filters['categories'] ?? ''));
+        $brandIds = $this->parseIds((string) ($filters['brands'] ?? ''));
+        $updatedSince = $this->parseDate((string) ($filters['updatedSince'] ?? ''));
+
+        if ($productIds !== []) {
+            $qb->andWhere('p.id IN (:products)')
+                ->setParameter('products', $productIds);
+        } else {
+            if ($categoryIds !== []) {
+                $qb->andWhere('p.category IN (:categories)')
+                    ->setParameter('categories', $categoryIds);
+            }
+
+            if ($brandIds !== []) {
+                $qb->andWhere('p.brand IN (:brands)')
+                    ->setParameter('brands', $brandIds);
+            }
+
+            if ($updatedSince !== null) {
+                $qb->andWhere('p.updatedAt >= :updatedSince')
+                    ->setParameter('updatedSince', $updatedSince);
+            }
+        }
+
+        return $qb->getQuery()->getResult();
+    }
+
+    /** @return int[] */
+    private function parseIds(string $input): array
+    {
+        if ($input === '') {
+            return [];
+        }
+
+        $parts = array_filter(array_map('trim', explode(',', $input)));
+        $ids = [];
+
+        foreach ($parts as $part) {
+            if (ctype_digit($part)) {
+                $ids[] = (int) $part;
+            }
+        }
+
+        return array_values(array_unique($ids));
+    }
+
+    private function parseDate(string $input): ?\DateTimeImmutable
+    {
+        if ($input === '') {
+            return null;
+        }
+
+        $date = \DateTimeImmutable::createFromFormat('Y-m-d', $input);
+
+        return $date === false ? null : $date->setTime(0, 0, 0);
+    }
     /**
      * @return array<int, array{productId: int, sku: string, name: string, stock: float, min: float}>
      */
