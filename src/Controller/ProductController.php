@@ -2,7 +2,7 @@
 
 namespace App\Controller;
 
-use App\Dto\AdminProductListFilter;
+use App\DTO\AdminProductListFilter;
 use App\Entity\Business;
 use App\Entity\CatalogProduct;
 use App\Entity\Product;
