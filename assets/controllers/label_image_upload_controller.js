@@ -46,8 +46,9 @@ export default class extends Controller {
     }
 
     optimizeImage(file) {
-        const targetWidth = 700;
-        const targetHeight = 1200;
+        // La caja de imagen en el PDF (modo con imagen) es apaisada (~35x26 mm).
+        const targetWidth = 1200;
+        const targetHeight = 890;
         const targetRatio = targetWidth / targetHeight;
 
         return new Promise((resolve, reject) => {

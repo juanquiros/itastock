@@ -23,7 +23,7 @@ class BusinessLabelSettingsType extends AbstractType
                 'label' => 'Imagen para etiquetas',
                 'mapped' => false,
                 'required' => false,
-                'help' => 'Recomendado: 350x600 px (3,5 x 6 cm). La imagen se recorta automáticamente.',
+                'help' => 'Recomendado: 1200x890 px aprox. (formato apaisado). La imagen se recorta automáticamente.',
                 'attr' => [
                     'accept' => 'image/*',
                     'data-label-image-upload-target' => 'file',
