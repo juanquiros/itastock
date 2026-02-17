@@ -50,7 +50,7 @@ class ProductLabelController extends AbstractController
         $form->handleRequest($request);
 
         if ($form->isSubmitted() && $form->isValid()) {
-            $filters = $this->buildFilters($form->getData());
+            $filters = $this->buildFilters($form->getData(), $business);
             $products = $this->preparationService->findProducts($business, $filters);
             $totalProducts = count($products);
 
@@ -179,7 +179,7 @@ class ProductLabelController extends AbstractController
         }
     }
 
-    private function buildFilters(array $data): array
+    private function buildFilters(array $data, Business $business): array
     {
         $productIds = $this->extractIds($data['products'] ?? []);
         $categoryIds = $this->extractIds($data['categories'] ?? []);
@@ -196,6 +196,7 @@ class ProductLabelController extends AbstractController
             'showPrice' => !empty($data['showPrice']) ? '1' : '0',
             'showOnlyName' => !empty($data['showOnlyName']) ? '1' : '0',
             'labelsPerProduct' => (string) max(1, (int) ($data['labelsPerProduct'] ?? 1)),
+            'labelImagePathRaw' => $business->getLabelImagePath(),
         ], static fn ($value) => $value !== null && $value !== '');
     }
 

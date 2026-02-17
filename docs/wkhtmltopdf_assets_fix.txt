@@ -41,3 +41,6 @@ Implementación defensiva en async
 ---------------------------------
 En el handler async se usa: `resolvePublicPath($rawLogoPath) ?? $rawLogoPath`.
 Si el resolver no puede normalizar un formato legado, se reutiliza el valor original para no caer al placeholder cuando sync sí lo renderiza.
+
+- Si la imagen está en data URI WEBP, se materializa en `var/exports/pdf-assets/` y se convierte a PNG cuando GD lo permite para compatibilidad con wkhtmltopdf.
+- En el enqueue async se guarda un snapshot `labelImagePathRaw` en filtros para no depender de cambios posteriores del negocio.

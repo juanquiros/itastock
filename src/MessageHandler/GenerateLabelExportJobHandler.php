@@ -64,7 +64,7 @@ class GenerateLabelExportJobHandler
                 ++$batchIndex;
                 $lastId = max(array_map(static fn ($product) => $product->getId() ?? 0, $products));
                 $labels = $this->preparationService->buildLabels($products, $filters);
-                $rawLogoPath = $job->getBusiness()?->getLabelImagePath();
+                $rawLogoPath = $filters['labelImagePathRaw'] ?? $job->getBusiness()?->getLabelImagePath();
                 $logoPath = $this->assetResolver->resolvePublicPath($rawLogoPath) ?? $rawLogoPath;
                 $html = $this->twig->render('product/labels_pdf.html.twig', [
                     'business' => $job->getBusiness(),
