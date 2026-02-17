@@ -42,13 +42,14 @@
     {{ parent() }}
     <script>
         (() => {
-            const container = document.querySelector('[data-exports-list]');
-            if (!container) return;
-
-            const rows = Array.from(container.querySelectorAll('[data-job-row]'));
-            if (rows.length === 0) return;
+            let timeoutId = null;
 
             const isFinal = (status) => ['READY', 'FAILED', 'EXPIRED'].includes(status);
+
+            const buildRequestUrl = (baseUrl) => {
+                const separator = baseUrl.includes('?') ? '&' : '?';
+                return `${baseUrl}${separator}_ts=${Date.now()}`;
+            };
 
             const updateRow = (row, data) => {
                 const statusEl = row.querySelector('[data-job-status]');
@@ -60,36 +61,57 @@
                 row.dataset.final = isFinal(data.status) ? '1' : '0';
             };
 
-            const buildRequestUrl = (baseUrl) => {
-                const separator = baseUrl.includes('?') ? '&' : '?';
-                return `${baseUrl}${separator}_ts=${Date.now()}`;
+            const scheduleNextTick = (callback) => {
+                if (timeoutId !== null) {
+                    clearTimeout(timeoutId);
+                }
+                timeoutId = setTimeout(callback, 3000);
             };
 
-            const tick = async () => {
-                const activeRows = rows.filter((row) => row.dataset.final !== '1');
-                if (activeRows.length === 0) return;
+            const boot = () => {
+                const container = document.querySelector('[data-exports-list]');
+                if (!container) return;
 
-                await Promise.all(activeRows.map(async (row) => {
-                    const url = row.dataset.statusUrl;
-                    if (!url) return;
-                    try {
-                        const response = await fetch(buildRequestUrl(url), {
-                            cache: 'no-store',
-                            headers: {'Accept': 'application/json'},
-                        });
-                        if (!response.ok) return;
-                        updateRow(row, await response.json());
-                    } catch (error) {
-                        console.error('No se pudo refrescar el estado de exportación', error);
+                const rows = Array.from(container.querySelectorAll('[data-job-row]'));
+                if (rows.length === 0) return;
+
+                const tick = async () => {
+                    const activeRows = rows.filter((row) => row.dataset.final !== '1');
+                    if (activeRows.length === 0) return;
+
+                    await Promise.all(activeRows.map(async (row) => {
+                        const url = row.dataset.statusUrl;
+                        if (!url) return;
+                        try {
+                            const response = await fetch(buildRequestUrl(url), {
+                                cache: 'no-store',
+                                headers: {'Accept': 'application/json'},
+                            });
+                            if (!response.ok) return;
+                            updateRow(row, await response.json());
+                        } catch (error) {
+                            console.error('No se pudo refrescar el estado de exportación', error);
+                        }
+                    }));
+
+                    if (rows.some((row) => row.dataset.final !== '1')) {
+                        scheduleNextTick(tick);
                     }
-                }));
+                };
 
-                if (rows.some((row) => row.dataset.final !== '1')) {
-                    setTimeout(tick, 3000);
+                scheduleNextTick(tick);
+            };
+
+            const stop = () => {
+                if (timeoutId !== null) {
+                    clearTimeout(timeoutId);
+                    timeoutId = null;
                 }
             };
 
-            setTimeout(tick, 3000);
+            document.addEventListener('DOMContentLoaded', boot);
+            document.addEventListener('turbo:load', boot);
+            document.addEventListener('turbo:before-cache', stop);
         })();
     </script>
 {% endblock %}
