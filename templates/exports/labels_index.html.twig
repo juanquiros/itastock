@@ -11,6 +11,8 @@
         <a class="btn btn-outline-secondary" href="{{ path('app_product_labels') }}">Nueva exportación</a>
     </div>
 
+    <p class="text-muted mb-3">Total de exportaciones: {{ total }}</p>
+
     <div class="card shadow-sm" data-exports-list>
         <div class="card-body">
             <div class="table-responsive">
@@ -36,19 +38,41 @@
             </div>
         </div>
     </div>
+
+    {% if pages > 1 %}
+        <nav class="mt-3" aria-label="Paginación de exportaciones">
+            <ul class="pagination mb-0">
+                {% set previousPage = page - 1 %}
+                {% set nextPage = page + 1 %}
+
+                <li class="page-item {{ previousPage < 1 ? 'disabled' : '' }}">
+                    <a class="page-link" href="{{ previousPage < 1 ? '#' : path('app_exports_labels_index', {page: previousPage}) }}">Anterior</a>
+                </li>
+
+                <li class="page-item disabled">
+                    <span class="page-link">Página {{ page }} de {{ pages }}</span>
+                </li>
+
+                <li class="page-item {{ nextPage > pages ? 'disabled' : '' }}">
+                    <a class="page-link" href="{{ nextPage > pages ? '#' : path('app_exports_labels_index', {page: nextPage}) }}">Siguiente</a>
+                </li>
+            </ul>
+        </nav>
+    {% endif %}
 {% endblock %}
 
 {% block javascripts %}
     {{ parent() }}
     <script>
         (() => {
-            const container = document.querySelector('[data-exports-list]');
-            if (!container) return;
-
-            const rows = Array.from(container.querySelectorAll('[data-job-row]'));
-            if (rows.length === 0) return;
+            let timeoutId = null;
 
             const isFinal = (status) => ['READY', 'FAILED', 'EXPIRED'].includes(status);
+
+            const buildRequestUrl = (baseUrl) => {
+                const separator = baseUrl.includes('?') ? '&' : '?';
+                return `${baseUrl}${separator}_ts=${Date.now()}`;
+            };
 
             const updateRow = (row, data) => {
                 const statusEl = row.querySelector('[data-job-status]');
@@ -60,28 +84,57 @@
                 row.dataset.final = isFinal(data.status) ? '1' : '0';
             };
 
-            const tick = async () => {
-                const activeRows = rows.filter((row) => row.dataset.final !== '1');
-                if (activeRows.length === 0) return;
+            const scheduleNextTick = (callback) => {
+                if (timeoutId !== null) {
+                    clearTimeout(timeoutId);
+                }
+                timeoutId = setTimeout(callback, 3000);
+            };
 
-                await Promise.all(activeRows.map(async (row) => {
-                    const url = row.dataset.statusUrl;
-                    if (!url) return;
-                    try {
-                        const response = await fetch(url, {headers: {'Accept': 'application/json'}});
-                        if (!response.ok) return;
-                        updateRow(row, await response.json());
-                    } catch (error) {
-                        console.error('No se pudo refrescar el estado de exportación', error);
+            const boot = () => {
+                const container = document.querySelector('[data-exports-list]');
+                if (!container) return;
+
+                const rows = Array.from(container.querySelectorAll('[data-job-row]'));
+                if (rows.length === 0) return;
+
+                const tick = async () => {
+                    const activeRows = rows.filter((row) => row.dataset.final !== '1');
+                    if (activeRows.length === 0) return;
+
+                    await Promise.all(activeRows.map(async (row) => {
+                        const url = row.dataset.statusUrl;
+                        if (!url) return;
+                        try {
+                            const response = await fetch(buildRequestUrl(url), {
+                                cache: 'no-store',
+                                headers: {'Accept': 'application/json'},
+                            });
+                            if (!response.ok) return;
+                            updateRow(row, await response.json());
+                        } catch (error) {
+                            console.error('No se pudo refrescar el estado de exportación', error);
+                        }
+                    }));
+
+                    if (rows.some((row) => row.dataset.final !== '1')) {
+                        scheduleNextTick(tick);
                     }
-                }));
+                };
 
-                if (rows.some((row) => row.dataset.final !== '1')) {
-                    setTimeout(tick, 3000);
+                scheduleNextTick(tick);
+            };
+
+            const stop = () => {
+                if (timeoutId !== null) {
+                    clearTimeout(timeoutId);
+                    timeoutId = null;
                 }
             };
 
-            setTimeout(tick, 3000);
+            document.addEventListener('DOMContentLoaded', boot);
+            document.addEventListener('turbo:load', boot);
+            document.addEventListener('turbo:before-cache', stop);
         })();
     </script>
 {% endblock %}

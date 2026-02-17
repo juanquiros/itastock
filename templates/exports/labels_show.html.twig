@@ -40,39 +40,71 @@
     {{ parent() }}
     <script>
         (() => {
-            const container = document.querySelector('[data-export-status]');
-            if (!container) return;
-            const url = container.dataset.statusUrl;
+            let timeoutId = null;
 
-            const tick = async () => {
-                try {
-                    const response = await fetch(url, {headers: {'Accept': 'application/json'}});
-                    if (!response.ok) {
-                        setTimeout(tick, 3000);
-                        return;
+            const buildRequestUrl = (baseUrl) => {
+                const separator = baseUrl.includes('?') ? '&' : '?';
+                return `${baseUrl}${separator}_ts=${Date.now()}`;
+            };
+
+            const scheduleNextTick = (callback) => {
+                if (timeoutId !== null) {
+                    clearTimeout(timeoutId);
+                }
+                timeoutId = setTimeout(callback, 3000);
+            };
+
+            const boot = () => {
+                const container = document.querySelector('[data-export-status]');
+                if (!container) return;
+
+                const url = container.dataset.statusUrl;
+                if (!url) return;
+
+                const tick = async () => {
+                    try {
+                        const response = await fetch(buildRequestUrl(url), {
+                            cache: 'no-store',
+                            headers: {'Accept': 'application/json'},
+                        });
+                        if (!response.ok) {
+                            scheduleNextTick(tick);
+                            return;
+                        }
+
+                        const data = await response.json();
+                        container.querySelector('[data-job-status]').textContent = data.status;
+                        container.querySelector('[data-job-progress-text]').textContent = data.progressText;
+                        container.querySelector('[data-job-batches]').textContent = `${data.doneBatches}/${data.totalBatches}`;
+                        const bar = container.querySelector('[data-job-progress]');
+                        bar.style.width = `${data.progressPercent}%`;
+                        bar.textContent = `${data.progressPercent}%`;
+                        container.querySelector('[data-job-error]').textContent = data.errorMessage || '';
+
+                        if (!['READY', 'FAILED', 'EXPIRED'].includes(data.status)) {
+                            scheduleNextTick(tick);
+                        } else if (data.status === 'READY' && !container.querySelector('[data-download-zip]')) {
+                            window.location.reload();
+                        }
+                    } catch (error) {
+                        console.error('No se pudo refrescar el estado del job', error);
+                        scheduleNextTick(tick);
                     }
+                };
 
-                    const data = await response.json();
-                    container.querySelector('[data-job-status]').textContent = data.status;
-                    container.querySelector('[data-job-progress-text]').textContent = data.progressText;
-                    container.querySelector('[data-job-batches]').textContent = `${data.doneBatches}/${data.totalBatches}`;
-                    const bar = container.querySelector('[data-job-progress]');
-                    bar.style.width = `${data.progressPercent}%`;
-                    bar.textContent = `${data.progressPercent}%`;
-                    container.querySelector('[data-job-error]').textContent = data.errorMessage || '';
+                scheduleNextTick(tick);
+            };
 
-                    if (!['READY', 'FAILED', 'EXPIRED'].includes(data.status)) {
-                        setTimeout(tick, 3000);
-                    } else if (data.status === 'READY' && !container.querySelector('[data-download-zip]')) {
-                        window.location.reload();
-                    }
-                } catch (error) {
-                    console.error('No se pudo refrescar el estado del job', error);
-                    setTimeout(tick, 3000);
+            const stop = () => {
+                if (timeoutId !== null) {
+                    clearTimeout(timeoutId);
+                    timeoutId = null;
                 }
             };
 
-            setTimeout(tick, 3000);
+            document.addEventListener('DOMContentLoaded', boot);
+            document.addEventListener('turbo:load', boot);
+            document.addEventListener('turbo:before-cache', stop);
         })();
     </script>
 {% endblock %}
