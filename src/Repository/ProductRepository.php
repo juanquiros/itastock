@@ -2,6 +2,7 @@
 
 namespace App\Repository;
 
+use App\Dto\AdminProductListFilter;
 use App\Entity\Business;
 use App\Entity\Product;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
@@ -223,5 +224,58 @@ class ProductRepository extends ServiceEntityRepository
         }
 
         return $qb->getQuery()->getResult();
+    }
+
+    /**
+     * @return array{items: Product[], total: int, page: int, pages: int, limit: int}
+     */
+    public function findForAdminList(Business $business, AdminProductListFilter $filter): array
+    {
+        $qb = $this->createQueryBuilder('p')
+            ->andWhere('p.business = :business')
+            ->setParameter('business', $business);
+
+        if ($filter->getQ() !== '') {
+            $qb
+                ->andWhere('LOWER(p.name) LIKE :q OR LOWER(p.sku) LIKE :q OR p.barcode LIKE :qBarcode')
+                ->setParameter('q', '%'.mb_strtolower($filter->getQ()).'%')
+                ->setParameter('qBarcode', '%'.$filter->getQ().'%');
+        }
+
+        $sortField = match ($filter->getSort()) {
+            'sku' => 'p.sku',
+            'stock' => 'p.stock',
+            'updatedAt' => 'p.updatedAt',
+            default => 'p.name',
+        };
+
+        $dir = strtoupper($filter->getDir()) === 'DESC' ? 'DESC' : 'ASC';
+
+        $countQb = clone $qb;
+        $total = (int) $countQb
+            ->select('COUNT(p.id)')
+            ->getQuery()
+            ->getSingleScalarResult();
+
+        $limit = $filter->getLimit();
+        $pages = max(1, (int) ceil($total / $limit));
+        $page = min($filter->getPage(), $pages);
+        $offset = ($page - 1) * $limit;
+
+        $items = $qb
+            ->orderBy($sortField, $dir)
+            ->addOrderBy('p.id', 'ASC')
+            ->setFirstResult($offset)
+            ->setMaxResults($limit)
+            ->getQuery()
+            ->getResult();
+
+        return [
+            'items' => $items,
+            'total' => $total,
+            'page' => $page,
+            'pages' => $pages,
+            'limit' => $limit,
+        ];
     }
 }
