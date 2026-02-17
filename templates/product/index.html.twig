@@ -2,55 +2,17 @@
 
 {% block title %}Productos · ItaStock{% endblock %}
 
-{% block stylesheets %}
-    {{ parent() }}
-    <style>
-        .product-header {
-            gap: 1rem;
-        }
-
-        .product-toolbar {
-            gap: 0.5rem;
-        }
-
-        .product-actions {
-            gap: 0.35rem;
-        }
-
-        @media (max-width: 991.98px) {
-            .product-header {
-                flex-direction: column;
-                align-items: flex-start;
-            }
-
-            .product-toolbar {
-                width: 100%;
-            }
-
-            .product-toolbar .btn {
-                width: 100%;
-            }
-
-            .product-actions {
-                flex-direction: column;
-                align-items: stretch;
-            }
-
-            .product-actions .btn {
-                width: 100%;
-            }
-        }
-    </style>
-{% endblock %}
-
 {% block body %}
-    <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap product-header">
+    {% set sort = filters.sort|default('name') %}
+    {% set dir = filters.dir|default('asc') %}
+
+    <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap">
         <div>
             <p class="text-uppercase text-muted mb-1 small fw-semibold">Inventario</p>
             <h1 class="h4 mb-0">Productos</h1>
             <p class="text-secondary mb-0">Seguimiento de stock y precios. Controlá lo que se vende todos los días.</p>
         </div>
-        <div class="d-flex flex-wrap justify-content-end product-toolbar">
+        <div class="d-flex flex-wrap justify-content-end gap-2 mt-2 mt-md-0">
             <a class="btn btn-outline-secondary" href="{{ path('app_product_export') }}">Exportar CSV</a>
             <a class="btn btn-outline-secondary" href="{{ path('app_product_import') }}">Importar CSV</a>
             <a class="btn btn-outline-secondary" href="{{ path('app_stock_import') }}">Ajustes por CSV</a>
@@ -62,144 +24,118 @@
     <div class="card shadow-sm mb-3" data-controller="barcode-scanner" data-barcode-scanner-script-url-value="{{ asset('vendor/html5-qrcode.min.js') }}">
         <div class="card-body">
             <form method="get" class="row g-3 align-items-end">
-                <div class="col-lg-5 col-md-12">
+                <input type="hidden" name="sort" value="{{ sort }}">
+                <input type="hidden" name="dir" value="{{ dir }}">
+                <div class="col-lg-6 col-md-12">
                     <label class="form-label">Búsqueda</label>
                     <div class="input-group" data-barcode-scanner-input-group>
-                        <input type="search" name="q" id="product-search-filter" class="form-control" value="{{ filters.q }}" placeholder="Nombre, SKU, código de barra o características" data-barcode-scanner-target="input" data-barcode-scanner-input="true">
+                        <input type="search" name="q" id="product-search-filter" class="form-control" value="{{ filters.q|default('') }}" placeholder="Nombre, SKU o código de barra" data-barcode-scanner-target="input" data-barcode-scanner-input="true">
                         <button class="btn btn-outline-secondary d-inline-flex d-lg-none" type="button" data-action="barcode-scanner#open" data-barcode-scanner-input-id-param="product-search-filter">
                             Escanear
                         </button>
                     </div>
                 </div>
                 <div class="col-lg-2 col-md-6">
-                    <label class="form-label">Categorías</label>
-                    <select name="categories[]" class="form-select" multiple>
-                        {% for category in categories %}
-                            <option value="{{ category.id }}" {{ category.id in filters.categories ? 'selected' : '' }}>
-                                {{ category.name }}
-                            </option>
+                    <label class="form-label">Por página</label>
+                    <select name="limit" class="form-select">
+                        {% for option in [25, 50, 100] %}
+                            <option value="{{ option }}" {{ filters.limit == option ? 'selected' : '' }}>{{ option }}</option>
                         {% endfor %}
                     </select>
-                </div>
-                <div class="col-lg-2 col-md-6">
-                    <label class="form-label">Marcas</label>
-                    <select name="brands[]" class="form-select" multiple>
-                        {% for brand in brands %}
-                            <option value="{{ brand.id }}" {{ brand.id in filters.brands ? 'selected' : '' }}>
-                                {{ brand.name }}
-                            </option>
-                        {% endfor %}
-                    </select>
-                </div>
-                <div class="col-lg-1 col-md-6 d-grid">
-                    <button class="btn btn-outline-secondary" type="submit">Filtrar</button>
                 </div>
                 <div class="col-lg-2 col-md-6 d-grid">
-                    <a class="btn btn-link text-decoration-none" href="{{ path('app_product_index') }}">Limpiar filtros</a>
+                    <button class="btn btn-outline-secondary" type="submit">Aplicar</button>
+                </div>
+                <div class="col-lg-2 col-md-6 d-grid">
+                    <a class="btn btn-link text-decoration-none" href="{{ path('app_product_index') }}">Limpiar</a>
                 </div>
             </form>
             {% include 'shared/_barcode_scanner_modal.html.twig' %}
         </div>
     </div>
 
+    {% macro sort_link(label, key, filters) %}
+        {% set isCurrent = filters.sort == key %}
+        {% set nextDir = isCurrent and filters.dir == 'asc' ? 'desc' : 'asc' %}
+        <a href="{{ path('app_product_index', {
+            q: filters.q,
+            page: 1,
+            limit: filters.limit,
+            sort: key,
+            dir: nextDir,
+        }) }}" class="text-decoration-none text-dark">
+            {{ label }}
+            {% if isCurrent %}
+                <small class="text-muted">{{ filters.dir == 'asc' ? '▲' : '▼' }}</small>
+            {% endif %}
+        </a>
+    {% endmacro %}
+
     <div class="card shadow-sm">
         <div class="card-body p-0">
             <div class="table-responsive">
                 <table class="table align-middle mb-0">
                     <thead class="table-light">
-                        <tr>
-                            <th>Producto</th>
-                            <th>SKU</th>
-                            <th>Categoría</th>
-                            <th class="text-end">Precio base</th>
-                            <th class="text-end">Stock</th>
-                            <th class="text-end">Stock mínimo</th>
-                            <th>Estado</th>
-                            <th class="text-end">Acciones</th>
-                        </tr>
+                    <tr>
+                        <th>{{ _self.sort_link('Producto', 'name', filters) }}</th>
+                        <th>{{ _self.sort_link('SKU', 'sku', filters) }}</th>
+                        <th>{{ _self.sort_link('Código', 'barcode', filters) }}</th>
+                        <th class="text-end">{{ _self.sort_link('Precio base', 'basePrice', filters) }}</th>
+                        <th class="text-end">{{ _self.sort_link('Stock', 'stock', filters) }}</th>
+                        <th class="text-end">{{ _self.sort_link('Stock mínimo', 'stockMin', filters) }}</th>
+                        <th>{{ _self.sort_link('Estado', 'isActive', filters) }}</th>
+                        <th class="text-end">Acciones</th>
+                    </tr>
                     </thead>
                     <tbody>
-                        {% for product in products %}
-                            {% set lowStock = (product.stock + 0) <= (product.stockMin + 0) %}
-                            <tr class="{{ lowStock ? 'table-warning' : '' }}">
-                                <td class="fw-semibold">
-                                    {{ product.name }}
-                                    {% if lowStock %}
-                                        <span class="badge bg-danger ms-2">Stock bajo</span>
-                                    {% endif %}
-                                    {% if product.characteristicsSummary %}
-                                        <div class="small text-muted mt-1">{{ product.characteristicsSummary }}</div>
-                                        <button type="button" class="btn btn-link btn-sm p-0 mt-1" data-bs-toggle="modal" data-bs-target="#productDetailsModal-{{ product.id }}">
-                                            Ver más
-                                        </button>
-                                    {% endif %}
-                                </td>
-                                <td class="text-muted">{{ product.sku }}</td>
-                                <td>{{ product.category ? product.category.name : 'Sin categoría' }}</td>
-                                <td class="text-end">${{ product.basePrice|number_format(2, '.', ',') }}</td>
-                                <td class="text-end fw-semibold">{{ product.stock|number_format(3, '.', ',') }} <span class="text-muted">{{ product.uomBase }}</span></td>
-                                <td class="text-end text-muted">{{ product.stockMin|number_format(3, '.', ',') }}</td>
-                                <td>
-                                    {% if product.isActive %}
-                                        <span class="badge bg-success">Activo</span>
-                                    {% else %}
-                                        <span class="badge bg-secondary">Inactivo</span>
-                                    {% endif %}
-                                </td>
-                                <td class="text-end">
-                                    <div class="d-flex justify-content-end flex-wrap product-actions">
-                                        <a class="btn btn-sm btn-outline-secondary" href="{{ path('app_product_edit', { id: product.id }) }}">Editar</a>
-                                        <form method="post" action="{{ path('app_product_delete', { id: product.id }) }}" onsubmit="return confirm('¿Eliminar este producto?');">
-                                            <input type="hidden" name="_token" value="{{ csrf_token('delete' ~ product.id) }}">
-                                            <button class="btn btn-sm btn-outline-danger" type="submit">Eliminar</button>
-                                        </form>
-                                    </div>
-                                </td>
-                            </tr>
-                        {% else %}
-                            <tr>
-                                <td class="text-center text-muted" colspan="8">Aún no hay productos cargados.</td>
-                            </tr>
-                        {% endfor %}
+                    {% for product in products %}
+                        {% set lowStock = (product.stock + 0) <= (product.stockMin + 0) %}
+                        <tr class="{{ lowStock ? 'table-warning' : '' }}">
+                            <td class="fw-semibold">{{ product.name }}</td>
+                            <td class="text-muted">{{ product.sku }}</td>
+                            <td class="text-muted">{{ product.barcode ?: '—' }}</td>
+                            <td class="text-end">${{ product.basePrice|number_format(2, '.', ',') }}</td>
+                            <td class="text-end fw-semibold">{{ product.stock|number_format(3, '.', ',') }} <span class="text-muted">{{ product.uomBase }}</span></td>
+                            <td class="text-end text-muted">{{ product.stockMin|number_format(3, '.', ',') }}</td>
+                            <td>
+                                {% if product.isActive %}<span class="badge bg-success">Activo</span>{% else %}<span class="badge bg-secondary">Inactivo</span>{% endif %}
+                            </td>
+                            <td class="text-end">
+                                <div class="d-flex justify-content-end flex-wrap gap-1">
+                                    <a class="btn btn-sm btn-outline-secondary" href="{{ path('app_product_edit', { id: product.id }) }}">Editar</a>
+                                    <form method="post" action="{{ path('app_product_delete', { id: product.id }) }}" onsubmit="return confirm('¿Eliminar este producto?');">
+                                        <input type="hidden" name="_token" value="{{ csrf_token('delete' ~ product.id) }}">
+                                        <button class="btn btn-sm btn-outline-danger" type="submit">Eliminar</button>
+                                    </form>
+                                </div>
+                            </td>
+                        </tr>
+                    {% else %}
+                        <tr><td class="text-center text-muted" colspan="8">No se encontraron productos.</td></tr>
+                    {% endfor %}
                     </tbody>
                 </table>
             </div>
         </div>
+        <div class="card-footer d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <small class="text-muted">Total: {{ pagination.total }} productos</small>
+            <nav>
+                <ul class="pagination pagination-sm mb-0">
+                    {% set prev = pagination.page - 1 %}
+                    <li class="page-item {{ pagination.page <= 1 ? 'disabled' : '' }}">
+                        <a class="page-link" href="{{ pagination.page <= 1 ? '#' : path('app_product_index', filters|merge({ page: prev })) }}">Anterior</a>
+                    </li>
+                    {% for p in 1..pagination.pages %}
+                        <li class="page-item {{ p == pagination.page ? 'active' : '' }}">
+                            <a class="page-link" href="{{ path('app_product_index', filters|merge({ page: p })) }}">{{ p }}</a>
+                        </li>
+                    {% endfor %}
+                    {% set next = pagination.page + 1 %}
+                    <li class="page-item {{ pagination.page >= pagination.pages ? 'disabled' : '' }}">
+                        <a class="page-link" href="{{ pagination.page >= pagination.pages ? '#' : path('app_product_index', filters|merge({ page: next })) }}">Siguiente</a>
+                    </li>
+                </ul>
+            </nav>
+        </div>
     </div>
-
-    {% for product in products %}
-        {% if product.characteristicsSummary %}
-            <div class="modal fade" id="productDetailsModal-{{ product.id }}" tabindex="-1" aria-labelledby="productDetailsModalLabel-{{ product.id }}" aria-hidden="true">
-                <div class="modal-dialog modal-lg modal-dialog-scrollable">
-                    <div class="modal-content">
-                        <div class="modal-header">
-                            <h5 class="modal-title" id="productDetailsModalLabel-{{ product.id }}">{{ product.name }}</h5>
-                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                        </div>
-                        <div class="modal-body">
-                            <div class="small text-muted mb-3">SKU: {{ product.sku ?: '—' }}{% if product.barcode %} · Código: {{ product.barcode }}{% endif %}</div>
-                            <div class="small mb-3">{{ product.characteristicsSummary }}</div>
-                            <h6 class="fw-semibold mb-2">Características completas</h6>
-                            {% set characteristics = product.characteristics ?? {} %}
-                            {% if characteristics is iterable and characteristics is not empty %}
-                                <ul class="list-group list-group-flush">
-                                    {% for key, value in characteristics %}
-                                        <li class="list-group-item d-flex justify-content-between align-items-start">
-                                            <span class="text-muted me-3">{{ key }}</span>
-                                            <span class="fw-semibold text-break">{{ value }}</span>
-                                        </li>
-                                    {% endfor %}
-                                </ul>
-                            {% else %}
-                                <div class="text-muted small">Sin características detalladas.</div>
-                            {% endif %}
-                        </div>
-                        <div class="modal-footer">
-                            <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cerrar</button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        {% endif %}
-    {% endfor %}
 {% endblock %}

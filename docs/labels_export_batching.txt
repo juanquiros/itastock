@@ -1,0 +1,40 @@
+Labels Export Batching
+
+Flujo
+1) Desde /app/admin/products/labels usar bloque "Catálogo completo (optimizado)".
+2) Seleccionar batchSize (200/500/1000/2000; default 500).
+3) El sistema crea LabelExportJob y genera PDFs por lote usando seek pagination por id.
+4) Cada lote queda registrado en LabelExportBatch y se genera ZIP consolidado.
+5) Consultar /app/admin/exports/labels y /app/admin/exports/labels/{id}.
+
+Entidades
+- LabelExportJob:
+  - business, type=labels_catalog, status, createdAt, expiresAt, createdByUser,
+    params(json), basePath, batchesCount, totalProducts, zipFilename, errorMessage.
+- LabelExportBatch:
+  - job, batchIndex, fromProductId, toProductId, productsCount, filename, status.
+
+Rutas
+- /app/admin/products/labels
+- /app/admin/exports/labels
+- /app/admin/exports/labels/{id}
+- /app/admin/exports/labels/{id}/zip
+- /app/admin/exports/labels/{id}/batch/{batchId}
+
+TTL y limpieza
+- Los exports vencen a las 12 horas.
+- Command: app:exports:cleanup
+- Opciones:
+  - --ttl=12h (default)
+  - --dry-run
+- Borra carpetas en var/exports/labels/... y marca jobs como EXPIRED.
+
+Cron recomendado
+0 * * * * php /path/to/bin/console app:exports:cleanup --ttl=12h
+
+QA checklist
+- Generar export optimizado con distintos batchSize.
+- Verificar PDF por lote y ZIP descargable.
+- Confirmar pantalla de exportes recientes y detalle.
+- Forzar expiración y ejecutar cleanup --dry-run y luego real.
+- Validar bloqueo de acceso entre negocios distintos.

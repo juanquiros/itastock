@@ -2,6 +2,7 @@
 
 namespace App\Repository;
 
+use App\Dto\AdminProductListFilter;
 use App\Entity\Business;
 use App\Entity\Product;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
@@ -223,5 +224,69 @@ class ProductRepository extends ServiceEntityRepository
         }
 
         return $qb->getQuery()->getResult();
+    }
+
+    /**
+     * @return array{items: Product[], total: int, pages: int}
+     */
+    public function findForAdminList(Business $business, AdminProductListFilter $filter): array
+    {
+        $qb = $this->createQueryBuilder('p')
+            ->andWhere('p.business = :business')
+            ->setParameter('business', $business);
+
+        if ($filter->getQ() !== '') {
+            $qb->andWhere('LOWER(p.name) LIKE :q OR LOWER(p.sku) LIKE :q OR p.barcode LIKE :barcode')
+                ->setParameter('q', '%'.mb_strtolower($filter->getQ()).'%')
+                ->setParameter('barcode', '%'.$filter->getQ().'%');
+        }
+
+        $sortMap = [
+            'name' => 'p.name',
+            'sku' => 'p.sku',
+            'barcode' => 'p.barcode',
+            'basePrice' => 'p.basePrice',
+            'stock' => 'p.stock',
+            'stockMin' => 'p.stockMin',
+            'isActive' => 'p.isActive',
+            'updatedAt' => 'p.updatedAt',
+        ];
+
+        $orderBy = $sortMap[$filter->getSort()] ?? 'p.name';
+        $direction = strtoupper($filter->getDir()) === 'DESC' ? 'DESC' : 'ASC';
+
+        $qb->orderBy($orderBy, $direction)
+            ->addOrderBy('p.id', 'ASC');
+
+        $countQb = clone $qb;
+        $total = (int) $countQb->select('COUNT(p.id)')->getQuery()->getSingleScalarResult();
+        $pages = max(1, (int) ceil($total / $filter->getLimit()));
+
+        $items = $qb->setFirstResult($filter->getOffset())
+            ->setMaxResults($filter->getLimit())
+            ->getQuery()
+            ->getResult();
+
+        return [
+            'items' => $items,
+            'total' => $total,
+            'pages' => $pages,
+        ];
+    }
+
+    /**
+     * @return Product[]
+     */
+    public function findForLabelExportBatch(Business $business, int $lastId, int $batchSize): array
+    {
+        return $this->createQueryBuilder('p')
+            ->andWhere('p.business = :business')
+            ->andWhere('p.id > :lastId')
+            ->setParameter('business', $business)
+            ->setParameter('lastId', $lastId)
+            ->orderBy('p.id', 'ASC')
+            ->setMaxResults($batchSize)
+            ->getQuery()
+            ->getResult();
     }
 }

@@ -10,6 +10,7 @@
             <p class="text-secondary mb-0">Generá un PDF A4 con etiquetas listas para imprimir.</p>
         </div>
         <div class="d-flex gap-2">
+            <a class="btn btn-outline-secondary" href="{{ path('app_label_export_index') }}">Exportes recientes</a>
             <a class="btn btn-outline-secondary" href="{{ path('app_settings_labels') }}">Configurar imagen</a>
             <a class="btn btn-outline-secondary" href="{{ path('app_product_index') }}">Volver a productos</a>
         </div>
@@ -64,6 +65,17 @@
             </div>
             <div class="mt-4 d-flex justify-content-end gap-2">
                 <button class="btn btn-primary" type="submit">Generar PDF</button>
+            </div>
+            <hr class="my-4">
+            <div>
+                <h2 class="h6 text-uppercase text-muted">Catálogo completo (optimizado)</h2>
+                <p class="text-muted small">Genera lotes de PDFs para evitar consumos altos de memoria en catálogos grandes.</p>
+                <div class="row g-3 align-items-end">
+                    <div class="col-md-4">{{ form_row(form.batchSize) }}</div>
+                    <div class="col-md-8 d-flex justify-content-end">
+                        <button class="btn btn-outline-primary" type="submit" name="createOptimizedCatalog" value="1">Generar por lotes</button>
+                    </div>
+                </div>
             </div>
             {{ form_end(form) }}
         </div>

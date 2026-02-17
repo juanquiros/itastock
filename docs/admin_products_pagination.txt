@@ -1,0 +1,21 @@
+Admin Products Pagination
+
+Parámetros soportados (/app/admin/products)
+- page: página actual (default 1).
+- limit: tamaño de página (default 25; opciones 25, 50, 100).
+- q: búsqueda por nombre, sku o barcode.
+- sort: campo de orden (name, sku, barcode, basePrice, stock, stockMin, isActive, updatedAt).
+- dir: dirección de orden (asc|desc).
+
+Comportamiento
+- Se aplica paginación en DB con offset + limit.
+- El buscador filtra por coincidencia parcial en nombre/SKU/barcode.
+- Los encabezados de tabla cambian orden y conservan filtros.
+- El paginador conserva query string (q/limit/sort/dir).
+
+QA checklist
+- Abrir /app/admin/products sin params y validar page=1, limit=25.
+- Cambiar limit a 50 y confirmar persistencia al paginar.
+- Buscar por SKU y por nombre parcial.
+- Ordenar por stock asc/desc.
+- Confirmar links de páginas con query string completo.
