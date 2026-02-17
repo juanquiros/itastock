@@ -125,7 +125,7 @@ class ProductLabelController extends AbstractController
     {
         $this->denyAccessUnlessGrantedToJob($job);
 
-        return $this->json([
+        $response = $this->json([
             'status' => $job->getStatus(),
             'progressPercent' => $job->getProgressPercent(),
             'progressText' => $job->getProgressText(),
@@ -134,6 +134,11 @@ class ProductLabelController extends AbstractController
             'errorMessage' => $job->getErrorMessage(),
             'isReady' => $job->getStatus() === LabelExportJob::STATUS_READY,
         ]);
+
+        $response->headers->set('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
+        $response->headers->set('Pragma', 'no-cache');
+
+        return $response;
     }
 
     #[Route('/app/admin/exports/labels/{id}/download/zip', name: 'app_exports_labels_download_zip', methods: ['GET'])]
