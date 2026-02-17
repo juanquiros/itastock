@@ -2,7 +2,7 @@
 
 namespace App\Repository;
 
-use App\Dto\AdminProductListFilter;
+use App\DTO\AdminProductListFilter;
 use App\Entity\Business;
 use App\Entity\Product;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
