@@ -88,6 +88,19 @@ class ProductLabelFilterType extends AbstractType
                 'label' => 'Incluir imagen en la etiqueta',
                 'required' => false,
             ])
+
+            ->add('batchSize', ChoiceType::class, [
+                'label' => 'Tamaño de lote (catálogo optimizado)',
+                'choices' => [
+                    '100' => 100,
+                    '200 (recomendado)' => 200,
+                    '500 (RAM media/alta)' => 500,
+                    '1000 (RAM alta)' => 1000,
+                ],
+                'required' => false,
+                'mapped' => false,
+                'data' => 200,
+            ])
             ->add('labelsPerProduct', IntegerType::class, [
                 'label' => 'Cantidad de etiquetas por producto',
                 'required' => false,

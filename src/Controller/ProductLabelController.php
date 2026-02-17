@@ -3,13 +3,16 @@
 namespace App\Controller;
 
 use App\Entity\Business;
-use App\Entity\Product;
+use App\Entity\LabelExportBatch;
+use App\Entity\LabelExportJob;
 use App\Form\ProductLabelFilterType;
+use App\Repository\LabelExportJobRepository;
 use App\Repository\ProductRepository;
 use App\Security\BusinessContext;
-use App\Service\BarcodeGeneratorService;
+use App\Service\LabelCatalogExportService;
 use App\Service\PdfService;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Annotation\Route;
@@ -24,7 +27,7 @@ class ProductLabelController extends AbstractController
     }
 
     #[Route('/app/admin/products/labels', name: 'app_product_labels', methods: ['GET', 'POST'])]
-    public function index(Request $request): Response
+    public function index(Request $request, LabelCatalogExportService $labelCatalogExportService): Response
     {
         $business = $this->requireBusinessContext();
 
@@ -46,6 +49,32 @@ class ProductLabelController extends AbstractController
             $categoryIds = $this->extractIds($data['categories'] ?? []);
             $brandIds = $this->extractIds($data['brands'] ?? []);
             $labelsPerProduct = max(1, (int) ($data['labelsPerProduct'] ?? 1));
+
+            if ($request->request->has('createOptimizedCatalog')) {
+                $batchSize = (int) $form->get('batchSize')->getData();
+                $params = [
+                    'includeBarcode' => !empty($data['includeBarcode']),
+                    'includeLabelImage' => !empty($data['includeLabelImage']),
+                    'barcodeSource' => $data['barcodeSource'] ?: 'ean',
+                    'showPrice' => !empty($data['showPrice']),
+                    'showOnlyName' => !empty($data['showOnlyName']),
+                    'labelsPerProduct' => $labelsPerProduct,
+                    'batchSize' => in_array($batchSize, [100, 200, 500, 1000], true) ? $batchSize : 200,
+                ];
+
+                $job = $labelCatalogExportService->createJob($business, $this->requireUser(), $params);
+
+                try {
+                    $labelCatalogExportService->generateBatches($job);
+                    $labelCatalogExportService->setJobReady($job);
+                    $this->addFlash('success', 'Export optimizado generado correctamente.');
+                } catch (\Throwable $e) {
+                    $labelCatalogExportService->setJobFailed($job, $e->getMessage());
+                    $this->addFlash('danger', 'No se pudo generar el export optimizado.');
+                }
+
+                return $this->redirectToRoute('app_label_export_index');
+            }
 
             $params = array_filter([
                 'products' => $this->serializeIds($productIds),
@@ -73,8 +102,8 @@ class ProductLabelController extends AbstractController
     public function pdf(
         Request $request,
         ProductRepository $productRepository,
-        BarcodeGeneratorService $barcodeGenerator,
-        PdfService $pdfService
+        PdfService $pdfService,
+        LabelCatalogExportService $labelCatalogExportService,
     ): Response {
         $business = $this->requireBusinessContext();
 
@@ -99,32 +128,21 @@ class ProductLabelController extends AbstractController
         $showOnlyName = $this->toBool($request->query->get('showOnlyName', '0'));
         $labelsPerProduct = max(1, (int) $request->query->get('labelsPerProduct', 1));
 
-        $labels = [];
-        foreach ($products as $product) {
-            $barcodeValue = $this->resolveBarcodeValue($product, $includeBarcode, $barcodeSource);
-            $barcodeDataUri = null;
+        $labels = $labelCatalogExportService->buildLabels($products, [
+            'includeBarcode' => $includeBarcode,
+            'barcodeSource' => $barcodeSource,
+            'labelsPerProduct' => $labelsPerProduct,
+        ]);
 
-            if ($barcodeValue !== null) {
-                $barcodeType = $this->resolveBarcodeType($barcodeSource, $barcodeValue);
-                $barcodeDataUri = $barcodeGenerator->generatePngDataUri($barcodeValue, $barcodeType);
-            }
-
-            for ($i = 0; $i < $labelsPerProduct; $i++) {
-                $labels[] = [
-                    'product' => $product,
-                    'barcodeValue' => $barcodeValue,
-                    'barcodeDataUri' => $barcodeDataUri,
-                ];
-            }
-        }
+        $localLabelImagePath = $this->resolveLocalLabelImagePath($business->getLabelImagePath());
 
         return $pdfService->render('product/labels_pdf.html.twig', [
             'business' => $business,
             'labels' => $labels,
-            'labelImagePath' => $business->getLabelImagePath(),
+            'labelImagePath' => $localLabelImagePath,
             'options' => [
                 'includeBarcode' => $includeBarcode,
-                'includeLabelImage' => $includeLabelImage,
+                'includeLabelImage' => $includeLabelImage && $localLabelImagePath !== null,
                 'barcodeSource' => $barcodeSource,
                 'showPrice' => $showPrice,
                 'showOnlyName' => $showOnlyName,
@@ -132,36 +150,82 @@ class ProductLabelController extends AbstractController
         ], 'etiquetas-productos.pdf');
     }
 
-    private function resolveBarcodeValue(Product $product, bool $includeBarcode, string $barcodeSource): ?string
+    #[Route('/app/admin/exports/labels', name: 'app_label_export_index', methods: ['GET'])]
+    public function recentExports(LabelExportJobRepository $jobRepository): Response
     {
-        if (!$includeBarcode) {
-            return null;
-        }
+        $business = $this->requireBusinessContext();
 
-        if ($barcodeSource === 'sku') {
-            return $product->getSku();
-        }
-
-        $barcode = $product->getBarcode();
-        if ($barcode === null || $barcode === '') {
-            return null;
-        }
-
-        return $barcode;
+        return $this->render('exports/labels/index.html.twig', [
+            'exports' => $jobRepository->findRecentByBusiness($business),
+        ]);
     }
 
-    private function resolveBarcodeType(string $barcodeSource, string $value): string
+    #[Route('/app/admin/exports/labels/{id}', name: 'app_label_export_show', methods: ['GET'])]
+    public function showExport(LabelExportJob $job): Response
     {
-        if ($barcodeSource === 'sku') {
-            return 'CODE128';
-        }
+        $this->assertCanAccessJob($job);
 
-        if (preg_match('/^\d{13}$/', $value) === 1) {
-            return 'EAN13';
-        }
-
-        return 'CODE128';
+        return $this->render('exports/labels/show.html.twig', [
+            'export' => $job,
+        ]);
     }
+
+    #[Route('/app/admin/exports/labels/{id}/zip', name: 'app_label_export_zip', methods: ['GET'])]
+    public function downloadZip(LabelExportJob $job): Response
+    {
+        $this->assertCanAccessJob($job);
+        $this->assertNotExpired($job);
+
+        $path = $job->getBasePath().'/'.$job->getZipFilename();
+        if (!$job->getZipFilename() || !is_file($path)) {
+            throw $this->createNotFoundException('No existe ZIP para este export.');
+        }
+
+        return new BinaryFileResponse($path);
+    }
+
+    #[Route('/app/admin/exports/labels/{id}/batch/{batchId}', name: 'app_label_export_batch', methods: ['GET'])]
+    public function downloadBatch(LabelExportJob $job, int $batchId): Response
+    {
+        $this->assertCanAccessJob($job);
+        $this->assertNotExpired($job);
+
+        $batch = null;
+        foreach ($job->getBatches() as $item) {
+            if ($item->getId() === $batchId) {
+                $batch = $item;
+                break;
+            }
+        }
+
+        if (!$batch instanceof LabelExportBatch) {
+            throw $this->createNotFoundException('Lote no encontrado.');
+        }
+
+        $path = $job->getBasePath().'/'.$batch->getFilename();
+        if (!is_file($path)) {
+            throw $this->createNotFoundException('Archivo de lote no encontrado.');
+        }
+
+        return new BinaryFileResponse($path);
+    }
+
+    private function assertCanAccessJob(LabelExportJob $job): void
+    {
+        $business = $this->requireBusinessContext();
+        if ($job->getBusiness()?->getId() !== $business->getId()) {
+            throw $this->createAccessDeniedException('No tenés permisos sobre este export.');
+        }
+    }
+
+    private function assertNotExpired(LabelExportJob $job): void
+    {
+        if ($job->isExpired()) {
+            throw $this->createNotFoundException('El export está vencido.');
+        }
+    }
+
+
 
     /**
      * @param iterable<int, object> $entities
@@ -226,8 +290,38 @@ class ProductLabelController extends AbstractController
         return filter_var($value, FILTER_VALIDATE_BOOLEAN);
     }
 
+    private function resolveLocalLabelImagePath(?string $labelImagePath): ?string
+    {
+        if (!is_string($labelImagePath) || trim($labelImagePath) === '') {
+            return null;
+        }
+
+        if (preg_match('#^https?://#i', $labelImagePath) === 1) {
+            return null;
+        }
+
+        $path = ltrim(str_replace('\\', '/', $labelImagePath), '/');
+        if ($path === '') {
+            return null;
+        }
+
+        $absolutePath = $this->getParameter('kernel.project_dir').'/'.$path;
+
+        return is_file($absolutePath) ? $path : null;
+    }
+
     private function requireBusinessContext(): Business
     {
         return $this->businessContext->requireCurrentBusiness();
+    }
+
+    private function requireUser(): \App\Entity\User
+    {
+        $user = $this->getUser();
+        if (!$user instanceof \App\Entity\User) {
+            throw new AccessDeniedException('Usuario inválido.');
+        }
+
+        return $user;
     }
 }

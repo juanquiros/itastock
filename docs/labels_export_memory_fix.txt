@@ -1,0 +1,49 @@
+Labels Export Memory Fix (Dompdf / Cpdf OOM)
+
+Problema
+- Dompdf puede agotar memoria (OutOfMemoryError en Cpdf.php) cuando el HTML incluye muchas imágenes en base64.
+- En exportes masivos, cada etiqueta con barcode en data-uri multiplica uso de RAM y tamaño del DOM.
+
+Cambios aplicados
+1) Barcodes cacheados en disco (sin base64)
+- Se agregó BarcodeGeneratorService::generatePngCachedFile(value, type, cacheDir).
+- Genera PNG con hash sha1(type|value) y reusa archivo si ya existe.
+- Ruta de cache: var/cache/barcodes/{hash}.png.
+- Validaciones: value vacío => null, EAN13 inválido => null, falta gd => null.
+
+2) Labels livianos en memoria
+- Ya no se pasa la entidad Product completa al Twig en el flujo de export.
+- Cada label usa solo escalares:
+  - name, sku, price, barcodeValue, barcodePath.
+- Se evita almacenar imágenes base64 grandes dentro de arrays.
+
+3) Paths locales + chroot en dompdf
+- PdfService usa chroot en %kernel.project_dir%.
+- isRemoteEnabled=false.
+- Fuente default: DejaVu Sans (fallback Helvetica).
+- labelImagePath para PDF se limita a rutas locales dentro del proyecto.
+  - Si labelImagePath es URL remota, se desactiva includeLabelImage para ese render.
+
+4) Batch safe by default
+- batchSize default: 200.
+- Opciones UI: 100, 200, 500, 1000.
+- Recomendación visible: usar 100/200 con RAM 128M.
+
+5) Liberación agresiva de memoria entre lotes
+- Después de cada PDF de lote:
+  - unset($labels)
+  - unset($pdf)
+  - gc_collect_cycles()
+- Se mantiene EntityManager->clear() y recarga de Job.
+
+Batch recomendado según RAM
+- 128M: 100 o 200.
+- 256M+: 200 o 500.
+- 512M+: 500 o 1000 según complejidad de etiqueta (imagen, barcode, texto).
+
+QA checklist
+- Export con batchSize=100 e includeBarcode=true completa sin OOM.
+- Export con batchSize=200 en WAMP 128M completa; si no, bajar a 100.
+- Export con includeBarcode=false permite lotes mayores.
+- ZIP descarga correctamente y contiene PDFs por lote.
+- Pantalla de exportes recientes y detalle sigue operativa.
