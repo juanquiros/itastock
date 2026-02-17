@@ -122,16 +122,55 @@
             <div class="text-muted small">Mostrando página {{ pagination.page }} de {{ pagination.pages }} · {{ pagination.total }} productos</div>
             {% if pagination.pages > 1 %}
                 <nav>
-                    <ul class="pagination pagination-sm mb-0">
+                    <ul class="pagination pagination-sm mb-0 flex-wrap">
                         {% set prevPage = pagination.page - 1 %}
                         <li class="page-item {{ pagination.page <= 1 ? 'disabled' : '' }}">
                             <a class="page-link" href="{{ path('app_product_index', baseQuery|merge({ sort: filters.sort, dir: filters.dir, page: prevPage })) }}">Anterior</a>
                         </li>
-                        {% for p in 1..pagination.pages %}
-                            <li class="page-item {{ p == pagination.page ? 'active' : '' }}">
-                                <a class="page-link" href="{{ path('app_product_index', baseQuery|merge({ sort: filters.sort, dir: filters.dir, page: p })) }}">{{ p }}</a>
+
+                        {% if pagination.pages <= 9 %}
+                            {% for p in 1..pagination.pages %}
+                                <li class="page-item {{ p == pagination.page ? 'active' : '' }}">
+                                    <a class="page-link" href="{{ path('app_product_index', baseQuery|merge({ sort: filters.sort, dir: filters.dir, page: p })) }}">{{ p }}</a>
+                                </li>
+                            {% endfor %}
+                        {% else %}
+                            <li class="page-item {{ pagination.page == 1 ? 'active' : '' }}">
+                                <a class="page-link" href="{{ path('app_product_index', baseQuery|merge({ sort: filters.sort, dir: filters.dir, page: 1 })) }}">1</a>
                             </li>
-                        {% endfor %}
+
+                            {% set startPage = pagination.page - 1 %}
+                            {% set endPage = pagination.page + 1 %}
+
+                            {% if pagination.page <= 4 %}
+                                {% set startPage = 2 %}
+                                {% set endPage = 4 %}
+                            {% elseif pagination.page >= pagination.pages - 3 %}
+                                {% set startPage = pagination.pages - 3 %}
+                                {% set endPage = pagination.pages - 1 %}
+                            {% endif %}
+
+                            {% if startPage > 2 %}
+                                <li class="page-item disabled"><span class="page-link">…</span></li>
+                            {% endif %}
+
+                            {% for p in startPage..endPage %}
+                                {% if p > 1 and p < pagination.pages %}
+                                    <li class="page-item {{ p == pagination.page ? 'active' : '' }}">
+                                        <a class="page-link" href="{{ path('app_product_index', baseQuery|merge({ sort: filters.sort, dir: filters.dir, page: p })) }}">{{ p }}</a>
+                                    </li>
+                                {% endif %}
+                            {% endfor %}
+
+                            {% if endPage < pagination.pages - 1 %}
+                                <li class="page-item disabled"><span class="page-link">…</span></li>
+                            {% endif %}
+
+                            <li class="page-item {{ pagination.page == pagination.pages ? 'active' : '' }}">
+                                <a class="page-link" href="{{ path('app_product_index', baseQuery|merge({ sort: filters.sort, dir: filters.dir, page: pagination.pages })) }}">{{ pagination.pages }}</a>
+                            </li>
+                        {% endif %}
+
                         {% set nextPage = pagination.page + 1 %}
                         <li class="page-item {{ pagination.page >= pagination.pages ? 'disabled' : '' }}">
                             <a class="page-link" href="{{ path('app_product_index', baseQuery|merge({ sort: filters.sort, dir: filters.dir, page: nextPage })) }}">Siguiente</a>
