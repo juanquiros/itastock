@@ -5,12 +5,10 @@ namespace App\Controller;
 use App\Entity\Business;
 use App\Entity\LabelExportBatch;
 use App\Entity\LabelExportJob;
-use App\Entity\Product;
 use App\Form\ProductLabelFilterType;
 use App\Repository\LabelExportJobRepository;
 use App\Repository\ProductRepository;
 use App\Security\BusinessContext;
-use App\Service\BarcodeGeneratorService;
 use App\Service\LabelCatalogExportService;
 use App\Service\PdfService;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -61,7 +59,7 @@ class ProductLabelController extends AbstractController
                     'showPrice' => !empty($data['showPrice']),
                     'showOnlyName' => !empty($data['showOnlyName']),
                     'labelsPerProduct' => $labelsPerProduct,
-                    'batchSize' => in_array($batchSize, [200, 500, 1000, 2000], true) ? $batchSize : 500,
+                    'batchSize' => in_array($batchSize, [100, 200, 500, 1000], true) ? $batchSize : 200,
                 ];
 
                 $job = $labelCatalogExportService->createJob($business, $this->requireUser(), $params);
@@ -104,8 +102,8 @@ class ProductLabelController extends AbstractController
     public function pdf(
         Request $request,
         ProductRepository $productRepository,
-        BarcodeGeneratorService $barcodeGenerator,
-        PdfService $pdfService
+        PdfService $pdfService,
+        LabelCatalogExportService $labelCatalogExportService,
     ): Response {
         $business = $this->requireBusinessContext();
 
@@ -130,32 +128,21 @@ class ProductLabelController extends AbstractController
         $showOnlyName = $this->toBool($request->query->get('showOnlyName', '0'));
         $labelsPerProduct = max(1, (int) $request->query->get('labelsPerProduct', 1));
 
-        $labels = [];
-        foreach ($products as $product) {
-            $barcodeValue = $this->resolveBarcodeValue($product, $includeBarcode, $barcodeSource);
-            $barcodeDataUri = null;
+        $labels = $labelCatalogExportService->buildLabels($products, [
+            'includeBarcode' => $includeBarcode,
+            'barcodeSource' => $barcodeSource,
+            'labelsPerProduct' => $labelsPerProduct,
+        ]);
 
-            if ($barcodeValue !== null) {
-                $barcodeType = $this->resolveBarcodeType($barcodeSource, $barcodeValue);
-                $barcodeDataUri = $barcodeGenerator->generatePngDataUri($barcodeValue, $barcodeType);
-            }
-
-            for ($i = 0; $i < $labelsPerProduct; $i++) {
-                $labels[] = [
-                    'product' => $product,
-                    'barcodeValue' => $barcodeValue,
-                    'barcodeDataUri' => $barcodeDataUri,
-                ];
-            }
-        }
+        $localLabelImagePath = $this->resolveLocalLabelImagePath($business->getLabelImagePath());
 
         return $pdfService->render('product/labels_pdf.html.twig', [
             'business' => $business,
             'labels' => $labels,
-            'labelImagePath' => $business->getLabelImagePath(),
+            'labelImagePath' => $localLabelImagePath,
             'options' => [
                 'includeBarcode' => $includeBarcode,
-                'includeLabelImage' => $includeLabelImage,
+                'includeLabelImage' => $includeLabelImage && $localLabelImagePath !== null,
                 'barcodeSource' => $barcodeSource,
                 'showPrice' => $showPrice,
                 'showOnlyName' => $showOnlyName,
@@ -238,36 +225,7 @@ class ProductLabelController extends AbstractController
         }
     }
 
-    private function resolveBarcodeValue(Product $product, bool $includeBarcode, string $barcodeSource): ?string
-    {
-        if (!$includeBarcode) {
-            return null;
-        }
 
-        if ($barcodeSource === 'sku') {
-            return $product->getSku();
-        }
-
-        $barcode = $product->getBarcode();
-        if ($barcode === null || $barcode === '') {
-            return null;
-        }
-
-        return $barcode;
-    }
-
-    private function resolveBarcodeType(string $barcodeSource, string $value): string
-    {
-        if ($barcodeSource === 'sku') {
-            return 'CODE128';
-        }
-
-        if (preg_match('/^\d{13}$/', $value) === 1) {
-            return 'EAN13';
-        }
-
-        return 'CODE128';
-    }
 
     /**
      * @param iterable<int, object> $entities
@@ -330,6 +288,26 @@ class ProductLabelController extends AbstractController
     private function toBool(mixed $value): bool
     {
         return filter_var($value, FILTER_VALIDATE_BOOLEAN);
+    }
+
+    private function resolveLocalLabelImagePath(?string $labelImagePath): ?string
+    {
+        if (!is_string($labelImagePath) || trim($labelImagePath) === '') {
+            return null;
+        }
+
+        if (preg_match('#^https?://#i', $labelImagePath) === 1) {
+            return null;
+        }
+
+        $path = ltrim(str_replace('\\', '/', $labelImagePath), '/');
+        if ($path === '') {
+            return null;
+        }
+
+        $absolutePath = $this->getParameter('kernel.project_dir').'/'.$path;
+
+        return is_file($absolutePath) ? $path : null;
     }
 
     private function requireBusinessContext(): Business

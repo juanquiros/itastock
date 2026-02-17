@@ -22,7 +22,7 @@
             }
 
             body {
-                font-family: 'Inter', sans-serif;
+                font-family: 'DejaVu Sans', 'Helvetica', sans-serif;
                 font-size: 10pt;
                 color: #111827;
                 margin: 0;
@@ -199,20 +199,20 @@
                                             <div class="label-image">
                                                 <img src="{{ labelImagePath }}" alt="Imagen de etiqueta">
                                             </div>
-                                            <div class="label-name">{{ label.product.name }}</div>
+                                            <div class="label-name">{{ label.name }}</div>
                                             {% if not options.showOnlyName %}
                                                 <div class="label-meta-row">
-                                                    <span class="label-meta">SKU: {{ label.product.sku }}</span>
+                                                    <span class="label-meta">SKU: {{ label.sku }}</span>
                                                     {% if options.showPrice %}
-                                                        <span class="label-price">${{ label.product.basePrice|number_format(2, '.', ',') }}</span>
+                                                        <span class="label-price">${{ label.price|number_format(2, '.', ',') }}</span>
                                                     {% endif %}
                                                 </div>
                                             {% endif %}
                                             {% if options.includeBarcode %}
                                                 <div class="barcode">
-                                                    {% if label.barcodeDataUri %}
+                                                    {% if label.barcodePath %}
                                                         <div class="barcode-vertical">
-                                                            <img src="{{ label.barcodeDataUri }}" alt="Código de barras">
+                                                            <img src="{{ label.barcodePath }}" alt="Código de barras">
                                                         </div>
                                                         <div class="barcode-value">{{ label.barcodeValue }}</div>
                                                     {% else %}
@@ -222,20 +222,20 @@
                                             {% endif %}
                                         {% else %}
                                             <div class="label-info">
-                                                <div class="label-name label-name--compact">{{ label.product.name }}</div>
+                                                <div class="label-name label-name--compact">{{ label.name }}</div>
                                                 {% if not options.showOnlyName %}
                                                 <div class="label-meta-row">
-                                                    <span class="label-meta">SKU: {{ label.product.sku }}</span>
+                                                    <span class="label-meta">SKU: {{ label.sku }}</span>
                                                     {% if options.showPrice %}
-                                                        <span class="label-price">${{ label.product.basePrice|number_format(2, '.', ',') }}</span>
+                                                        <span class="label-price">${{ label.price|number_format(2, '.', ',') }}</span>
                                                     {% endif %}
                                                 </div>
                                                 {% endif %}
                                             </div>
                                             {% if options.includeBarcode %}
                                                 <div class="barcode">
-                                                    {% if label.barcodeDataUri %}
-                                                        <img src="{{ label.barcodeDataUri }}" alt="Código de barras">
+                                                    {% if label.barcodePath %}
+                                                        <img src="{{ label.barcodePath }}" alt="Código de barras">
                                                         <div class="barcode-value barcode-value--compact">{{ label.barcodeValue }}</div>
                                                     {% else %}
                                                         <div class="label-meta">Sin código de barras</div>

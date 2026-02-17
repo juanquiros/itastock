@@ -10,6 +10,7 @@ use App\Entity\User;
 use App\Repository\LabelExportJobRepository;
 use App\Repository\ProductRepository;
 use Doctrine\ORM\EntityManagerInterface;
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
 
 class LabelCatalogExportService
 {
@@ -19,6 +20,8 @@ class LabelCatalogExportService
         private readonly LabelExportJobRepository $jobRepository,
         private readonly BarcodeGeneratorService $barcodeGenerator,
         private readonly PdfService $pdfService,
+        #[Autowire('%kernel.project_dir%')]
+        private readonly string $projectDir,
     ) {
     }
 
@@ -49,7 +52,7 @@ class LabelCatalogExportService
     public function generateBatches(LabelExportJob $job): void
     {
         $params = $job->getParams();
-        $batchSize = max(1, (int) ($params['batchSize'] ?? 500));
+        $batchSize = max(1, (int) ($params['batchSize'] ?? 200));
         $business = $job->getBusiness();
 
         if (!$business instanceof Business) {
@@ -78,7 +81,7 @@ class LabelCatalogExportService
             $pdf = $this->pdfService->generateBytes('product/labels_pdf.html.twig', [
                 'business' => $business,
                 'labels' => $labels,
-                'labelImagePath' => $business->getLabelImagePath(),
+                'labelImagePath' => $this->resolveLocalLabelImagePath($business->getLabelImagePath()),
                 'options' => $this->buildOptions($params),
             ]);
 
@@ -99,12 +102,17 @@ class LabelCatalogExportService
             $productsTotal += count($products);
             $batchIndex++;
 
+            unset($labels, $pdf, $products);
+            gc_collect_cycles();
+
             $this->entityManager->flush();
             $this->entityManager->clear();
+
             $job = $this->jobRepository->find($job->getId());
             if (!$job instanceof LabelExportJob) {
                 throw new \RuntimeException('No se pudo recargar el export.');
             }
+
             $business = $job->getBusiness();
             if (!$business instanceof Business) {
                 throw new \RuntimeException('No se pudo recargar el comercio del export.');
@@ -153,28 +161,31 @@ class LabelCatalogExportService
     }
 
     /** @param Product[] $products */
-    private function buildLabels(array $products, array $params): array
+    public function buildLabels(array $products, array $params): array
     {
         $labels = [];
         $includeBarcode = !empty($params['includeBarcode']);
         $barcodeSource = ($params['barcodeSource'] ?? 'ean') === 'sku' ? 'sku' : 'ean';
         $labelsPerProduct = max(1, (int) ($params['labelsPerProduct'] ?? 1));
+        $cacheDir = 'var/cache/barcodes';
 
         foreach ($products as $product) {
             $barcodeValue = $this->resolveBarcodeValue($product, $includeBarcode, $barcodeSource);
-            $barcodeDataUri = null;
+            $barcodeType = $this->resolveBarcodeType($barcodeSource, $barcodeValue);
+            $barcodePath = $barcodeValue !== null && $barcodeType !== null
+                ? $this->barcodeGenerator->generatePngCachedFile($barcodeValue, $barcodeType, $cacheDir)
+                : null;
 
-            if ($barcodeValue !== null) {
-                $barcodeType = $barcodeSource === 'sku' ? 'CODE128' : (preg_match('/^\d{13}$/', $barcodeValue) === 1 ? 'EAN13' : 'CODE128');
-                $barcodeDataUri = $this->barcodeGenerator->generatePngDataUri($barcodeValue, $barcodeType);
-            }
+            $baseLabel = [
+                'name' => (string) $product->getName(),
+                'sku' => (string) $product->getSku(),
+                'price' => (float) $product->getBasePrice(),
+                'barcodeValue' => $barcodeValue,
+                'barcodePath' => $barcodePath,
+            ];
 
             for ($i = 0; $i < $labelsPerProduct; $i++) {
-                $labels[] = [
-                    'product' => $product,
-                    'barcodeValue' => $barcodeValue,
-                    'barcodeDataUri' => $barcodeDataUri,
-                ];
+                $labels[] = $baseLabel;
             }
         }
 
@@ -199,9 +210,46 @@ class LabelCatalogExportService
         }
 
         if ($barcodeSource === 'sku') {
-            return $product->getSku();
+            $sku = trim((string) $product->getSku());
+
+            return $sku === '' ? null : $sku;
         }
 
-        return $product->getBarcode() ?: null;
+        $barcode = trim((string) $product->getBarcode());
+
+        return $barcode === '' ? null : $barcode;
+    }
+
+    private function resolveBarcodeType(string $barcodeSource, ?string $value): ?string
+    {
+        if ($value === null) {
+            return null;
+        }
+
+        if ($barcodeSource === 'sku') {
+            return 'CODE128';
+        }
+
+        return preg_match('/^\d{13}$/', $value) === 1 ? 'EAN13' : 'CODE128';
+    }
+
+    private function resolveLocalLabelImagePath(?string $labelImagePath): ?string
+    {
+        if (!is_string($labelImagePath) || trim($labelImagePath) === '') {
+            return null;
+        }
+
+        if (preg_match('#^https?://#i', $labelImagePath) === 1) {
+            return null;
+        }
+
+        $path = ltrim(str_replace('\\', '/', $labelImagePath), '/');
+        if ($path === '') {
+            return null;
+        }
+
+        $absolutePath = $this->projectDir.'/'.$path;
+
+        return is_file($absolutePath) ? $path : null;
     }
 }
