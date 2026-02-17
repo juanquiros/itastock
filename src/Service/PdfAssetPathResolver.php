@@ -14,6 +14,12 @@ class PdfAssetPathResolver
             return null;
         }
 
+        $relativePath = trim($relativePath);
+
+        if (str_starts_with($relativePath, 'data:image/')) {
+            return $relativePath;
+        }
+
         if (str_starts_with($relativePath, 'file://') || str_starts_with($relativePath, 'http://') || str_starts_with($relativePath, 'https://')) {
             return $relativePath;
         }

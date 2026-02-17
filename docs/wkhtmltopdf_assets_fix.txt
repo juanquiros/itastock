@@ -30,3 +30,9 @@ Notas
 -----
 - Este ajuste se aplica al flujo PDF con wkhtmltopdf.
 - La exportación con dompdf se mantiene compatible y sin cambios funcionales.
+
+Casos contemplados por el resolver
+----------------------------------
+- `data:image/...` (base64 guardado en configuración): se usa directo sin convertir.
+- `/uploads/...` u otras rutas relativas públicas: se convierten a `file://` absoluto.
+- `http(s)://` y `file://`: se respetan sin reescribir.
