@@ -125,11 +125,24 @@
                     <li class="page-item {{ pagination.page <= 1 ? 'disabled' : '' }}">
                         <a class="page-link" href="{{ pagination.page <= 1 ? '#' : path('app_product_index', filters|merge({ page: prev })) }}">Anterior</a>
                     </li>
+
+                    {% set lastRenderedPage = 0 %}
                     {% for p in 1..pagination.pages %}
-                        <li class="page-item {{ p == pagination.page ? 'active' : '' }}">
-                            <a class="page-link" href="{{ path('app_product_index', filters|merge({ page: p })) }}">{{ p }}</a>
-                        </li>
+                        {% set shouldRender = p <= 3 or p > (pagination.pages - 2) or (p >= (pagination.page - 1) and p <= (pagination.page + 1)) %}
+
+                        {% if shouldRender %}
+                            {% if lastRenderedPage > 0 and p > (lastRenderedPage + 1) %}
+                                <li class="page-item disabled"><span class="page-link">…</span></li>
+                            {% endif %}
+
+                            <li class="page-item {{ p == pagination.page ? 'active' : '' }}">
+                                <a class="page-link" href="{{ path('app_product_index', filters|merge({ page: p })) }}">{{ p }}</a>
+                            </li>
+
+                            {% set lastRenderedPage = p %}
+                        {% endif %}
                     {% endfor %}
+
                     {% set next = pagination.page + 1 %}
                     <li class="page-item {{ pagination.page >= pagination.pages ? 'disabled' : '' }}">
                         <a class="page-link" href="{{ pagination.page >= pagination.pages ? '#' : path('app_product_index', filters|merge({ page: next })) }}">Siguiente</a>
