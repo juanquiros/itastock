@@ -1,0 +1,32 @@
+ItaStock - Fix de assets en wkhtmltopdf (logo de etiquetas)
+==========================================================
+
+Problema
+--------
+wkhtmltopdf no resuelve correctamente rutas relativas ni `asset()` como lo hace el navegador.
+Para cargar imágenes locales en PDFs necesita rutas absolutas del filesystem con prefijo `file://`.
+
+Solución implementada
+---------------------
+Se agregó el servicio `PdfAssetPathResolver` en `src/Service/PdfAssetPathResolver.php`.
+
+El resolver:
+- recibe el `projectDir`
+- convierte paths relativos públicos (por ejemplo `/uploads/labels/logo.png`) a rutas absolutas del filesystem
+- valida existencia del archivo en `public/`
+- devuelve la ruta final con formato `file:///...`
+
+En el flujo async de etiquetas (wkhtmltopdf), el logo del negocio ahora se resuelve con:
+`$assetResolver->resolvePublicPath($business->getLabelImagePath())`
+y se envía al Twig en `business.labelImagePath`.
+
+Checklist de debug
+------------------
+✔ el archivo existe realmente bajo `public/`
+✔ la ruta enviada al Twig comienza con `file://`
+✔ `enable-local-file-access` está activo en `config/packages/knp_snappy.yaml`
+
+Notas
+-----
+- Este ajuste se aplica al flujo PDF con wkhtmltopdf.
+- La exportación con dompdf se mantiene compatible y sin cambios funcionales.

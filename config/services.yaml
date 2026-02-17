@@ -97,3 +97,8 @@ services:
     App\EventSubscriber\ProductSearchIndexSubscriber:
         tags:
             - { name: doctrine.event_subscriber }
+
+
+    App\Service\PdfAssetPathResolver:
+        arguments:
+            $projectDir: '%kernel.project_dir%'
