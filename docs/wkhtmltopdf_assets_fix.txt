@@ -36,3 +36,8 @@ Casos contemplados por el resolver
 - `data:image/...` (base64 guardado en configuración): se usa directo sin convertir.
 - `/uploads/...` u otras rutas relativas públicas: se convierten a `file://` absoluto.
 - `http(s)://` y `file://`: se respetan sin reescribir.
+
+Implementación defensiva en async
+---------------------------------
+En el handler async se usa: `resolvePublicPath($rawLogoPath) ?? $rawLogoPath`.
+Si el resolver no puede normalizar un formato legado, se reutiliza el valor original para no caer al placeholder cuando sync sí lo renderiza.
