@@ -66,10 +66,8 @@ class GenerateLabelExportJobHandler
                 $labels = $this->preparationService->buildLabels($products, $filters);
                 $logoPath = $this->assetResolver->resolvePublicPath($job->getBusiness()?->getLabelImagePath());
                 $html = $this->twig->render('product/labels_pdf.html.twig', [
-                    'business' => [
-                        'name' => $job->getBusiness()?->getName(),
-                        'labelImagePath' => $logoPath,
-                    ],
+                    'business' => $job->getBusiness(),
+                    'labelImagePath' => $logoPath,
                     'labels' => $labels,
                     'options' => [
                         'includeBarcode' => $this->preparationService->toBool($filters['includeBarcode'] ?? '0'),

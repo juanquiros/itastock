@@ -14,14 +14,39 @@ class PdfAssetPathResolver
             return null;
         }
 
-        $relativePath = ltrim($relativePath, '/');
+        if (str_starts_with($relativePath, 'file://') || str_starts_with($relativePath, 'http://') || str_starts_with($relativePath, 'https://')) {
+            return $relativePath;
+        }
 
-        $fullPath = $this->projectDir.'/public/'.$relativePath;
-
-        if (!file_exists($fullPath)) {
+        $cleanPath = trim(parse_url($relativePath, PHP_URL_PATH) ?? '');
+        if ($cleanPath === '') {
             return null;
         }
 
-        return 'file://'.str_replace('\\', '/', $fullPath);
+        $cleanPath = ltrim($cleanPath, '/');
+        $fullPath = $this->projectDir.'/public/'.$cleanPath;
+        $realPath = realpath($fullPath);
+
+        if ($realPath === false || !is_file($realPath)) {
+            return null;
+        }
+
+        return 'file://'.$this->encodeFilePath($realPath);
+    }
+
+    private function encodeFilePath(string $path): string
+    {
+        $normalized = str_replace('\\', '/', $path);
+        $segments = explode('/', $normalized);
+
+        foreach ($segments as $index => $segment) {
+            if ($segment === '' && $index === 0) {
+                continue;
+            }
+
+            $segments[$index] = rawurlencode($segment);
+        }
+
+        return implode('/', $segments);
     }
 }

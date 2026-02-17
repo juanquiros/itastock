@@ -3,7 +3,8 @@
     <head>
         <meta charset="UTF-8">
         <title>Etiquetas de productos</title>
-        {% set useLabelImage = options.includeLabelImage and business.labelImagePath %}
+        {% set resolvedLabelImagePath = labelImagePath ?? business.labelImagePath ?? null %}
+        {% set useLabelImage = options.includeLabelImage and resolvedLabelImagePath %}
         {% if useLabelImage %}
             {% set labelWidth = 40 %}
             {% set labelHeight = 60 %}
@@ -197,8 +198,8 @@
                                     <div class="label {{ useLabelImage ? 'label--with-image' : 'label--compact' }}">
                                         {% if useLabelImage %}
                                             <div class="label-image">
-                                                {% if business.labelImagePath %}
-                                                    <img src="{{ business.labelImagePath }}" style="max-height:50px;" alt="Imagen de etiqueta">
+                                                {% if resolvedLabelImagePath %}
+                                                    <img src="{{ resolvedLabelImagePath }}" style="max-height:50px;" alt="Imagen de etiqueta">
                                                 {% else %}
                                                     <div style="font-size:10px;color:#888">Imagen de etiqueta</div>
                                                 {% endif %}
