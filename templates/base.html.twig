@@ -116,6 +116,9 @@
                                 <li class="nav-item">
                                     <a class="nav-link" href="{{ path('app_cash_status') }}">Caja</a>
                                 </li>
+                                <li class="nav-item">
+                                    <a class="nav-link" href="{{ path('app_quotation_index') }}">Presupuestos</a>
+                                </li>
                                 {% if is_granted('BUSINESS_ADMIN') %}
                                     <li class="nav-item dropdown">
                                         <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
@@ -142,6 +145,7 @@
                                         </a>
                                         <ul class="dropdown-menu">
                                             <li><a class="dropdown-item" href="{{ path('app_settings_ticket') }}">Configuración ticket</a></li>
+                                            <li><a class="dropdown-item" href="{{ path('app_settings_quotation') }}">Configuración presupuesto</a></li>
                                             <li><a class="dropdown-item" href="{{ path('app_settings_stock') }}">Configuración stock</a></li>
                                             <li><a class="dropdown-item" href="{{ path('app_settings_labels') }}">Configuración etiquetas</a></li>
                                             <li><a class="dropdown-item" href="{{ path('app_settings_arca') }}">Facturación ARCA</a></li>

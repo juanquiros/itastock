@@ -1,0 +1,70 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Presupuestos | ItaStock{% endblock %}
+
+{% block body %}
+    <div class="d-flex align-items-center justify-content-between mb-3">
+        <div>
+            <p class="text-uppercase text-muted mb-1 small">Presupuestos</p>
+            <h1 class="h3 mb-0">Listado de presupuestos</h1>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-body">
+            <form method="get" class="row g-2 align-items-center mb-3">
+                <div class="col-md-6">
+                    <input type="search" name="q" value="{{ query }}" class="form-control" placeholder="Buscar por cliente, número o fecha (dd/mm/aaaa)">
+                </div>
+                <div class="col-auto">
+                    <button class="btn btn-outline-primary" type="submit">Buscar</button>
+                </div>
+            </form>
+
+            <div class="table-responsive">
+                <table class="table align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Fecha</th>
+                            <th>N°</th>
+                            <th>Cliente</th>
+                            <th>Total</th>
+                            <th>Vendedor</th>
+                            <th class="text-end">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for quotation in quotations %}
+                            <tr>
+                                <td>{{ quotation.createdAt|date('d/m/Y H:i') }}</td>
+                                <td class="fw-semibold">Q-{{ quotation.id }}</td>
+                                <td>{{ quotation.customer ? quotation.customer.name : 'Consumidor final' }}</td>
+                                <td>${{ quotation.total }}</td>
+                                <td>{{ quotation.createdBy ? quotation.createdBy.fullName : 'N/D' }}</td>
+                                <td class="text-end">
+                                    <a class="btn btn-sm btn-outline-primary" href="{{ path('app_quotation_show', {id: quotation.id}) }}">Ver detalle</a>
+                                </td>
+                            </tr>
+                        {% else %}
+                            <tr>
+                                <td colspan="6" class="text-center text-muted py-4">No se encontraron presupuestos.</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            {% if pages > 1 %}
+                <nav aria-label="Paginación de presupuestos">
+                    <ul class="pagination mb-0">
+                        {% for p in 1..pages %}
+                            <li class="page-item {{ p == page ? 'active' : '' }}">
+                                <a class="page-link" href="{{ path('app_quotation_index', {q: query, page: p}) }}">{{ p }}</a>
+                            </li>
+                        {% endfor %}
+                    </ul>
+                </nav>
+            {% endif %}
+        </div>
+    </div>
+{% endblock %}

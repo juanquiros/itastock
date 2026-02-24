@@ -20,7 +20,7 @@ class PricingService
     public function resolveUnitPrice(Product $product, ?Customer $customer): float
     {
         $business = $product->getBusiness();
-        $priceList = $this->resolvePriceList($business, $customer);
+        $priceList = $this->resolveAppliedPriceList($business, $customer);
 
         if ($priceList instanceof PriceList) {
             $item = $this->priceListItemRepository->findOneBy([
@@ -36,7 +36,7 @@ class PricingService
         return (float) $product->getBasePrice();
     }
 
-    private function resolvePriceList(Business $business, ?Customer $customer): ?PriceList
+    public function resolveAppliedPriceList(Business $business, ?Customer $customer): ?PriceList
     {
         if ($customer !== null && $customer->getPriceList() !== null) {
             $list = $customer->getPriceList();
