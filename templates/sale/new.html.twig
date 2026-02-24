@@ -263,6 +263,7 @@
                             <option value="CASH">Efectivo</option>
                             <option value="TRANSFER">Transferencia</option>
                             <option value="CARD">Tarjeta</option>
+                            <option value="QUOTATION">Presupuesto</option>
                             <option value="ACCOUNT">Cuenta corriente</option>
                         </select>
                         <div class="form-text" id="payment-help">Seleccioná un cliente para habilitar la cuenta corriente.</div>
@@ -339,6 +340,7 @@
             const saleWorkspace = document.getElementById('sale-workspace');
             const confirmSale = document.getElementById('confirm-sale');
             const finalizeSale = document.getElementById('finalize-sale');
+            const paymentModalLabel = document.getElementById('paymentModalLabel');
             const scanAlert = document.getElementById('barcode-scan-alert');
             const scanWarningModal = document.getElementById('barcode-scan-warning');
             const productDetailsName = document.getElementById('product-details-name');
@@ -914,7 +916,18 @@
             function updateAccountOption() {
                 const accountOption = paymentMethodModal.querySelector('option[value="ACCOUNT"]');
                 const allowAccount = canUseAccount();
-                accountOption.disabled = !allowAccount;
+                accountOption.hidden = !allowAccount;
+
+                if (!allowAccount && paymentMethodModal.value === 'ACCOUNT') {
+                    paymentMethodModal.value = 'CASH';
+                }
+
+                if (paymentMethodModal.value === 'QUOTATION') {
+                    paymentHelp.classList.add('d-none');
+                    return;
+                }
+
+                paymentHelp.classList.remove('d-none');
 
                 if (!selectedCustomer) {
                     paymentHelp.textContent = 'Seleccioná un cliente para habilitar la cuenta corriente.';
@@ -923,25 +936,39 @@
                 } else {
                     paymentHelp.textContent = 'Usá cuenta corriente solo con clientes activos.';
                 }
-
-                if (!allowAccount && paymentMethodModal.value === 'ACCOUNT') {
-                    paymentMethodModal.value = 'CASH';
-                }
             }
 
             function syncPaymentMethod() {
                 if (paymentMethodModal.value === 'ACCOUNT' && !canUseAccount()) {
                     paymentMethodModal.value = 'CASH';
                 }
+
+                const isQuotation = paymentMethodModal.value === 'QUOTATION';
                 paymentMethod.value = paymentMethodModal.value;
-                if (paymentMethodModal.value === 'CASH') {
-                    cashSection.classList.remove('d-none');
-                    updateCashChange();
-                } else {
+
+                if (isQuotation) {
                     cashSection.classList.add('d-none');
                     cashGiven.value = '';
                     cashGivenInput.value = '';
+                    paymentModalLabel.textContent = 'Generar presupuesto';
+                    finalizeSale.textContent = 'Generar presupuesto';
+                    paymentHelp.classList.add('d-none');
+                } else {
+                    paymentModalLabel.textContent = 'Confirmar venta';
+                    finalizeSale.textContent = 'Finalizar venta';
+                    paymentHelp.classList.remove('d-none');
+                    updateAccountOption();
+
+                    if (paymentMethodModal.value === 'CASH') {
+                        cashSection.classList.remove('d-none');
+                        updateCashChange();
+                    } else {
+                        cashSection.classList.add('d-none');
+                        cashGiven.value = '';
+                        cashGivenInput.value = '';
+                    }
                 }
+
                 updateTotal();
             }
 

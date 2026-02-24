@@ -31,6 +31,7 @@ use App\Service\ArcaInvoiceService;
 use App\Service\ArcaQrService;
 use App\Service\PdfService;
 use App\Service\PricingService;
+use App\Service\QuotationService;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -54,6 +55,7 @@ class SaleController extends AbstractController
         private readonly PriceListItemRepository $priceListItemRepository,
         private readonly PlatformSettingsRepository $platformSettingsRepository,
         private readonly PricingService $pricingService,
+        private readonly QuotationService $quotationService,
         private readonly CustomerAccountService $customerAccountService,
         private readonly DiscountEngine $discountEngine,
         private readonly PdfService $pdfService,
@@ -197,7 +199,7 @@ class SaleController extends AbstractController
         $itemsData = $payload['items'] ?? [];
         $customerId = (int) ($payload['customer_id'] ?? 0);
         $paymentMethod = strtoupper((string) ($payload['payment_method'] ?? 'CASH'));
-        $allowedMethods = ['CASH', 'TRANSFER', 'CARD', 'ACCOUNT'];
+        $allowedMethods = ['CASH', 'TRANSFER', 'CARD', 'ACCOUNT', 'QUOTATION'];
 
         if (!in_array($paymentMethod, $allowedMethods, true)) {
             return $this->json(['error' => 'Medio de pago inválido.'], Response::HTTP_BAD_REQUEST);
@@ -714,7 +716,7 @@ class SaleController extends AbstractController
         $itemsData = $request->request->all('items');
         $customerId = (int) $request->request->get('customer_id', 0);
         $paymentMethod = strtoupper((string) $request->request->get('payment_method', 'CASH'));
-        $allowedMethods = ['CASH', 'TRANSFER', 'CARD', 'ACCOUNT'];
+        $allowedMethods = ['CASH', 'TRANSFER', 'CARD', 'ACCOUNT', 'QUOTATION'];
 
         if (!in_array($paymentMethod, $allowedMethods, true)) {
             $this->addFlash('danger', 'Seleccioná un medio de pago válido.');
@@ -754,6 +756,22 @@ class SaleController extends AbstractController
             $this->addFlash('danger', 'Elegí un cliente activo para vender en cuenta corriente.');
 
             return $this->redirectToRoute('app_sale_new');
+        }
+
+        if ($paymentMethod === 'QUOTATION') {
+            try {
+                $quotation = $this->quotationService->buildAndPersistFromPosPayload($business, $user, $customer, $itemsData, $productIndex);
+                $this->entityManager->persist($quotation);
+                $this->entityManager->flush();
+
+                $this->addFlash('success', 'Presupuesto generado.');
+
+                return $this->redirectToRoute('app_quotation_show', ['id' => $quotation->getId()]);
+            } catch (AccessDeniedException $exception) {
+                $this->addFlash('danger', $exception->getMessage());
+
+                return $this->redirectToRoute('app_sale_new');
+            }
         }
 
         $sale = new Sale();

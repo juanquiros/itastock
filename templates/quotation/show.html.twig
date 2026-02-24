@@ -1,0 +1,60 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Presupuesto #{{ quotation.id }} | ItaStock{% endblock %}
+
+{% block body %}
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <div>
+            <h1 class="h4 mb-1">Presupuesto Q-{{ quotation.id }}</h1>
+            <p class="text-muted mb-0">Emitido el {{ quotation.createdAt|date('d/m/Y H:i') }}</p>
+        </div>
+        <div class="d-flex gap-2">
+            <a class="btn btn-outline-secondary" href="{{ path('app_quotation_index') }}">Volver</a>
+            <a class="btn btn-primary" href="{{ path('app_quotation_pdf', {id: quotation.id}) }}">Descargar PDF</a>
+        </div>
+    </div>
+
+    <div class="card mb-3">
+        <div class="card-body">
+            <div><strong>Comercio:</strong> {{ quotation.business.name }}</div>
+            <div><strong>Vendedor:</strong> {{ quotation.createdBy ? quotation.createdBy.fullName : 'N/D' }}</div>
+            <div><strong>Cliente:</strong> {{ quotation.customer ? quotation.customer.name : 'Consumidor final' }}</div>
+            <div><strong>Lista aplicada:</strong> {{ quotation.priceListNameUsed ?: 'Lista principal' }}</div>
+            <div><strong>Total:</strong> ${{ quotation.total }}</div>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-body table-responsive">
+            <table class="table align-middle mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>Descripción</th>
+                        <th class="text-end">Cant.</th>
+                        <th class="text-end">P. Unitario</th>
+                        <th class="text-end">Total</th>
+                        <th>Diferencias</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in quotation.items %}
+                        {% set info = diffs[item.id ?: loop.index] ?? {} %}
+                        <tr>
+                            <td>{{ item.description }}</td>
+                            <td class="text-end">{{ item.qty|number_format(3, '.', ',') }}</td>
+                            <td class="text-end">${{ item.unitPrice }}</td>
+                            <td class="text-end">${{ item.lineTotal }}</td>
+                            <td>
+                                {% if info.stockInsufficient %}<span class="badge text-bg-danger">Stock insuficiente</span>{% endif %}
+                                {% if info.priceUpdated %}
+                                    <span class="badge text-bg-warning text-dark">Precio actualizado (ahora ${{ info.currentPrice }})</span>
+                                {% endif %}
+                                {% if info.inactive %}<span class="badge text-bg-secondary">Producto inactivo</span>{% endif %}
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+{% endblock %}
