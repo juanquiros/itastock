@@ -5,11 +5,14 @@ namespace App\Service;
 use App\Entity\ArcaCreditNote;
 use App\Entity\ArcaInvoice;
 use App\Entity\BusinessArcaConfig;
+use App\Entity\Customer;
 use DateTimeImmutable;
 use Psr\Log\LoggerInterface;
 
 class ArcaWsfeService
 {
+    private const FACTURA_C_DOCUMENT_THRESHOLD = 10000000.0;
+
     /**
      * @var array<int, string>
      */
@@ -77,10 +80,12 @@ class ArcaWsfeService
             throw new \RuntimeException('Condición IVA del receptor no configurada.');
         }
 
+        $receiverDocument = $this->resolveReceiverDocument($invoice);
+
         $detail = [
             'Concepto' => 1,
-            'DocTipo' => 99,
-            'DocNro' => 0,
+            'DocTipo' => $receiverDocument['docTipo'],
+            'DocNro' => $receiverDocument['docNro'],
             'CbteDesde' => $cbteNumero,
             'CbteHasta' => $cbteNumero,
             'CbteFch' => $issuedAt->format('Ymd'),
@@ -134,6 +139,70 @@ class ArcaWsfeService
             'cae' => $cae ? (string) $cae : null,
             'caeDueDate' => $caeDue ? DateTimeImmutable::createFromFormat('Ymd', (string) $caeDue) ?: null : null,
         ];
+    }
+
+    /**
+     * @return array{docTipo: int, docNro: int}
+     */
+    private function resolveReceiverDocument(ArcaInvoice $invoice): array
+    {
+        $totalAmount = (float) $invoice->getTotalAmount();
+        $requiresDocument = $invoice->getCbteTipo() === ArcaInvoice::CBTE_FACTURA_C
+            && $totalAmount >= self::FACTURA_C_DOCUMENT_THRESHOLD;
+
+        $customer = $invoice->getReceiverCustomer();
+        if (!$requiresDocument) {
+            if (!$customer instanceof Customer) {
+                return ['docTipo' => 99, 'docNro' => 0];
+            }
+
+            $docTipo = $this->resolveAfipDocTipo($customer->getDocumentType());
+            $docNro = $this->normalizeDocumentNumber($customer->getDocumentNumber());
+
+            return [
+                'docTipo' => $docTipo ?? 99,
+                'docNro' => $docTipo !== null && $docNro > 0 ? $docNro : 0,
+            ];
+        }
+
+        if (!$customer instanceof Customer) {
+            throw new \RuntimeException('Para Factura C mayor o igual a $10.000.000 se requiere cliente con documento (DNI/CUIT).');
+        }
+
+        $docTipo = $this->resolveAfipDocTipo($customer->getDocumentType());
+        if ($docTipo === null) {
+            throw new \RuntimeException('El tipo de documento del cliente debe ser DNI o CUIT para Factura C mayor o igual a $10.000.000.');
+        }
+
+        $docNro = $this->normalizeDocumentNumber($customer->getDocumentNumber());
+        if ($docNro <= 0) {
+            throw new \RuntimeException('El número de documento del cliente debe ser mayor a 0 para Factura C mayor o igual a $10.000.000.');
+        }
+
+        return ['docTipo' => $docTipo, 'docNro' => $docNro];
+    }
+
+    private function resolveAfipDocTipo(?string $documentType): ?int
+    {
+        return match ($documentType) {
+            Customer::TYPE_CUIT => 80,
+            Customer::TYPE_DNI => 96,
+            default => null,
+        };
+    }
+
+    private function normalizeDocumentNumber(?string $documentNumber): int
+    {
+        if ($documentNumber === null) {
+            return 0;
+        }
+
+        $digits = preg_replace('/\D+/', '', $documentNumber);
+        if ($digits === null || $digits === '') {
+            return 0;
+        }
+
+        return (int) $digits;
     }
 
     /**
