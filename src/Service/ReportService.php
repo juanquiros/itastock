@@ -7,10 +7,12 @@ use App\Entity\Business;
 use App\Entity\BusinessUser;
 use App\Entity\CashSession;
 use App\Entity\Customer;
+use App\Entity\SupplierPayment;
 use App\Repository\CustomerAccountMovementRepository;
 use App\Repository\CustomerRepository;
 use App\Repository\PaymentRepository;
 use App\Repository\ProductRepository;
+use App\Repository\SupplierPaymentRepository;
 use App\Repository\SaleRepository;
 
 class ReportService
@@ -21,6 +23,7 @@ class ReportService
         private readonly ProductRepository $productRepository,
         private readonly CustomerAccountMovementRepository $customerAccountMovementRepository,
         private readonly CustomerRepository $customerRepository,
+        private readonly SupplierPaymentRepository $supplierPaymentRepository,
     ) {
     }
 
@@ -106,9 +109,12 @@ class ReportService
             ? $this->paymentRepository->aggregateTotalsByMethod($business, $from, $to)
             : $storedTotals;
 
-        $cash = (float) ($totals['CASH'] ?? 0);
+        $supplierPaymentsByMethod = $this->supplierPaymentRepository->aggregateTotalsByMethod($business, $from, $to);
+
+        $salesCash = (float) ($totals[SupplierPayment::METHOD_CASH] ?? 0);
+        $supplierCash = (float) ($supplierPaymentsByMethod[SupplierPayment::METHOD_CASH] ?? 0);
         $initial = (float) $session->getInitialCash();
-        $cashExpected = $initial + $cash;
+        $cashExpected = $initial + $salesCash - $supplierCash;
         $finalCash = $session->getFinalCashCounted() !== null ? (float) $session->getFinalCashCounted() : null;
         $difference = $finalCash !== null ? $finalCash - $cashExpected : null;
 
@@ -128,8 +134,16 @@ class ReportService
             }
         }
 
+        $netByMethod = [];
+        $methods = array_unique(array_merge(array_keys($totals), array_keys($supplierPaymentsByMethod)));
+        foreach ($methods as $method) {
+            $netByMethod[$method] = number_format((float) ($totals[$method] ?? 0) - (float) ($supplierPaymentsByMethod[$method] ?? 0), 2, '.', '');
+        }
+
         return [
             'totals' => $totals,
+            'supplierEgressByMethod' => $supplierPaymentsByMethod,
+            'netByMethod' => $netByMethod,
             'cashExpected' => number_format($cashExpected, 2, '.', ''),
             'difference' => $difference !== null ? number_format($difference, 2, '.', '') : null,
             'finalCash' => $finalCash !== null ? number_format($finalCash, 2, '.', '') : null,

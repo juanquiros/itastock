@@ -40,6 +40,25 @@
                         {% else %}
                             <div class="text-muted">Sin movimientos aún.</div>
                         {% endif %}
+
+                        <h6 class="text-uppercase text-secondary small fw-semibold mb-2 mt-3">Egresos a proveedores en curso</h6>
+                        {% if runningSupplierEgress %}
+                            <ul class="list-unstyled mb-0">
+                                {% for method, total in runningSupplierEgress %}
+                                    <li class="d-flex justify-content-between py-1">
+                                        <span class="text-muted">{{ method }}</span>
+                                        <span class="fw-semibold text-danger">-${{ total }}</span>
+                                    </li>
+                                {% endfor %}
+                            </ul>
+                        {% else %}
+                            <div class="text-muted">Sin egresos aún.</div>
+                        {% endif %}
+                        <hr>
+                        <div class="d-flex justify-content-between">
+                            <span class="text-muted">Saldo teórico efectivo</span>
+                            <span class="fw-bold">${{ cashExpectedNow }}</span>
+                        </div>
                     </div>
                 </div>
             </div>

@@ -53,7 +53,12 @@ class PurchaseOrderController extends AbstractController
         <p class="text-secondary mb-0">Borradores generados por stock bajo y seguimiento de estados.</p>
     </div>
 
-    <div class="d-flex gap-2 mb-4">
+    
+    <div class="alert alert-warning py-2 small" role="alert">
+        Registrar/confirmar este flujo no genera un pago al proveedor. Los pagos se cargan aparte en <strong>Pagos a proveedores</strong>.
+    </div>
+
+<div class="d-flex gap-2 mb-4">
         <form method="post" action="{{ path('app_purchase_order_generate') }}">
             <button class="btn btn-primary">Generar sugerencias</button>
         </form>
@@ -144,7 +149,7 @@ TWIG;
     <div class="mb-4">
         <p class="text-uppercase text-muted mb-1 small fw-semibold">Administración</p>
         <h1 class="h4 mb-0">Nuevo pedido a proveedor</h1>
-        <p class="text-secondary mb-0">Seleccioná el proveedor para empezar a cargar productos.</p>
+        <p class="text-secondary mb-0">Seleccioná el proveedor para empezar a cargar productos. Este flujo no registra pagos.</p>
     </div>
 
     <div class="card shadow-sm">
@@ -273,6 +278,10 @@ TWIG;
                 · <a href="https://wa.me/{{ order.supplier.phone|replace({' ': '', '+': ''}) }}" target="_blank" rel="noopener">WhatsApp</a>
             {% endif %}
         </p>
+    </div>
+
+    <div class="alert alert-warning py-2 small" role="alert">
+        Confirmar o recibir este pedido no registra pagos. Cargá el egreso desde <strong>Pagos a proveedores</strong>.
     </div>
 
     <div class="d-flex gap-2 mb-4">

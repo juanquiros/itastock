@@ -5,9 +5,11 @@ namespace App\Controller;
 use App\Entity\Business;
 use App\Entity\CashSession;
 use App\Entity\Customer;
+use App\Entity\SupplierPayment;
 use App\Repository\BusinessArcaConfigRepository;
 use App\Repository\CashSessionRepository;
 use App\Repository\PaymentRepository;
+use App\Repository\SupplierPaymentRepository;
 use App\Security\BusinessContext;
 use App\Service\ReportService;
 use Doctrine\ORM\EntityManagerInterface;
@@ -27,6 +29,7 @@ class CashSessionController extends AbstractController
         private readonly EntityManagerInterface $entityManager,
         private readonly CashSessionRepository $cashSessionRepository,
         private readonly PaymentRepository $paymentRepository,
+        private readonly SupplierPaymentRepository $supplierPaymentRepository,
         private readonly ReportService $reportService,
         private readonly BusinessArcaConfigRepository $arcaConfigRepository,
         private readonly BusinessContext $businessContext,
@@ -39,9 +42,20 @@ class CashSessionController extends AbstractController
         $business = $this->requireBusinessContext();
         $user = $this->requireUser();
         $openSession = $this->cashSessionRepository->findOpenForUser($business, $user);
-        $runningTotals = $openSession
-            ? $this->paymentRepository->aggregateTotalsByMethod($business, $openSession->getOpenedAt(), new \DateTimeImmutable())
-            : [];
+        $runningTotals = [];
+        $runningSupplierEgress = [];
+        $cashExpectedNow = null;
+        if ($openSession) {
+            $now = new \DateTimeImmutable();
+            $runningTotals = $this->paymentRepository->aggregateTotalsByMethod($business, $openSession->getOpenedAt(), $now);
+            $runningSupplierEgress = $this->supplierPaymentRepository->aggregateTotalsByMethod($business, $openSession->getOpenedAt(), $now);
+            $cashExpectedNow = number_format(
+                (float) $openSession->getInitialCash() + (float) ($runningTotals[SupplierPayment::METHOD_CASH] ?? 0) - (float) ($runningSupplierEgress[SupplierPayment::METHOD_CASH] ?? 0),
+                2,
+                '.',
+                ''
+            );
+        }
 
         $recentCriteria = ['business' => $business];
 
@@ -59,6 +73,8 @@ class CashSessionController extends AbstractController
             'openSession' => $openSession,
             'runningTotals' => $runningTotals,
             'recentSessions' => $recentSessions,
+            'runningSupplierEgress' => $runningSupplierEgress,
+            'cashExpectedNow' => $cashExpectedNow,
         ]);
     }
 
