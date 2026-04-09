@@ -1,0 +1,31 @@
+Sprint final: pagos a proveedores y caja
+
+Objetivo
+- Incorporar un módulo operativo de Pagos a proveedores para registrar egresos reales, separado de pedidos y compras.
+
+Entidad nueva
+- Se agregó App\Entity\SupplierPayment con repository App\Repository\SupplierPaymentRepository.
+- Métodos permitidos: CASH y TRANSFER.
+- Campos clave: business, supplier, purchaseOrder opcional, purchaseInvoice opcional, amount, paymentMethod, paidAt, createdAt, createdBy, referenceNumber, notes.
+
+Regla de caja abierta
+- Solo se permite alta de pagos si el usuario actual tiene una caja abierta en su comercio.
+- Se valida con CashSessionRepository::findOpenForUser($business, $user).
+- Si no hay caja abierta, se bloquea el alta con mensaje: “Debés tener una caja abierta para registrar un pago a proveedor.”
+
+Impacto en caja
+- CASH: descuenta del efectivo esperado de caja y por lo tanto afecta diferencia de efectivo.
+- TRANSFER: se informa como egreso por método, pero no afecta diferencia de efectivo.
+
+Separación de flujos
+- Confirmar pedidos, recibir stock o confirmar compras NO registra pagos automáticamente.
+- Se añadieron aclaraciones visuales en pantallas de pedidos/compras para evitar confusión.
+
+Smoke tests manuales
+1) Abrir caja con un usuario admin.
+2) Registrar un pago CASH desde /app/supplier-payments/new.
+3) Verificar en estado/reporte de caja que baja el efectivo esperado.
+4) Registrar un pago TRANSFER.
+5) Verificar que aparece como egreso por transferencia en reporte/resumen por método sin afectar diferencia de efectivo.
+6) Cerrar caja y validar diferencia de efectivo contra conteo manual.
+7) Intentar registrar pago sin caja abierta y verificar bloqueo.

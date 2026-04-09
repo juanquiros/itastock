@@ -1,0 +1,73 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Nuevo pago a proveedor{% endblock %}
+
+{% block body %}
+    <div class="mb-4">
+        <p class="text-uppercase text-muted mb-1 small fw-semibold">Administración</p>
+        <h1 class="h4 mb-0">Nuevo pago a proveedor</h1>
+        <p class="text-secondary mb-0">Este registro impacta caja como egreso. No se genera desde pedidos ni compras.</p>
+    </div>
+
+    <div class="card shadow-sm">
+        <div class="card-body">
+            <form method="post" class="row g-3">
+                <div class="col-md-6">
+                    <label class="form-label">Proveedor</label>
+                    <select class="form-select" name="supplier_id" required>
+                        <option value="">Seleccionar</option>
+                        {% for supplier in suppliers %}
+                            <option value="{{ supplier.id }}" {% if app.request.request.get('supplier_id') == supplier.id %}selected{% endif %}>{{ supplier.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Pedido relacionado</label>
+                    <select class="form-select" name="purchase_order_id">
+                        <option value="">Sin pedido</option>
+                        {% for order in orders %}
+                            <option value="{{ order.id }}" {% if app.request.request.get('purchase_order_id') == order.id %}selected{% endif %}>#{{ order.id }} · {{ order.supplier.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Compra relacionada</label>
+                    <select class="form-select" name="purchase_invoice_id">
+                        <option value="">Sin compra</option>
+                        {% for invoice in invoices %}
+                            <option value="{{ invoice.id }}" {% if app.request.request.get('purchase_invoice_id') == invoice.id %}selected{% endif %}>#{{ invoice.id }} · {{ invoice.supplier.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Monto</label>
+                    <input class="form-control" type="number" step="0.01" min="0.01" name="amount" value="{{ app.request.request.get('amount') }}" required>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Método</label>
+                    <select class="form-select" name="payment_method" required>
+                        {% for method in allowedMethods %}
+                            <option value="{{ method }}" {% if app.request.request.get('payment_method', 'CASH') == method %}selected{% endif %}>{{ method }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Fecha y hora</label>
+                    <input class="form-control" type="datetime-local" name="paid_at" value="{{ app.request.request.get('paid_at', 'now'|date('Y-m-d\\TH:i')) }}" required>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Referencia</label>
+                    <input class="form-control" name="reference_number" value="{{ app.request.request.get('reference_number') }}">
+                </div>
+                <div class="col-12">
+                    <label class="form-label">Observaciones</label>
+                    <textarea class="form-control" rows="2" name="notes">{{ app.request.request.get('notes') }}</textarea>
+                </div>
+                <div class="col-12 d-flex gap-2">
+                    <button class="btn btn-primary">Registrar pago</button>
+                    <a class="btn btn-outline-secondary" href="{{ path('app_supplier_payment_index') }}">Volver</a>
+                </div>
+            </form>
+        </div>
+    </div>
+{% endblock %}

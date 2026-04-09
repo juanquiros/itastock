@@ -4,6 +4,7 @@ namespace App\Service;
 
 use App\Entity\Business;
 use App\Entity\BusinessUser;
+use App\Entity\SupplierPayment;
 use App\Entity\User;
 use App\Repository\BusinessUserRepository;
 use App\Repository\CashSessionRepository;
@@ -12,6 +13,7 @@ use App\Repository\CustomerRepository;
 use App\Repository\PaymentRepository;
 use App\Repository\ProductRepository;
 use App\Repository\SaleRepository;
+use App\Repository\SupplierPaymentRepository;
 
 class DashboardService
 {
@@ -26,6 +28,7 @@ class DashboardService
         private readonly CustomerRepository $customerRepository,
         private readonly CashSessionRepository $cashSessionRepository,
         private readonly BusinessUserRepository $businessUserRepository,
+        private readonly SupplierPaymentRepository $supplierPaymentRepository,
     ) {
     }
 
@@ -281,9 +284,11 @@ class DashboardService
         $from = $session->getOpenedAt() ?? new \DateTimeImmutable('today', $this->getTimezone());
         $to = new \DateTimeImmutable('now', $this->getTimezone());
         $totals = $this->paymentRepository->aggregateTotalsByMethodForRange($business, $from, $to, $isAdmin ? null : $user);
-        $cash = (float) ($totals['CASH'] ?? 0.0);
+        $supplierTotals = $this->supplierPaymentRepository->aggregateTotalsByMethod($business, $from, $to);
+        $cashIn = (float) ($totals[SupplierPayment::METHOD_CASH] ?? 0.0);
+        $cashOut = (float) ($supplierTotals[SupplierPayment::METHOD_CASH] ?? 0.0);
 
-        return (float) $session->getInitialCash() + $cash;
+        return (float) $session->getInitialCash() + $cashIn - $cashOut;
     }
 
     /**

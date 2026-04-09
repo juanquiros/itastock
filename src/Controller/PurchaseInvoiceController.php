@@ -46,7 +46,12 @@ class PurchaseInvoiceController extends AbstractController
         <p class="text-secondary mb-0">Registrá facturas de proveedores y mantené IVA compras al día.</p>
     </div>
 
-    <div class="d-flex gap-2 mb-4">
+    
+    <div class="alert alert-warning py-2 small" role="alert">
+        Registrar/confirmar este flujo no genera un pago al proveedor. Los pagos se cargan aparte en <strong>Pagos a proveedores</strong>.
+    </div>
+
+<div class="d-flex gap-2 mb-4">
         <a class="btn btn-primary" href="{{ path('app_purchase_invoice_new') }}">Nueva compra</a>
     </div>
 
@@ -136,7 +141,7 @@ TWIG;
     <div class="mb-4">
         <p class="text-uppercase text-muted mb-1 small fw-semibold">Administración</p>
         <h1 class="h4 mb-0">Nueva compra</h1>
-        <p class="text-secondary mb-0">Cargá facturas o tickets de proveedores.</p>
+        <p class="text-secondary mb-0">Cargá facturas o tickets de proveedores. Este paso no registra pagos al proveedor.</p>
     </div>
 
     <div class="card shadow-sm">
@@ -237,7 +242,7 @@ TWIG;
     <div class="mb-4">
         <p class="text-uppercase text-muted mb-1 small fw-semibold">Administración</p>
         <h1 class="h4 mb-0">Compra desde pedido #{{ order.id }}</h1>
-        <p class="text-secondary mb-0">Proveedor: {{ order.supplier.name }}</p>
+        <p class="text-secondary mb-0">Proveedor: {{ order.supplier.name }}. Este flujo no registra pagos al proveedor.</p>
     </div>
 
     <div class="card shadow-sm">

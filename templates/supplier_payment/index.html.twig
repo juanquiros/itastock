@@ -1,0 +1,53 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Pagos a proveedores{% endblock %}
+
+{% block body %}
+    <div class="d-flex align-items-center justify-content-between mb-4">
+        <div>
+            <p class="text-uppercase text-muted mb-1 small fw-semibold">Administración</p>
+            <h1 class="h4 mb-0">Pagos a proveedores</h1>
+            <p class="text-secondary mb-0">Registrá egresos reales al proveedor de forma separada a pedidos y compras.</p>
+        </div>
+        <a class="btn btn-primary" href="{{ path('app_supplier_payment_new') }}">Nuevo pago</a>
+    </div>
+
+    <div class="card shadow-sm">
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-sm align-middle">
+                    <thead>
+                        <tr>
+                            <th>Fecha</th>
+                            <th>Proveedor</th>
+                            <th class="text-end">Monto</th>
+                            <th>Método</th>
+                            <th>Pedido</th>
+                            <th>Compra</th>
+                            <th>Referencia</th>
+                            <th>Usuario</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for payment in payments %}
+                            <tr>
+                                <td>{{ payment.paidAt|date('d/m/Y H:i') }}</td>
+                                <td>{{ payment.supplier.name }}</td>
+                                <td class="text-end">${{ payment.amount }}</td>
+                                <td><span class="badge bg-secondary">{{ payment.paymentMethod }}</span></td>
+                                <td>{{ payment.purchaseOrder ? '#' ~ payment.purchaseOrder.id : '—' }}</td>
+                                <td>{{ payment.purchaseInvoice ? '#' ~ payment.purchaseInvoice.id : '—' }}</td>
+                                <td>{{ payment.referenceNumber ?: '—' }}</td>
+                                <td>{{ payment.createdBy ? payment.createdBy.fullName : '—' }}</td>
+                            </tr>
+                        {% else %}
+                            <tr>
+                                <td colspan="8" class="text-muted">No hay pagos registrados todavía.</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+{% endblock %}

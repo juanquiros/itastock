@@ -50,7 +50,7 @@
         <div class="col-lg-6">
             <div class="card shadow-sm border-0 h-100">
                 <div class="card-body">
-                    <h5 class="mb-3">Totales por método</h5>
+                    <h5 class="mb-3">Ingresos por ventas por método</h5>
                     {% if totals %}
                         <ul class="list-unstyled mb-0">
                             {% for method, total in totals %}
@@ -62,6 +62,36 @@
                         </ul>
                     {% else %}
                         <div class="text-muted">No hay pagos en esta sesión.</div>
+                    {% endif %}
+
+
+                    <hr>
+                    <h6 class="mb-2">Egresos por pagos a proveedores</h6>
+                    {% set supplierEgress = summary.supplierEgressByMethod ?? {} %}
+                    {% if supplierEgress %}
+                        <ul class="list-unstyled mb-0">
+                            {% for method, total in supplierEgress %}
+                                <li class="d-flex justify-content-between py-2 border-bottom small">
+                                    <span class="text-uppercase fw-semibold">{{ method }}</span>
+                                    <span class="fw-bold text-danger">-${{ total }}</span>
+                                </li>
+                            {% endfor %}
+                        </ul>
+                    {% else %}
+                        <div class="text-muted">Sin egresos a proveedores en la sesión.</div>
+                    {% endif %}
+                    <hr>
+                    <h6 class="mb-2">Neto por método</h6>
+                    {% set netByMethod = summary.netByMethod ?? {} %}
+                    {% if netByMethod %}
+                        <ul class="list-unstyled mb-0">
+                            {% for method, total in netByMethod %}
+                                <li class="d-flex justify-content-between py-2 border-bottom small">
+                                    <span class="text-uppercase fw-semibold">{{ method }}</span>
+                                    <span class="fw-bold">${{ total }}</span>
+                                </li>
+                            {% endfor %}
+                        </ul>
                     {% endif %}
                 </div>
             </div>
@@ -77,7 +107,11 @@
                             <span class="fw-semibold">{{ cashSession.closedAt ? 'Cerrada' : 'Abierta' }}</span>
                         </div>
                         <div class="d-flex justify-content-between">
-                            <span class="text-muted">Diferencia en efectivo</span>
+                            <span class="text-muted">Efectivo esperado</span>
+                            <span class="fw-semibold">${{ summary.cashExpected }}</span>
+                        </div>
+                        <div class="d-flex justify-content-between">
+                            <span class="text-muted">Diferencia de efectivo</span>
                             {% if summary.difference is not null %}
                                 {% set diff = summary.difference + 0 %}
                                 <span class="fw-semibold {{ diff == 0 ? 'text-success' : 'text-danger' }}">${{ diff|number_format(2, '.', ',') }}</span>
