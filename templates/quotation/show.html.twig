@@ -60,7 +60,17 @@
                                 {% if itemAlerts is empty %}
                                     <span class="text-muted">Sin diferencias</span>
                                 {% else %}
-                                    {{ itemAlerts|join(' · ') }}
+                                    <div class="d-flex flex-wrap gap-1">
+                                        {% for alert in itemAlerts %}
+                                            {% if alert == 'Stock insuficiente' %}
+                                                <span class="badge bg-danger">{{ alert }}</span>
+                                            {% elseif alert == 'Precio actualizado' %}
+                                                <span class="badge bg-warning text-dark">{{ alert }}</span>
+                                            {% elseif alert == 'Producto inactivo' %}
+                                                <span class="badge bg-secondary">{{ alert }}</span>
+                                            {% endif %}
+                                        {% endfor %}
+                                    </div>
                                 {% endif %}
                             </td>
                         </tr>

@@ -3,10 +3,8 @@
 namespace App\Controller;
 
 use App\Entity\Business;
-use App\Entity\Customer;
 use App\Entity\Product;
 use App\Entity\Quotation;
-use App\Entity\QuotationItem;
 use App\Repository\QuotationRepository;
 use App\Security\BusinessContext;
 use App\Service\PdfService;
@@ -39,19 +37,7 @@ class QuotationController extends AbstractController
         $perPage = 20;
         $query = trim((string) $request->query->get('q', ''));
 
-        $qb = $this->quotationRepository->createQueryBuilder('q')
-            ->leftJoin('q.customer', 'c')->addSelect('c')
-            ->leftJoin('q.createdBy', 'u')->addSelect('u')
-            ->andWhere('q.business = :business')
-            ->setParameter('business', $business)
-            ->orderBy('q.createdAt', 'DESC');
-
-        if ($query !== '') {
-            $term = '%'.mb_strtolower($query).'%';
-            $qb->andWhere('LOWER(c.name) LIKE :term OR LOWER(u.fullName) LIKE :term OR q.id = :numericId')
-                ->setParameter('term', $term)
-                ->setParameter('numericId', ctype_digit($query) ? (int) $query : 0);
-        }
+        $qb = $this->quotationRepository->createSearchQueryBuilder($business, $query);
 
         $qb->setFirstResult(($page - 1) * $perPage)->setMaxResults($perPage);
         $paginator = new Paginator($qb);
@@ -132,10 +118,16 @@ class QuotationController extends AbstractController
         }
 
         $payloadItems = [];
+        $omittedCount = 0;
         foreach ($quotation->getItems() as $item) {
+            if ($item->getProduct() === null) {
+                ++$omittedCount;
+                continue;
+            }
+
             $payloadItems[] = [
-                'product_id' => $item->getProduct()?->getId() ?? 0,
-                'kind' => $item->getProduct() ? 'product' : 'custom',
+                'product_id' => $item->getProduct()->getId(),
+                'kind' => 'product',
                 'description' => $item->getDescription(),
                 'qty' => $item->getQty(),
                 'unit_price' => $item->getUnitPrice(),
@@ -147,6 +139,10 @@ class QuotationController extends AbstractController
             'customer_id' => $quotation->getCustomer()?->getId(),
             'items' => $payloadItems,
         ]);
+
+        if ($omittedCount > 0) {
+            $this->addFlash('warning', 'Algunos productos del presupuesto ya no estaban disponibles y no se cargaron en el POS.');
+        }
 
         $this->addFlash('success', 'Presupuesto cargado en POS para continuar la venta.');
 

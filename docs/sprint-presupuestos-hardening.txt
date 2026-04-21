@@ -1,0 +1,22 @@
+Sprint presupuestos - hardening final
+
+Mejoras aplicadas
+- Búsqueda flexible de presupuestos por número comercial PRES-########.
+- El listado ahora también resuelve búsquedas con ceros a la izquierda y número simple.
+- Alertas del detalle migradas a badges visuales para lectura rápida.
+- Conversión a venta muestra warning cuando hay ítems de presupuesto omitidos al cargar POS.
+- PDF ajustado: comentario del cajero, luego leyenda legal, luego footer configurable e imagen.
+- Validaciones defensivas en QuotationService para evitar totales negativos.
+
+Impacto
+- Mejora UX operativa en búsqueda y lectura de alertas.
+- Mejora robustez en conversión y validación de datos de presupuesto.
+- Flujo de venta, pagos y stock se mantiene sin cambios de arquitectura.
+
+Checklist sugerido para staging
+1) Emitir presupuesto desde POS.
+2) Buscar por: PRES-00000012, 00000012 y 12.
+3) Ver detalle con badges de alertas en columna Estado.
+4) Convertir presupuesto a venta y revisar flash de warning cuando corresponda.
+5) Validar carga en POS de los ítems convertidos.
+6) Descargar PDF y revisar orden final (comentario, leyenda, footer, imagen).

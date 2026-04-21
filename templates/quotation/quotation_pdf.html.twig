@@ -77,6 +77,10 @@
     <p><strong>Comentario del cajero:</strong> {{ quotation.cashierComment }}</p>
 {% endif %}
 
+<div class="legend">
+    <strong>PRESUPUESTO — No válido como comprobante fiscal</strong>
+</div>
+
 {% set footerLines = business.quotationFooterLines ? business.quotationFooterLines|replace({'\r': ''})|split('\n') : [] %}
 {% if footerLines %}
     <div class="text-center">
@@ -91,9 +95,5 @@
         <img src="{{ business.quotationFooterImagePath }}" alt="Footer" style="max-height: 160px; max-width: 100%; margin:0 auto; display:block;">
     </div>
 {% endif %}
-
-<div class="legend">
-    <strong>PRESUPUESTO — No válido como comprobante fiscal</strong>
-</div>
 </body>
 </html>

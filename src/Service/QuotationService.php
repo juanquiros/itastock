@@ -151,7 +151,15 @@ class QuotationService
             throw new AccessDeniedException('Agregá al menos un producto válido para generar el presupuesto.');
         }
 
+        if ($subtotalCents < 0) {
+            throw new AccessDeniedException('El total del presupuesto no puede ser negativo.');
+        }
+
         $total = $this->formatCents($subtotalCents);
+        if (bccomp($total, '0.00', 2) < 0) {
+            throw new AccessDeniedException('El total del presupuesto no puede ser negativo.');
+        }
+
         $quotation->setSubtotal($total);
         $quotation->setTotal($total);
 
