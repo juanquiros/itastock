@@ -1,0 +1,58 @@
+Sprint Presupuestos final (ajustado)
+
+Objetivo funcional
+- Incorporar Presupuestos al POS sin mezclar con ventas.
+- El cierre del POS ahora usa final_action (SALE / QUOTATION).
+- Emitir presupuesto no registra pagos, no descuenta stock, no toca caja ni cuenta corriente.
+- Permite convertir presupuesto a venta cargando datos en POS por session payload.
+
+Rutas nuevas
+- /app/settings/quotation (app_settings_quotation)
+- /app/quotations (app_quotation_index)
+- /app/quotations/{id} (app_quotation_show)
+- /app/quotations/{id}/pdf (app_quotation_pdf)
+- /app/quotations/{id}/to-sale (app_quotation_to_sale)
+
+Entidades nuevas
+- Quotation
+- QuotationItem
+
+Campos nuevos en Business
+- quotationHeaderLines
+- quotationFooterLines
+- quotationHeaderImagePath
+- quotationFooterImagePath
+
+Decisión UX POS
+- Se agrega final_action como semántica de cierre.
+- payment_method queda solo para venta.
+- Modal final alterna entre “Cerrar operación / Generar presupuesto”.
+
+Numeración comercial
+- Formato: PRES-########
+- Se obtiene con método de presentación en Quotation.
+
+Alertas operativas
+- Se muestran solo en detalle del presupuesto (no en listado, no en PDF):
+  - Stock insuficiente
+  - Precio actualizado
+  - Producto inactivo
+
+Conversión a venta
+- El detalle de presupuesto ofrece “Convertir en venta”.
+- Se guarda payload temporal en session y se redirige al POS.
+- El POS consume y limpia esa session al cargar.
+
+Pruebas manuales sugeridas
+1) Desde POS elegir Acción final = Venta y confirmar que flujo de pago sigue normal.
+2) Desde POS elegir Acción final = Presupuesto y confirmar:
+   - no pide medio de pago
+   - permite comentario opcional
+   - redirige al detalle del presupuesto
+3) En detalle de presupuesto revisar columna Estado con solo las 3 alertas definidas.
+4) Descargar PDF de presupuesto y validar branding propio + leyenda no fiscal.
+5) Usar “Convertir en venta” y confirmar que POS abre con cliente e ítems cargados.
+
+Aclaración de pies configurables
+- Remito/ticket sigue usando ticketFooterLines.
+- Presupuesto usa quotationFooterLines.

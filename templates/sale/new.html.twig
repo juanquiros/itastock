@@ -81,7 +81,9 @@
                 <form method="post" id="sale-form" data-controller="barcode-scanner" data-barcode-scanner-script-url-value="{{ asset('vendor/html5-qrcode.min.js') }}" data-barcode-scanner-continuous-value="true" {% if barcodeScanSoundPath %}data-barcode-scanner-success-sound-url-value="{{ barcodeScanSoundPath }}"{% endif %}>
                     <div class="mb-4">
                         <input type="hidden" name="customer_id" id="customer-id" value="">
+                        <input type="hidden" name="final_action" id="final-action" value="SALE">
                         <input type="hidden" name="payment_method" id="payment-method" value="CASH">
+                        <input type="hidden" name="cashier_comment" id="cashier-comment-input" value="">
                         <input type="hidden" name="cash_given" id="cash-given-input" value="">
                         <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 border rounded-3 px-3 py-2 bg-light">
                             <div class="d-flex align-items-center gap-2" id="customer-selection"></div>
@@ -172,7 +174,7 @@
                                         </div>
                                         <div class="d-flex justify-content-between gap-2 pos-summary-actions">
                                             <a class="btn btn-outline-secondary" href="{{ path('app_dashboard') }}">Cancelar</a>
-                                            <button type="button" class="btn btn-primary btn-lg" id="confirm-sale" data-bs-toggle="modal" data-bs-target="#paymentModal">Continuar al pago</button>
+                                            <button type="button" class="btn btn-primary btn-lg" id="confirm-sale" data-bs-toggle="modal" data-bs-target="#paymentModal">Continuar</button>
                                         </div>
                                     </div>
                                 </div>
@@ -253,11 +255,18 @@
         <div class="modal-dialog">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title" id="paymentModalLabel">Confirmar venta</h5>
+                    <h5 class="modal-title" id="paymentModalLabel">Cerrar operación</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
                     <div class="mb-3">
+                        <label class="form-label fw-semibold" for="final-action-modal">Acción final</label>
+                        <select id="final-action-modal" class="form-select form-select-lg">
+                            <option value="SALE">Venta</option>
+                            <option value="QUOTATION">Presupuesto</option>
+                        </select>
+                    </div>
+                    <div class="mb-3" id="payment-method-group">
                         <label class="form-label fw-semibold" for="payment-method-modal">Medio de pago</label>
                         <select id="payment-method-modal" class="form-select form-select-lg">
                             <option value="CASH">Efectivo</option>
@@ -271,6 +280,11 @@
                         <label class="form-label fw-semibold" for="cash-given">Monto recibido</label>
                         <input type="number" id="cash-given" class="form-control" min="0" step="0.01" placeholder="0.00">
                         <div class="form-text">Cambio: <span class="fw-semibold" id="cash-change">$0.00</span></div>
+                    </div>
+                    <div class="mb-3 d-none" id="quotation-comment-section">
+                        <label class="form-label fw-semibold" for="quotation-comment">Comentario del cajero (opcional)</label>
+                        <textarea id="quotation-comment" class="form-control" rows="3" maxlength="800" placeholder="Observaciones para el cliente"></textarea>
+                        <div class="form-text" id="quotation-help">Se guardará como presupuesto sin registrar pagos ni descontar stock.</div>
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -305,6 +319,7 @@
             let genericItemIvaEnabled = {{ genericItemIvaEnabled ? 'true' : 'false' }};
             let genericItemIvaRate = parseFloat({{ genericItemIvaRate|json_encode|raw }} || '0');
             let allowNegativeStock = {{ business.allowsNegativeStock ? 'true' : 'false' }};
+            const preloadedSalePayload = {{ preloadedSalePayload|json_encode|raw }};
             const items = [];
             let selectedCustomer = null;
             const snapshotUrl = '{{ path('app_sale_snapshot') }}';
@@ -328,12 +343,19 @@
             const customerEdit = document.getElementById('customer-edit');
             const customerPanel = document.getElementById('customer-panel');
             const customerCancel = document.getElementById('customer-cancel');
+            const finalAction = document.getElementById('final-action');
             const paymentMethod = document.getElementById('payment-method');
+            const finalActionModal = document.getElementById('final-action-modal');
+            const paymentMethodGroup = document.getElementById('payment-method-group');
+            const paymentModalLabel = document.getElementById('paymentModalLabel');
             const paymentMethodModal = document.getElementById('payment-method-modal');
             const paymentHelp = document.getElementById('payment-help');
             const cashSection = document.getElementById('cash-section');
             const cashGiven = document.getElementById('cash-given');
             const cashGivenInput = document.getElementById('cash-given-input');
+            const quotationCommentInput = document.getElementById('cashier-comment-input');
+            const quotationCommentSection = document.getElementById('quotation-comment-section');
+            const quotationComment = document.getElementById('quotation-comment');
             const cashChange = document.getElementById('cash-change');
             const customerStep = document.getElementById('customer-step');
             const saleWorkspace = document.getElementById('sale-workspace');
@@ -731,6 +753,9 @@
                 emptyRow.style.display = 'none';
                 confirmSale.disabled = false;
 
+                finalAction.value = finalActionModal.value;
+                quotationCommentInput.value = quotationComment ? quotationComment.value.trim() : '';
+
                 items.forEach((item, index) => {
                     const row = document.createElement('tr');
                     const min = item.allowsFractional ? item.qtyStep : 1;
@@ -874,6 +899,7 @@
                             })),
                             customer_id: selectedCustomer ? selectedCustomer.id : 0,
                             payment_method: paymentMethodModal.value,
+                            final_action: finalActionModal.value,
                         }),
                     });
 
@@ -929,7 +955,34 @@
                 }
             }
 
+            function syncFinalActionModal() {
+                finalAction.value = finalActionModal.value;
+
+                const quotationMode = finalActionModal.value === 'QUOTATION';
+                paymentMethodGroup.classList.toggle('d-none', quotationMode);
+                quotationCommentSection.classList.toggle('d-none', !quotationMode);
+
+                if (quotationMode) {
+                    paymentModalLabel.textContent = 'Generar presupuesto';
+                    finalizeSale.textContent = 'Generar presupuesto';
+                    confirmSale.textContent = 'Generar presupuesto';
+                    cashSection.classList.add('d-none');
+                } else {
+                    paymentModalLabel.textContent = 'Cerrar operación';
+                    finalizeSale.textContent = 'Finalizar venta';
+                    confirmSale.textContent = 'Continuar';
+                    syncPaymentMethod();
+                }
+
+                updateTotal();
+            }
+
             function syncPaymentMethod() {
+                if (finalActionModal.value !== 'SALE') {
+                    paymentMethod.value = 'CASH';
+                    return;
+                }
+
                 if (paymentMethodModal.value === 'ACCOUNT' && !canUseAccount()) {
                     paymentMethodModal.value = 'CASH';
                 }
@@ -1160,6 +1213,9 @@
             });
 
             saleForm.addEventListener('submit', () => {
+                finalAction.value = finalActionModal.value;
+                quotationCommentInput.value = quotationComment ? quotationComment.value.trim() : '';
+
                 items.forEach((item, index) => {
                     const qtyInput = document.createElement('input');
                     qtyInput.type = 'hidden';
@@ -1171,25 +1227,96 @@
                     productInput.value = item.product_id;
                     saleForm.appendChild(qtyInput);
                     saleForm.appendChild(productInput);
+
+                    if (item.kind === 'custom') {
+                        const kindInput = document.createElement('input');
+                        kindInput.type = 'hidden';
+                        kindInput.name = `items[${index}][kind]`;
+                        kindInput.value = 'custom';
+
+                        const descriptionInput = document.createElement('input');
+                        descriptionInput.type = 'hidden';
+                        descriptionInput.name = `items[${index}][description]`;
+                        descriptionInput.value = item.name;
+
+                        const unitPriceInput = document.createElement('input');
+                        unitPriceInput.type = 'hidden';
+                        unitPriceInput.name = `items[${index}][unit_price]`;
+                        unitPriceInput.value = item.price.toFixed(2);
+
+                        const ivaRateInput = document.createElement('input');
+                        ivaRateInput.type = 'hidden';
+                        ivaRateInput.name = `items[${index}][iva_rate]`;
+                        ivaRateInput.value = (item.ivaRate ?? 0).toFixed(2);
+
+                        saleForm.appendChild(kindInput);
+                        saleForm.appendChild(descriptionInput);
+                        saleForm.appendChild(unitPriceInput);
+                        saleForm.appendChild(ivaRateInput);
+                    }
                 });
             });
 
             paymentMethodModal.addEventListener('change', syncPaymentMethod);
+            finalActionModal.addEventListener('change', syncFinalActionModal);
             cashGiven.addEventListener('input', () => {
                 cashGivenInput.value = cashGiven.value;
                 updateCashChange();
             });
 
             finalizeSale.addEventListener('click', () => {
+                syncFinalActionModal();
                 syncPaymentMethod();
-                if (paymentMethodModal.value === 'CASH') {
+                if (finalActionModal.value === 'SALE' && paymentMethodModal.value === 'CASH') {
                     cashGivenInput.value = cashGiven.value;
                 }
                 saleForm.submit();
             });
 
+            if (preloadedSalePayload && Array.isArray(preloadedSalePayload.items)) {
+                selectedCustomer = customers.find((c) => c.id === parseInt(preloadedSalePayload.customer_id || 0, 10)) || null;
+                preloadedSalePayload.items.forEach((row) => {
+                    const isCustom = (row.kind || 'product') === 'custom' || parseInt(row.product_id || 0, 10) === 0;
+                    if (isCustom) {
+                        items.push({
+                            product_id: 0,
+                            kind: 'custom',
+                            name: row.description || 'Producto no cargado',
+                            qty: parseFloat((row.qty || '1.000')) || 1,
+                            price: parseFloat((row.unit_price || '0.00')) || 0,
+                            ivaRate: parseFloat((row.iva_rate || '0.00')) || 0,
+                            qtyStep: 0.001,
+                            allowsFractional: true,
+                            uomBase: 'UN',
+                            stock: null,
+                        });
+                        return;
+                    }
+
+                    const productId = parseInt(row.product_id || 0, 10);
+                    const product = products.find((p) => p.id === productId);
+                    if (!product) {
+                        return;
+                    }
+
+                    items.push({
+                        product_id: product.id,
+                        kind: 'product',
+                        name: product.name,
+                        characteristicsSummary: product.characteristicsSummary || null,
+                        price: resolveUnitPrice(product.id),
+                        stock: product.stock,
+                        qty: parseFloat(row.qty || '1.000') || 1,
+                        qtyStep: resolveQtyStep(product),
+                        allowsFractional: product.allowsFractionalQty === true,
+                        uomBase: product.uomBase,
+                    });
+                });
+            }
+
             renderCustomerSelection();
             renderResults('');
+            syncFinalActionModal();
             syncPaymentMethod();
             showWorkspace();
 

@@ -10,12 +10,12 @@ use Symfony\Component\Form\Extension\Core\Type\TextareaType;
 use Symfony\Component\Form\FormBuilderInterface;
 use Symfony\Component\OptionsResolver\OptionsResolver;
 
-class BusinessTicketSettingsType extends AbstractType
+class BusinessQuotationSettingsType extends AbstractType
 {
     public function buildForm(FormBuilderInterface $builder, array $options): void
     {
         $builder
-            ->add('ticketHeaderLines', TextareaType::class, [
+            ->add('quotationHeaderLines', TextareaType::class, [
                 'label' => 'Líneas del encabezado',
                 'required' => false,
                 'help' => 'Una línea por renglón. Ejemplo: "CUIT: 12345678901".',
@@ -23,28 +23,28 @@ class BusinessTicketSettingsType extends AbstractType
                     'rows' => 4,
                 ],
             ])
-            ->add('ticketFooterLines', TextareaType::class, [
+            ->add('quotationFooterLines', TextareaType::class, [
                 'label' => 'Líneas del pie',
                 'required' => false,
-                'help' => 'Una línea por renglón. Se usa para leyendas finales del remito/ticket. Ejemplo: "Gracias por su compra".',
+                'help' => 'Una línea por renglón para leyendas finales del presupuesto.',
                 'attr' => [
                     'rows' => 4,
                 ],
             ])
-            ->add('ticketHeaderImagePath', HiddenType::class, [
+            ->add('quotationHeaderImagePath', HiddenType::class, [
                 'required' => false,
                 'attr' => [
                     'data-ticket-image-upload-target' => 'path',
                 ],
             ])
-            ->add('ticketFooterImagePath', HiddenType::class, [
+            ->add('quotationFooterImagePath', HiddenType::class, [
                 'required' => false,
                 'attr' => [
                     'data-ticket-image-upload-target' => 'path',
                 ],
             ])
-            ->add('ticketHeaderImageFile', FileType::class, [
-                'label' => 'Icono del ticket',
+            ->add('quotationHeaderImageFile', FileType::class, [
+                'label' => 'Icono del presupuesto',
                 'mapped' => false,
                 'required' => false,
                 'attr' => [
@@ -53,8 +53,8 @@ class BusinessTicketSettingsType extends AbstractType
                 ],
                 'help' => 'Se optimiza en el navegador y se guarda como data URL.',
             ])
-            ->add('ticketFooterImageFile', FileType::class, [
-                'label' => 'Imagen final del ticket',
+            ->add('quotationFooterImageFile', FileType::class, [
+                'label' => 'Imagen final del presupuesto',
                 'mapped' => false,
                 'required' => false,
                 'attr' => [

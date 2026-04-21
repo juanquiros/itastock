@@ -1,0 +1,73 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ quotation.commercialNumber }} | Presupuesto{% endblock %}
+
+{% block body %}
+    <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+        <div>
+            <h1 class="h4 mb-1">{{ quotation.commercialNumber }}</h1>
+            <p class="text-muted mb-0">Emitido el {{ quotation.createdAt|date('d/m/Y H:i') }}</p>
+        </div>
+        <div class="d-flex gap-2">
+            <a class="btn btn-outline-secondary" href="{{ path('app_quotation_index') }}">Volver</a>
+            <a class="btn btn-outline-primary" href="{{ path('app_quotation_pdf', {id: quotation.id}) }}">Descargar PDF</a>
+            <form method="post" action="{{ path('app_quotation_to_sale', {id: quotation.id}) }}">
+                <input type="hidden" name="_token" value="{{ csrf_token('quotation_to_sale_' ~ quotation.id) }}">
+                <button class="btn btn-primary" type="submit">Convertir en venta</button>
+            </form>
+        </div>
+    </div>
+
+    <div class="card shadow-sm mb-3">
+        <div class="card-body row g-3">
+            <div class="col-md-4"><strong>Número:</strong> {{ quotation.commercialNumber }}</div>
+            <div class="col-md-4"><strong>Cliente:</strong> {{ quotation.customer ? quotation.customer.name : 'Consumidor final' }}</div>
+            <div class="col-md-4"><strong>Vendedor:</strong> {{ quotation.createdBy ? quotation.createdBy.fullName : 'N/D' }}</div>
+            <div class="col-md-6"><strong>Lista aplicada:</strong> {{ quotation.priceListNameUsed ?: 'Lista base/default' }}</div>
+            <div class="col-md-3"><strong>Subtotal:</strong> ${{ quotation.subtotal }}</div>
+            <div class="col-md-3"><strong>Total:</strong> ${{ quotation.total }}</div>
+            {% if quotation.cashierComment %}
+                <div class="col-12"><strong>Comentario del cajero:</strong> {{ quotation.cashierComment }}</div>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="card shadow-sm">
+        <div class="card-body">
+            {% if hasDifferences %}
+                <div class="alert alert-warning py-2">Este presupuesto presenta diferencias respecto al estado actual.</div>
+            {% endif %}
+            <div class="table-responsive">
+                <table class="table align-middle">
+                    <thead class="table-light">
+                    <tr>
+                        <th>Producto</th>
+                        <th class="text-end">Cant.</th>
+                        <th class="text-end">Precio</th>
+                        <th class="text-end">Total</th>
+                        <th>Estado</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    {% for item in quotation.items %}
+                        {% set itemAlerts = alertsByItem[item.id ?? loop.index0] ?? [] %}
+                        <tr>
+                            <td>{{ item.description }}</td>
+                            <td class="text-end">{{ item.qty|number_format(3, '.', ',') }}</td>
+                            <td class="text-end">${{ item.unitPrice }}</td>
+                            <td class="text-end">${{ item.lineTotal }}</td>
+                            <td>
+                                {% if itemAlerts is empty %}
+                                    <span class="text-muted">Sin diferencias</span>
+                                {% else %}
+                                    {{ itemAlerts|join(' · ') }}
+                                {% endif %}
+                            </td>
+                        </tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+{% endblock %}

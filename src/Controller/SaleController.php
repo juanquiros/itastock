@@ -31,6 +31,7 @@ use App\Service\ArcaInvoiceService;
 use App\Service\ArcaQrService;
 use App\Service\PdfService;
 use App\Service\PricingService;
+use App\Service\QuotationService;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -54,6 +55,7 @@ class SaleController extends AbstractController
         private readonly PriceListItemRepository $priceListItemRepository,
         private readonly PlatformSettingsRepository $platformSettingsRepository,
         private readonly PricingService $pricingService,
+        private readonly QuotationService $quotationService,
         private readonly CustomerAccountService $customerAccountService,
         private readonly DiscountEngine $discountEngine,
         private readonly PdfService $pdfService,
@@ -96,6 +98,7 @@ class SaleController extends AbstractController
             return $this->handleSubmission($request, $business, $products, $user);
         }
 
+        $preloadedSalePayload = $request->getSession()->remove('quotation_to_sale_payload');
         $settings = $this->platformSettingsRepository->findOneBy([]);
 
         return $this->render('sale/new.html.twig', [
@@ -134,6 +137,7 @@ class SaleController extends AbstractController
             'barcodeScanSoundPath' => $settings?->getBarcodeScanSoundPath(),
             'genericItemIvaEnabled' => $arcaConfig->isGenericItemIvaEnabled(),
             'genericItemIvaRate' => (float) $arcaConfig->getGenericItemIvaRate(),
+            'preloadedSalePayload' => $preloadedSalePayload,
         ]);
     }
 
@@ -196,10 +200,15 @@ class SaleController extends AbstractController
         $payload = $request->toArray();
         $itemsData = $payload['items'] ?? [];
         $customerId = (int) ($payload['customer_id'] ?? 0);
+        $finalAction = strtoupper((string) ($payload['final_action'] ?? 'SALE'));
         $paymentMethod = strtoupper((string) ($payload['payment_method'] ?? 'CASH'));
         $allowedMethods = ['CASH', 'TRANSFER', 'CARD', 'ACCOUNT'];
 
-        if (!in_array($paymentMethod, $allowedMethods, true)) {
+        if (!in_array($finalAction, ['SALE', 'QUOTATION'], true)) {
+            return $this->json(['error' => 'Acción final inválida.'], Response::HTTP_BAD_REQUEST);
+        }
+
+        if ($finalAction === 'SALE' && !in_array($paymentMethod, $allowedMethods, true)) {
             return $this->json(['error' => 'Medio de pago inválido.'], Response::HTTP_BAD_REQUEST);
         }
 
@@ -217,12 +226,12 @@ class SaleController extends AbstractController
                 return $this->json(['error' => 'Cliente inválido.'], Response::HTTP_BAD_REQUEST);
             }
 
-            if (!$customer->isActive() && $paymentMethod === 'ACCOUNT') {
+            if (!$customer->isActive() && $finalAction === 'SALE' && $paymentMethod === 'ACCOUNT') {
                 return $this->json(['error' => 'El cliente está inactivo y no puede usar cuenta corriente.'], Response::HTTP_BAD_REQUEST);
             }
         }
 
-        if ($paymentMethod === 'ACCOUNT' && !$customer instanceof Customer) {
+        if ($finalAction === 'SALE' && $paymentMethod === 'ACCOUNT' && !$customer instanceof Customer) {
             return $this->json(['error' => 'Elegí un cliente activo para vender en cuenta corriente.'], Response::HTTP_BAD_REQUEST);
         }
 
@@ -319,7 +328,9 @@ class SaleController extends AbstractController
         $sale->setDiscountTotal('0.00');
         $sale->setTotal($this->formatCents($subtotalCents));
 
-        $this->discountEngine->applyDiscounts($sale, $paymentMethod);
+        if ($finalAction === 'SALE') {
+            $this->discountEngine->applyDiscounts($sale, $paymentMethod);
+        }
 
         return $this->json([
             'subtotal' => $sale->getSubtotal(),
@@ -713,10 +724,17 @@ class SaleController extends AbstractController
     {
         $itemsData = $request->request->all('items');
         $customerId = (int) $request->request->get('customer_id', 0);
+        $finalAction = strtoupper((string) $request->request->get('final_action', 'SALE'));
         $paymentMethod = strtoupper((string) $request->request->get('payment_method', 'CASH'));
         $allowedMethods = ['CASH', 'TRANSFER', 'CARD', 'ACCOUNT'];
 
-        if (!in_array($paymentMethod, $allowedMethods, true)) {
+        if (!in_array($finalAction, ['SALE', 'QUOTATION'], true)) {
+            $this->addFlash('danger', 'Seleccioná una acción final válida.');
+
+            return $this->redirectToRoute('app_sale_new');
+        }
+
+        if ($finalAction === 'SALE' && !in_array($paymentMethod, $allowedMethods, true)) {
             $this->addFlash('danger', 'Seleccioná un medio de pago válido.');
 
             return $this->redirectToRoute('app_sale_new');
@@ -743,17 +761,39 @@ class SaleController extends AbstractController
                 return $this->redirectToRoute('app_sale_new');
             }
 
-            if (!$customer->isActive() && $paymentMethod === 'ACCOUNT') {
+            if (!$customer->isActive() && $finalAction === 'SALE' && $paymentMethod === 'ACCOUNT') {
                 $this->addFlash('danger', 'El cliente está inactivo y no puede usar cuenta corriente.');
 
                 return $this->redirectToRoute('app_sale_new');
             }
         }
 
-        if ($paymentMethod === 'ACCOUNT' && !$customer instanceof Customer) {
+        if ($finalAction === 'SALE' && $paymentMethod === 'ACCOUNT' && !$customer instanceof Customer) {
             $this->addFlash('danger', 'Elegí un cliente activo para vender en cuenta corriente.');
 
             return $this->redirectToRoute('app_sale_new');
+        }
+
+        if ($finalAction === 'QUOTATION') {
+            $cashierComment = trim((string) $request->request->get('cashier_comment', ''));
+
+            try {
+                $quotation = $this->quotationService->createFromPosPayload(
+                    $business,
+                    $user,
+                    $customer,
+                    $itemsData,
+                    $cashierComment !== '' ? $cashierComment : null
+                );
+            } catch (AccessDeniedException $exception) {
+                $this->addFlash('danger', $exception->getMessage());
+
+                return $this->redirectToRoute('app_sale_new');
+            }
+
+            $this->addFlash('success', 'Presupuesto generado.');
+
+            return $this->redirectToRoute('app_quotation_show', ['id' => $quotation->getId()]);
         }
 
         $sale = new Sale();
@@ -860,7 +900,9 @@ class SaleController extends AbstractController
         $sale->setDiscountTotal('0.00');
         $sale->setTotal($this->formatCents($subtotalCents));
 
-        $this->discountEngine->applyDiscounts($sale, $paymentMethod);
+        if ($finalAction === 'SALE') {
+            $this->discountEngine->applyDiscounts($sale, $paymentMethod);
+        }
 
         $payment = new Payment();
         $payment->setAmount($sale->getTotal());
