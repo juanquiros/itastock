@@ -14,6 +14,7 @@ use App\Service\EmailSender;
 use App\Service\PlatformNotificationService;
 use App\Service\ReportDigestBuilder;
 use App\Service\ReportNotificationService;
+use Symfony\Component\Console\Command\LockableTrait;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
@@ -26,6 +27,8 @@ use Symfony\Component\Console\Output\OutputInterface;
 )]
 class EmailDispatchCommand extends Command
 {
+    use LockableTrait;
+
     public function __construct(
         private readonly BusinessRepository $businessRepository,
         private readonly EmailPreferenceRepository $emailPreferenceRepository,
@@ -49,6 +52,13 @@ class EmailDispatchCommand extends Command
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
+        if (!$this->acquireExecutionLock()) {
+            $output->writeln('Ya existe una ejecución activa de app:emails:dispatch. Se omite esta corrida.');
+
+            return Command::SUCCESS;
+        }
+
+        try {
         $type = (string) $input->getOption('type');
         $dryRun = (string) $input->getOption('dry-run') === '1';
         $now = $this->resolveNow($input->getOption('date'));
@@ -77,6 +87,19 @@ class EmailDispatchCommand extends Command
         $this->renderSummary($output, $counts);
 
         return Command::SUCCESS;
+        } finally {
+            $this->releaseExecutionLock();
+        }
+    }
+
+    protected function acquireExecutionLock(): bool
+    {
+        return $this->lock();
+    }
+
+    protected function releaseExecutionLock(): void
+    {
+        $this->release();
     }
 
     private function dispatchSubscriptionNotifications(\DateTimeImmutable $now, bool $dryRun, OutputInterface $output, array &$counts): void

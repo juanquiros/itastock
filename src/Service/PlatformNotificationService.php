@@ -318,6 +318,13 @@ class PlatformNotificationService
             ->setRecipientEmail('platform')
             ->setRecipientRole(EmailNotificationLog::ROLE_PLATFORM)
             ->setBusiness($business)
+            ->setIdempotencyKey(hash('sha256', implode('|', [
+                'PLATFORM_MP_INCONSISTENCY_OCCURRENCE',
+                (string) ($business->getId() ?? 0),
+                (string) $activeCount,
+                (string) $canceledCount,
+                (new \DateTimeImmutable())->format(\DateTimeInterface::ATOM),
+            ])))
             ->setStatus(EmailNotificationLog::STATUS_SKIPPED)
             ->setErrorMessage(sprintf(
                 'Occurrence recorded. Active=%d, Canceled=%d',
