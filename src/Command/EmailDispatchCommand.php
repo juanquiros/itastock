@@ -14,7 +14,7 @@ use App\Service\EmailSender;
 use App\Service\PlatformNotificationService;
 use App\Service\ReportDigestBuilder;
 use App\Service\ReportNotificationService;
-use Symfony\Component\Console\Command\LockableTrait;
+use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
@@ -27,8 +27,6 @@ use Symfony\Component\Console\Output\OutputInterface;
 )]
 class EmailDispatchCommand extends Command
 {
-    use LockableTrait;
-
     public function __construct(
         private readonly BusinessRepository $businessRepository,
         private readonly EmailPreferenceRepository $emailPreferenceRepository,
@@ -36,10 +34,13 @@ class EmailDispatchCommand extends Command
         private readonly ReportNotificationService $reportNotificationService,
         private readonly PlatformNotificationService $platformNotificationService,
         private readonly EmailSender $emailSender,
+        private readonly EntityManagerInterface $entityManager,
         private readonly bool $emailsEnabled,
     ) {
         parent::__construct();
     }
+
+    private bool $dbLockAcquired = false;
 
     protected function configure(): void
     {
@@ -59,34 +60,34 @@ class EmailDispatchCommand extends Command
         }
 
         try {
-        $type = (string) $input->getOption('type');
-        $dryRun = (string) $input->getOption('dry-run') === '1';
-        $now = $this->resolveNow($input->getOption('date'));
+            $type = (string) $input->getOption('type');
+            $dryRun = (string) $input->getOption('dry-run') === '1';
+            $now = $this->resolveNow($input->getOption('date'));
 
-        $counts = [];
+            $counts = [];
 
-        if (!$this->emailsEnabled) {
-            $output->writeln('Envios deshabilitados por APP_EMAILS_ENABLED=0.');
+            if (!$this->emailsEnabled) {
+                $output->writeln('Envios deshabilitados por APP_EMAILS_ENABLED=0.');
+                $this->renderSummary($output, $counts);
+
+                return Command::SUCCESS;
+            }
+
+            if ($type === 'all' || $type === 'subscriptions') {
+                $this->dispatchSubscriptionNotifications($now, $dryRun, $output, $counts);
+            }
+
+            if ($type === 'all' || $type === 'reports') {
+                $this->dispatchReportNotifications($now, $dryRun, $output, $counts);
+            }
+
+            if ($type === 'all' || $type === 'platform') {
+                $this->dispatchPlatformDigests($now, $dryRun, $output, $counts);
+            }
+
             $this->renderSummary($output, $counts);
 
             return Command::SUCCESS;
-        }
-
-        if ($type === 'all' || $type === 'subscriptions') {
-            $this->dispatchSubscriptionNotifications($now, $dryRun, $output, $counts);
-        }
-
-        if ($type === 'all' || $type === 'reports') {
-            $this->dispatchReportNotifications($now, $dryRun, $output, $counts);
-        }
-
-        if ($type === 'all' || $type === 'platform') {
-            $this->dispatchPlatformDigests($now, $dryRun, $output, $counts);
-        }
-
-        $this->renderSummary($output, $counts);
-
-        return Command::SUCCESS;
         } finally {
             $this->releaseExecutionLock();
         }
@@ -94,12 +95,46 @@ class EmailDispatchCommand extends Command
 
     protected function acquireExecutionLock(): bool
     {
-        return $this->lock();
+        $connection = $this->entityManager->getConnection();
+        $platform = $connection->getDatabasePlatform()->getName();
+        $lockName = 'app:emails:dispatch';
+
+        if (in_array($platform, ['mysql', 'mariadb'], true)) {
+            $value = $connection->fetchOne('SELECT GET_LOCK(:name, 0)', ['name' => $lockName]);
+            $this->dbLockAcquired = (string) $value === '1';
+
+            return $this->dbLockAcquired;
+        }
+
+        if ($platform === 'postgresql') {
+            $value = $connection->fetchOne('SELECT pg_try_advisory_lock(hashtext(:name))', ['name' => $lockName]);
+            $this->dbLockAcquired = filter_var($value, FILTER_VALIDATE_BOOL);
+
+            return $this->dbLockAcquired;
+        }
+
+        return true;
     }
 
     protected function releaseExecutionLock(): void
     {
-        $this->release();
+        if (!$this->dbLockAcquired) {
+            return;
+        }
+
+        $connection = $this->entityManager->getConnection();
+        $platform = $connection->getDatabasePlatform()->getName();
+        $lockName = 'app:emails:dispatch';
+
+        try {
+            if (in_array($platform, ['mysql', 'mariadb'], true)) {
+                $connection->executeStatement('DO RELEASE_LOCK(:name)', ['name' => $lockName]);
+            } elseif ($platform === 'postgresql') {
+                $connection->executeStatement('SELECT pg_advisory_unlock(hashtext(:name))', ['name' => $lockName]);
+            }
+        } finally {
+            $this->dbLockAcquired = false;
+        }
     }
 
     private function dispatchSubscriptionNotifications(\DateTimeImmutable $now, bool $dryRun, OutputInterface $output, array &$counts): void

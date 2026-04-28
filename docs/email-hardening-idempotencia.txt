@@ -8,7 +8,7 @@ Causa raíz detectada
 
 Estrategia aplicada
 1) Bloqueo de ejecución del comando:
-   - Se agregó lock interno en EmailDispatchCommand.
+   - Se agregó lock interno en EmailDispatchCommand usando advisory locks de base de datos.
    - Si no se obtiene lock, la corrida se omite con mensaje explícito.
 
 2) Reserva atómica previa al envío:
@@ -41,3 +41,4 @@ Cómo evita duplicados
 Requisitos de despliegue
 - Correr migraciones Doctrine para agregar idempotency_key e índice único.
 - No requiere activar colas async; aplica al flujo sync actual.
+- No requiere instalar symfony/lock para este mecanismo de bloqueo.

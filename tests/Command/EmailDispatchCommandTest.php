@@ -9,6 +9,7 @@ use App\Service\EmailSender;
 use App\Service\PlatformNotificationService;
 use App\Service\ReportDigestBuilder;
 use App\Service\ReportNotificationService;
+use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Console\Tester\CommandTester;
 
@@ -26,6 +27,7 @@ class EmailDispatchCommandTest extends TestCase
             $this->createMock(ReportNotificationService::class),
             $this->createMock(PlatformNotificationService::class),
             $this->createMock(EmailSender::class),
+            $this->createMock(EntityManagerInterface::class),
             true
         ) extends EmailDispatchCommand {
             protected function acquireExecutionLock(): bool
