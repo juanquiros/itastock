@@ -1,0 +1,44 @@
+Hardening integral del envío de emails (idempotencia y concurrencia)
+
+Causa raíz detectada
+- El envío usaba un flujo no atómico: chequeo de duplicado por consulta + envío + persistencia final.
+- Ese patrón permitía carrera entre ejecuciones concurrentes del comando.
+- El comando app:emails:dispatch no tenía exclusión mutua interna.
+- La protección por constraints no cubría todos los casos de negocio de forma uniforme.
+
+Estrategia aplicada
+1) Bloqueo de ejecución del comando:
+   - Se agregó lock interno en EmailDispatchCommand usando advisory locks de base de datos.
+   - Si no se obtiene lock, la corrida se omite con mensaje explícito.
+
+2) Reserva atómica previa al envío:
+   - EmailSender ahora construye una clave de idempotencia de negocio.
+   - Persiste primero un log en estado PROCESSING.
+   - Si falla la reserva por unique constraint, considera duplicado y no envía.
+   - Luego del envío actualiza el mismo registro a SENT o FAILED.
+
+3) Idempotencia persistente en BD:
+   - Se agregó columna idempotency_key y unique index dedicado.
+   - Esto blinda tanto casos por período, por suscripción/contexto y casos sin período.
+
+4) Manejo de fallos:
+   - Si el mailer falla, el log queda en FAILED con mensaje de error.
+   - Se mantiene trazabilidad clara por registro único de intento.
+
+Cambios realizados
+- src/Service/EmailSender.php
+- src/Command/EmailDispatchCommand.php
+- src/Entity/EmailNotificationLog.php
+- migrations/Version20260422120000.php
+- tests/Service/EmailSenderTest.php
+- tests/Command/EmailDispatchCommandTest.php
+
+Cómo evita duplicados
+- El envío ya no depende de findOneBy() previo.
+- La deduplicación queda garantizada por persistencia atómica + índice único en idempotency_key.
+- La concurrencia del cron queda mitigada por lock del comando.
+
+Requisitos de despliegue
+- Correr migraciones Doctrine para agregar idempotency_key e índice único.
+- No requiere activar colas async; aplica al flujo sync actual.
+- No requiere instalar symfony/lock para este mecanismo de bloqueo.

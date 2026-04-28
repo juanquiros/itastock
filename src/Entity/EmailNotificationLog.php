@@ -12,10 +12,15 @@ use Doctrine\ORM\Mapping as ORM;
     name: 'uniq_email_notification_log_period',
     columns: ['type', 'recipient_email', 'period_start', 'period_end']
 )]
+#[ORM\UniqueConstraint(
+    name: 'uniq_email_notification_log_idempotency',
+    columns: ['idempotency_key']
+)]
 #[ORM\Index(name: 'idx_email_notification_log_business', columns: ['business_id'])]
 #[ORM\Index(name: 'idx_email_notification_log_subscription', columns: ['subscription_id'])]
 class EmailNotificationLog
 {
+    public const STATUS_PROCESSING = 'PROCESSING';
     public const STATUS_SENT = 'SENT';
     public const STATUS_SKIPPED = 'SKIPPED';
     public const STATUS_FAILED = 'FAILED';
@@ -55,6 +60,9 @@ class EmailNotificationLog
 
     #[ORM\Column(length: 64, nullable: true)]
     private ?string $contextHash = null;
+
+    #[ORM\Column(length: 128)]
+    private string $idempotencyKey;
 
     #[ORM\Column(length: 16)]
     private string $status;
@@ -170,6 +178,18 @@ class EmailNotificationLog
     public function setContextHash(?string $contextHash): self
     {
         $this->contextHash = $contextHash;
+
+        return $this;
+    }
+
+    public function getIdempotencyKey(): string
+    {
+        return $this->idempotencyKey;
+    }
+
+    public function setIdempotencyKey(string $idempotencyKey): self
+    {
+        $this->idempotencyKey = $idempotencyKey;
 
         return $this;
     }

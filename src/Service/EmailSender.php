@@ -6,7 +6,6 @@ use App\Entity\Business;
 use App\Entity\EmailNotificationLog;
 use App\Entity\Subscription;
 use App\Security\EmailContentPolicy;
-use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bridge\Twig\Mime\TemplatedEmail;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
@@ -49,6 +48,14 @@ class EmailSender
             ->setPeriodStart($periodStart)
             ->setPeriodEnd($periodEnd)
             ->setContextHash($this->hashContext($sanitizedContext));
+        $log->setIdempotencyKey($this->buildIdempotencyKey(
+            $type,
+            $recipientEmail,
+            $subscription,
+            $periodStart,
+            $periodEnd,
+            $log->getContextHash()
+        ));
 
         try {
             $this->contentPolicy->assertAllowedRecipientRole($role, $type);
@@ -61,13 +68,8 @@ class EmailSender
             return EmailNotificationLog::STATUS_SKIPPED;
         }
 
-        $contextHash = $log->getContextHash();
-        if ($this->isDuplicate($type, $recipientEmail, $subscription, $periodStart, $periodEnd, $contextHash)) {
-            $log->setStatus(EmailNotificationLog::STATUS_SKIPPED)
-                ->setErrorMessage('Duplicate notification detected.');
-
-            $this->persistLog($log);
-
+        $log->setStatus(EmailNotificationLog::STATUS_PROCESSING);
+        if (!$this->reserveLog($log)) {
             return EmailNotificationLog::STATUS_SKIPPED;
         }
 
@@ -92,42 +94,40 @@ class EmailSender
                 ->setErrorMessage($exception->getMessage());
         }
 
-        $this->persistLog($log);
+        $this->flushLog($log);
 
         return $log->getStatus();
     }
 
-    private function isDuplicate(
+    private function buildIdempotencyKey(
         string $type,
         string $recipientEmail,
         ?Subscription $subscription,
         ?\DateTimeImmutable $periodStart,
         ?\DateTimeImmutable $periodEnd,
         ?string $contextHash,
-    ): bool {
-        $repository = $this->entityManager->getRepository(EmailNotificationLog::class);
-
+    ): string {
+        $scope = 'none';
         if (null !== $periodStart && null !== $periodEnd) {
-            return null !== $repository->findOneBy([
-                'type' => $type,
-                'recipientEmail' => $recipientEmail,
-                'periodStart' => $periodStart,
-                'periodEnd' => $periodEnd,
-            ]);
+            $scope = sprintf(
+                'period:%s:%s',
+                $periodStart->setTimezone(new \DateTimeZone('UTC'))->format(\DateTimeInterface::ATOM),
+                $periodEnd->setTimezone(new \DateTimeZone('UTC'))->format(\DateTimeInterface::ATOM)
+            );
+        } elseif (null !== $subscription && null !== $subscription->getId()) {
+            $scope = sprintf('subscription:%d', $subscription->getId());
+        } elseif (null !== $subscription) {
+            $scope = 'subscription:new';
         }
 
-        if (null !== $subscription) {
-            return null !== $repository->findOneBy([
-                'type' => $type,
-                'recipientEmail' => $recipientEmail,
-                'subscription' => $subscription,
-                'periodStart' => null,
-                'periodEnd' => null,
-                'contextHash' => $contextHash,
-            ]);
-        }
+        $raw = implode('|', [
+            $type,
+            mb_strtolower($recipientEmail),
+            $scope,
+            $contextHash ?? 'no-context',
+        ]);
 
-        return false;
+        return hash('sha256', $raw);
     }
 
     private function hashContext(array $context): ?string
@@ -154,7 +154,27 @@ class EmailSender
         return $textTemplate;
     }
 
-    private function persistLog(EmailNotificationLog $log): void
+    private function reserveLog(EmailNotificationLog $log): bool
+    {
+        if (!$this->entityManager->isOpen()) {
+            return false;
+        }
+
+        try {
+            $this->entityManager->persist($log);
+            $this->entityManager->flush();
+        } catch (\Throwable $exception) {
+            if ($this->isUniqueViolation($exception)) {
+                return false;
+            }
+
+            throw $exception;
+        }
+
+        return true;
+    }
+
+    private function flushLog(EmailNotificationLog $log): void
     {
         if (!$this->entityManager->isOpen()) {
             return;
@@ -163,8 +183,36 @@ class EmailSender
         try {
             $this->entityManager->persist($log);
             $this->entityManager->flush();
-        } catch (UniqueConstraintViolationException) {
-            // Ignore duplicate log inserts caused by concurrent notifications.
+        } catch (\Throwable $exception) {
+            if ($this->isUniqueViolation($exception)) {
+                return;
+            }
+
+            throw $exception;
         }
+    }
+
+    private function isUniqueViolation(\Throwable $exception): bool
+    {
+        if ($exception instanceof \Doctrine\DBAL\Exception\UniqueConstraintViolationException) {
+            return true;
+        }
+
+        $cursor = $exception;
+        while ($cursor !== null) {
+            $message = mb_strtolower($cursor->getMessage());
+            if (
+                str_contains($message, 'unique constraint')
+                || str_contains($message, 'duplicate entry')
+                || str_contains($message, 'sqlstate[23000]')
+                || str_contains($message, 'sqlstate[23505]')
+            ) {
+                return true;
+            }
+
+            $cursor = $cursor->getPrevious();
+        }
+
+        return false;
     }
 }

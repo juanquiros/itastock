@@ -21,6 +21,12 @@ use Symfony\Component\Mailer\MailerInterface;
 #[Route('/password', name: 'app_password_')]
 class PasswordResetController extends AbstractController
 {
+    public function __construct(
+        private readonly string $mailFrom,
+        private readonly string $appName,
+    ) {
+    }
+
     #[Route('/forgot', name: 'request', methods: ['GET', 'POST'])]
     public function request(
         Request $request,
@@ -45,7 +51,7 @@ class PasswordResetController extends AbstractController
                 $resetUrl = $urlGenerator->generate('app_password_reset', ['token' => $token], UrlGeneratorInterface::ABSOLUTE_URL);
 
                 $emailMessage = (new TemplatedEmail())
-                    ->from(new Address('no-reply@itastock.test', 'ItaStock'))
+                    ->from(new Address($this->mailFrom, $this->appName))
                     ->to($user->getEmail())
                     ->subject('Restablece tu contraseña')
                     ->htmlTemplate('emails/password_reset.html.twig')

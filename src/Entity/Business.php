@@ -71,6 +71,20 @@ class Business
     #[ORM\Column(type: 'text', nullable: true)]
     private ?string $labelImagePath = null;
 
+
+    #[ORM\Column(type: 'text', nullable: true)]
+    private ?string $quotationHeaderLines = null;
+
+    #[ORM\Column(type: 'text', nullable: true)]
+    private ?string $quotationFooterLines = null;
+
+    #[ORM\Column(type: 'text', nullable: true)]
+    private ?string $quotationHeaderImagePath = null;
+
+    #[ORM\Column(type: 'text', nullable: true)]
+    private ?string $quotationFooterImagePath = null;
+
+
     #[ORM\Column(length: 180, nullable: true)]
     private ?string $mercadoPagoPayerEmail = null;
 
@@ -348,6 +362,55 @@ class Business
     public function setTicketFooterImagePath(?string $ticketFooterImagePath): self
     {
         $this->ticketFooterImagePath = $ticketFooterImagePath;
+
+        return $this;
+    }
+
+
+    public function getQuotationHeaderLines(): ?string
+    {
+        return $this->quotationHeaderLines;
+    }
+
+    public function setQuotationHeaderLines(?string $quotationHeaderLines): self
+    {
+        $this->quotationHeaderLines = $quotationHeaderLines;
+
+        return $this;
+    }
+
+    public function getQuotationFooterLines(): ?string
+    {
+        return $this->quotationFooterLines;
+    }
+
+    public function setQuotationFooterLines(?string $quotationFooterLines): self
+    {
+        $this->quotationFooterLines = $quotationFooterLines;
+
+        return $this;
+    }
+
+    public function getQuotationHeaderImagePath(): ?string
+    {
+        return $this->quotationHeaderImagePath;
+    }
+
+    public function setQuotationHeaderImagePath(?string $quotationHeaderImagePath): self
+    {
+        $this->quotationHeaderImagePath = $quotationHeaderImagePath;
+
+        return $this;
+    }
+
+    public function getQuotationFooterImagePath(): ?string
+    {
+        return $this->quotationFooterImagePath;
+    }
+
+    public function setQuotationFooterImagePath(?string $quotationFooterImagePath): self
+    {
+        $this->quotationFooterImagePath = $quotationFooterImagePath;
 
         return $this;
     }
