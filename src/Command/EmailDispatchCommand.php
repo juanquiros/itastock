@@ -14,6 +14,8 @@ use App\Service\EmailSender;
 use App\Service\PlatformNotificationService;
 use App\Service\ReportDigestBuilder;
 use App\Service\ReportNotificationService;
+use Doctrine\DBAL\Platforms\AbstractMySQLPlatform;
+use Doctrine\DBAL\Platforms\PostgreSQLPlatform;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
@@ -96,17 +98,17 @@ class EmailDispatchCommand extends Command
     protected function acquireExecutionLock(): bool
     {
         $connection = $this->entityManager->getConnection();
-        $platform = $connection->getDatabasePlatform()->getName();
+        $platform = $connection->getDatabasePlatform();
         $lockName = 'app:emails:dispatch';
 
-        if (in_array($platform, ['mysql', 'mariadb'], true)) {
+        if ($platform instanceof AbstractMySQLPlatform) {
             $value = $connection->fetchOne('SELECT GET_LOCK(:name, 0)', ['name' => $lockName]);
             $this->dbLockAcquired = (string) $value === '1';
 
             return $this->dbLockAcquired;
         }
 
-        if ($platform === 'postgresql') {
+        if ($platform instanceof PostgreSQLPlatform) {
             $value = $connection->fetchOne('SELECT pg_try_advisory_lock(hashtext(:name))', ['name' => $lockName]);
             $this->dbLockAcquired = filter_var($value, FILTER_VALIDATE_BOOL);
 
@@ -123,13 +125,13 @@ class EmailDispatchCommand extends Command
         }
 
         $connection = $this->entityManager->getConnection();
-        $platform = $connection->getDatabasePlatform()->getName();
+        $platform = $connection->getDatabasePlatform();
         $lockName = 'app:emails:dispatch';
 
         try {
-            if (in_array($platform, ['mysql', 'mariadb'], true)) {
+            if ($platform instanceof AbstractMySQLPlatform) {
                 $connection->executeStatement('DO RELEASE_LOCK(:name)', ['name' => $lockName]);
-            } elseif ($platform === 'postgresql') {
+            } elseif ($platform instanceof PostgreSQLPlatform) {
                 $connection->executeStatement('SELECT pg_advisory_unlock(hashtext(:name))', ['name' => $lockName]);
             }
         } finally {
