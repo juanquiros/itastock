@@ -96,16 +96,6 @@ class SaleController extends AbstractController
         $defaultPriceList = $this->priceListRepository->findDefaultActiveForBusiness($business);
         $arcaConfig = $this->arcaConfigRepository->getOrCreate($business);
 
-        $fiscalPayload = $payload['fiscal_components'] ?? [];
-        $fiscalComponents = [];
-        if (!empty($fiscalPayload)) {
-            if (!$arcaConfig->isFiscalComponentsEnabled() || !$arcaConfig->isManualFiscalComponentsEnabled()) {
-                return $this->json(['error' => 'El comercio no tiene habilitada la carga manual de tributos.'], Response::HTTP_BAD_REQUEST);
-            }
-            try { $fiscalComponents = $this->fiscalManualComponentFactory->buildForSale($business, ['fiscal_components' => $fiscalPayload]); }
-            catch (\Throwable $exception) { return $this->json(['error' => $exception->getMessage()], Response::HTTP_BAD_REQUEST); }
-        }
-
         if ($request->isMethod('POST')) {
             return $this->handleSubmission($request, $business, $products, $user);
         }
@@ -168,16 +158,6 @@ class SaleController extends AbstractController
         $priceListPrices = $this->priceListItemRepository->findPricesByBusiness($business);
         $defaultPriceList = $this->priceListRepository->findDefaultActiveForBusiness($business);
         $arcaConfig = $this->arcaConfigRepository->getOrCreate($business);
-
-        $fiscalPayload = $payload['fiscal_components'] ?? [];
-        $fiscalComponents = [];
-        if (!empty($fiscalPayload)) {
-            if (!$arcaConfig->isFiscalComponentsEnabled() || !$arcaConfig->isManualFiscalComponentsEnabled()) {
-                return $this->json(['error' => 'El comercio no tiene habilitada la carga manual de tributos.'], Response::HTTP_BAD_REQUEST);
-            }
-            try { $fiscalComponents = $this->fiscalManualComponentFactory->buildForSale($business, ['fiscal_components' => $fiscalPayload]); }
-            catch (\Throwable $exception) { return $this->json(['error' => $exception->getMessage()], Response::HTTP_BAD_REQUEST); }
-        }
 
         return $this->json([
             'products' => array_map(static fn (Product $product) => [
@@ -366,25 +346,12 @@ class SaleController extends AbstractController
             $this->discountEngine->applyDiscounts($sale, $paymentMethod);
         }
 
-        $manualFiscalPayload = $request->request->all('fiscal_components');
-        $fiscalComponents = [];
-        if (is_array($manualFiscalPayload) && count($manualFiscalPayload) > 0) {
-            if (!$arcaConfig->isFiscalComponentsEnabled() || !$arcaConfig->isManualFiscalComponentsEnabled()) {
-                $this->addFlash('danger', 'El comercio no tiene habilitada la carga manual de tributos.');
-                return $this->redirectToRoute('app_sale_new');
-            }
-            try { $fiscalComponents = $this->fiscalManualComponentFactory->buildForSale($business, ['fiscal_components' => $manualFiscalPayload]); }
-            catch (\Throwable $exception) { $this->addFlash('danger', $exception->getMessage()); return $this->redirectToRoute('app_sale_new'); }
+        try {
+            $fiscalComponents = $this->buildFiscalComponentsFromPreviewPayload($payload, $business, $arcaConfig);
+        } catch (\Throwable $exception) {
+            return $this->json(['error' => $exception->getMessage()], Response::HTTP_BAD_REQUEST);
         }
-        foreach ($fiscalComponents as $fiscalComponent) { $sale->addFiscalComponent($fiscalComponent); }
-        $sale->recalculateFiscalComponentsTotal();
-        $sale->buildFiscalComponentsSnapshot();
-        $sale->setTotal(bcadd($sale->getTotal() ?? '0.00', $sale->getFiscalComponentsTotal(), 2));
-
-        $fiscalTotal = '0.00';
-        foreach ($fiscalComponents as $fiscalComponent) { if ($fiscalComponent->isAffectsTotal()) { $fiscalTotal = bcadd($fiscalTotal, $fiscalComponent->getAmount(), 2); } }
-        $sale->setFiscalComponentsTotal($fiscalTotal);
-        $sale->setTotal(bcadd($sale->getTotal() ?? '0.00', $fiscalTotal, 2));
+        $this->applyFiscalComponentsToSale($sale, $fiscalComponents);
 
         return $this->json([
             'subtotal' => $sale->getSubtotal(),
@@ -861,16 +828,14 @@ class SaleController extends AbstractController
         $sale->setPosSequence($this->nextPosSequence($business, $posNumber));
 
         $arcaConfig = $this->arcaConfigRepository->getOrCreate($business);
+        try {
+            $fiscalComponents = $this->buildFiscalComponentsFromRequest($request, $business, $arcaConfig);
+        } catch (\Throwable $exception) {
+            $this->addFlash('danger', $exception->getMessage());
 
-        $fiscalPayload = $payload['fiscal_components'] ?? [];
-        $fiscalComponents = [];
-        if (!empty($fiscalPayload)) {
-            if (!$arcaConfig->isFiscalComponentsEnabled() || !$arcaConfig->isManualFiscalComponentsEnabled()) {
-                return $this->json(['error' => 'El comercio no tiene habilitada la carga manual de tributos.'], Response::HTTP_BAD_REQUEST);
-            }
-            try { $fiscalComponents = $this->fiscalManualComponentFactory->buildForSale($business, ['fiscal_components' => $fiscalPayload]); }
-            catch (\Throwable $exception) { return $this->json(['error' => $exception->getMessage()], Response::HTTP_BAD_REQUEST); }
+            return $this->redirectToRoute('app_sale_new');
         }
+
         $subtotalCents = 0;
 
         foreach ($itemsData as $row) {
@@ -980,10 +945,7 @@ class SaleController extends AbstractController
             try { $fiscalComponents = $this->fiscalManualComponentFactory->buildForSale($business, ['fiscal_components' => $manualFiscalPayload]); }
             catch (\Throwable $exception) { $this->addFlash('danger', $exception->getMessage()); return $this->redirectToRoute('app_sale_new'); }
         }
-        foreach ($fiscalComponents as $fiscalComponent) { $sale->addFiscalComponent($fiscalComponent); }
-        $sale->recalculateFiscalComponentsTotal();
-        $sale->buildFiscalComponentsSnapshot();
-        $sale->setTotal(bcadd($sale->getTotal() ?? '0.00', $sale->getFiscalComponentsTotal(), 2));
+        $this->applyFiscalComponentsToSale($sale, $fiscalComponents);
 
         $payment = new Payment();
         $payment->setAmount($sale->getTotal());
@@ -1366,6 +1328,51 @@ class SaleController extends AbstractController
     private function buildCreditNoteQrUrl(ArcaCreditNote $creditNote, ?BusinessArcaConfig $config): ?string
     {
         return $this->arcaQrService->buildQrUrl($creditNote, $config);
+    }
+
+    /**
+     * @return array<int, \App\Entity\FiscalComponent>
+     */
+    private function buildFiscalComponentsFromPreviewPayload(array $payload, Business $business, BusinessArcaConfig $arcaConfig): array
+    {
+        $fiscalPayload = $payload['fiscal_components'] ?? [];
+        if (!is_array($fiscalPayload) || $fiscalPayload === []) {
+            return [];
+        }
+        if (!$arcaConfig->isFiscalComponentsEnabled() || !$arcaConfig->isManualFiscalComponentsEnabled()) {
+            throw new AccessDeniedException('El comercio no tiene habilitada la carga manual de tributos.');
+        }
+
+        return $this->fiscalManualComponentFactory->buildForSale($business, ['fiscal_components' => $fiscalPayload]);
+    }
+
+    /**
+     * @return array<int, \App\Entity\FiscalComponent>
+     */
+    private function buildFiscalComponentsFromRequest(Request $request, Business $business, BusinessArcaConfig $arcaConfig): array
+    {
+        $manualFiscalPayload = $request->request->all('fiscal_components');
+        if (!is_array($manualFiscalPayload) || $manualFiscalPayload === []) {
+            return [];
+        }
+        if (!$arcaConfig->isFiscalComponentsEnabled() || !$arcaConfig->isManualFiscalComponentsEnabled()) {
+            throw new AccessDeniedException('El comercio no tiene habilitada la carga manual de tributos.');
+        }
+
+        return $this->fiscalManualComponentFactory->buildForSale($business, ['fiscal_components' => $manualFiscalPayload]);
+    }
+
+    /**
+     * @param array<int, \App\Entity\FiscalComponent> $fiscalComponents
+     */
+    private function applyFiscalComponentsToSale(Sale $sale, array $fiscalComponents): void
+    {
+        foreach ($fiscalComponents as $fiscalComponent) {
+            $sale->addFiscalComponent($fiscalComponent);
+        }
+        $sale->recalculateFiscalComponentsTotal();
+        $sale->buildFiscalComponentsSnapshot();
+        $sale->setTotal(bcadd($sale->getTotal() ?? '0.00', $sale->getFiscalComponentsTotal(), 2));
     }
 
     private function requireUser(): User
