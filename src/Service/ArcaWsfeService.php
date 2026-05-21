@@ -90,9 +90,9 @@ class ArcaWsfeService
             'CbteHasta' => $cbteNumero,
             'CbteFch' => $issuedAt->format('Ymd'),
             'ImpTotal' => (float) $invoice->getTotalAmount(),
-            'ImpTotConc' => 0,
+            'ImpTotConc' => (float) $invoice->getNonTaxedAmount(),
             'ImpNeto' => (float) $invoice->getNetAmount(),
-            'ImpOpEx' => 0,
+            'ImpOpEx' => (float) $invoice->getExemptAmount(),
             'ImpIVA' => (float) $invoice->getVatAmount(),
             'ImpTrib' => 0,
             'MonId' => 'PES',
@@ -103,6 +103,7 @@ class ArcaWsfeService
         $tributos = $this->buildTributosFromInvoice($invoice);
         $detail['ImpTrib'] = (float) $this->sumTributos($tributos);
         if ($tributos !== []) { $detail['Tributos'] = ['Tributo' => count($tributos) === 1 ? $tributos[0] : $tributos]; }
+        $this->validateWsfeTotals($detail);
 
         $ivaItems = $this->buildIvaItems($invoice);
         if ($ivaItems) {
@@ -272,6 +273,7 @@ class ArcaWsfeService
         $tributos = $this->buildTributosFromSnapshot($associatedInvoice->getFiscalComponentsSnapshot());
         $detail['ImpTrib'] = (float) $this->sumTributos($tributos);
         if ($tributos !== []) { $detail['Tributos'] = ['Tributo' => count($tributos) === 1 ? $tributos[0] : $tributos]; }
+        $this->validateWsfeTotals($detail);
 
         $ivaItems = $this->buildIvaItemsFromSnapshot($note->getItemsSnapshot(), $note->getVatAmount());
         if ($ivaItems) {
@@ -580,6 +582,84 @@ class ArcaWsfeService
             '0', '0.0', '0.00' => 3,
             default => 5,
         };
+    }
+
+
+    /**
+     * @return array<int, array<string, float|int|string>>
+     */
+    private function buildTributosFromInvoice(ArcaInvoice $invoice): array
+    {
+        return $this->buildTributosFromSnapshot($invoice->getFiscalComponentsSnapshot());
+    }
+
+    /**
+     * @param array<int, array<string, mixed>>|null $snapshot
+     * @return array<int, array<string, float|int|string>>
+     */
+    private function buildTributosFromSnapshot(?array $snapshot): array
+    {
+        if (!$snapshot) {
+            return [];
+        }
+
+        $tributos = [];
+        foreach ($snapshot as $component) {
+            $reportToArca = (bool) ($component['reportToArca'] ?? false);
+            $amount = bcadd((string) ($component['amount'] ?? '0'), '0', 2);
+            if (!$reportToArca || bccomp($amount, '0', 2) <= 0) {
+                continue;
+            }
+            $tributeId = $component['arcaTributeId'] ?? null;
+            $description = trim((string) ($component['description'] ?? ''));
+            if ($tributeId === null || $tributeId === '') {
+                throw new \RuntimeException(sprintf('El tributo %s se marcó para informar a ARCA pero no tiene código de tributo configurado.', $description !== '' ? $description : '(sin descripción)'));
+            }
+            $base = bcadd((string) ($component['taxableBase'] ?? '0'), '0', 2);
+            $rateRaw = $component['rate'] ?? '0';
+            $rate = $rateRaw === null || $rateRaw === '' ? '0' : (string) $rateRaw;
+
+            $tributos[] = [
+                'Id' => (int) $tributeId,
+                'Desc' => $description !== '' ? $description : 'Tributo',
+                'BaseImp' => (float) $base,
+                'Alic' => (float) bcadd($rate, '0', 4),
+                'Importe' => (float) $amount,
+            ];
+        }
+
+        return $tributos;
+    }
+
+    /**
+     * @param array<int, array<string, float|int|string>> $tributos
+     */
+    private function sumTributos(array $tributos): string
+    {
+        $total = '0.00';
+        foreach ($tributos as $tributo) {
+            $total = bcadd($total, (string) ($tributo['Importe'] ?? '0'), 2);
+        }
+
+        return $total;
+    }
+
+    /**
+     * @param array<string, mixed> $detail
+     */
+    private function validateWsfeTotals(array $detail): void
+    {
+        $impTotal = bcadd((string) ($detail['ImpTotal'] ?? '0'), '0', 2);
+        $sum = '0.00';
+        $sum = bcadd($sum, bcadd((string) ($detail['ImpNeto'] ?? '0'), '0', 2), 2);
+        $sum = bcadd($sum, bcadd((string) ($detail['ImpIVA'] ?? '0'), '0', 2), 2);
+        $sum = bcadd($sum, bcadd((string) ($detail['ImpTrib'] ?? '0'), '0', 2), 2);
+        $sum = bcadd($sum, bcadd((string) ($detail['ImpTotConc'] ?? '0'), '0', 2), 2);
+        $sum = bcadd($sum, bcadd((string) ($detail['ImpOpEx'] ?? '0'), '0', 2), 2);
+        $diff = bcsub($impTotal, $sum, 2);
+        if (bccomp(ltrim($diff, '-'), '0.01', 2) === 1) {
+            throw new \RuntimeException('El total del comprobante ARCA no coincide con la suma de neto, IVA, tributos, no gravado y exento.');
+        }
     }
 
     /**

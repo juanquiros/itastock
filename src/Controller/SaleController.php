@@ -935,16 +935,6 @@ class SaleController extends AbstractController
             $this->discountEngine->applyDiscounts($sale, $paymentMethod);
         }
 
-        $manualFiscalPayload = $request->request->all('fiscal_components');
-        $fiscalComponents = [];
-        if (is_array($manualFiscalPayload) && count($manualFiscalPayload) > 0) {
-            if (!$arcaConfig->isFiscalComponentsEnabled() || !$arcaConfig->isManualFiscalComponentsEnabled()) {
-                $this->addFlash('danger', 'El comercio no tiene habilitada la carga manual de tributos.');
-                return $this->redirectToRoute('app_sale_new');
-            }
-            try { $fiscalComponents = $this->fiscalManualComponentFactory->buildForSale($business, ['fiscal_components' => $manualFiscalPayload]); }
-            catch (\Throwable $exception) { $this->addFlash('danger', $exception->getMessage()); return $this->redirectToRoute('app_sale_new'); }
-        }
         $this->applyFiscalComponentsToSale($sale, $fiscalComponents);
 
         $payment = new Payment();
