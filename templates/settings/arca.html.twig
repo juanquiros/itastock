@@ -41,6 +41,14 @@
                     <div class="col-lg-6">
                         {{ form_row(form.passphrase) }}
                     </div>
+                    <div class="col-12"><hr><h2 class="h6 mb-2">Configuración fiscal avanzada</h2></div>
+                    <div class="col-lg-4">{{ form_row(form.fiscalComponentsEnabled) }}</div>
+                    <div class="col-lg-4">{{ form_row(form.manualFiscalComponentsEnabled) }}</div>
+                    <div class="col-lg-4">{{ form_row(form.fiscalTransparencyEnabled) }}</div>
+                    <div class="col-lg-6">{{ form_row(form.defaultIibbJurisdiction) }}</div>
+                    <div class="col-lg-2">{{ form_row(form.defaultArcaTributeInternalTaxId) }}</div>
+                    <div class="col-lg-2">{{ form_row(form.defaultArcaTributeIibbPerceptionId) }}</div>
+                    <div class="col-lg-2">{{ form_row(form.defaultArcaTributeVatPerceptionId) }}</div>
                     <div class="col-lg-6">
                         {{ form_row(form.certFile, {
                             help: 'Subí el archivo .crt/.pem'

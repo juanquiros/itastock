@@ -56,6 +56,27 @@ class BusinessArcaConfig
     #[ORM\Column(type: 'decimal', precision: 5, scale: 2, options: ['default' => '21.00'])]
     private string $genericItemIvaRate = '21.00';
 
+    #[ORM\Column(options: ['default' => false])]
+    private bool $fiscalComponentsEnabled = false;
+
+    #[ORM\Column(options: ['default' => false])]
+    private bool $manualFiscalComponentsEnabled = false;
+
+    #[ORM\Column(options: ['default' => false])]
+    private bool $fiscalTransparencyEnabled = false;
+
+    #[ORM\Column(length: 80, nullable: true)]
+    private ?string $defaultIibbJurisdiction = null;
+
+    #[ORM\Column(nullable: true)]
+    private ?int $defaultArcaTributeInternalTaxId = null;
+
+    #[ORM\Column(nullable: true)]
+    private ?int $defaultArcaTributeIibbPerceptionId = null;
+
+    #[ORM\Column(nullable: true)]
+    private ?int $defaultArcaTributeVatPerceptionId = null;
+
     #[ORM\Column]
     private ?DateTimeImmutable $createdAt = null;
 
@@ -216,6 +237,90 @@ class BusinessArcaConfig
     public function setGenericItemIvaRate(string $genericItemIvaRate): self
     {
         $this->genericItemIvaRate = number_format((float) $genericItemIvaRate, 2, '.', '');
+
+        return $this;
+    }
+
+    public function isFiscalComponentsEnabled(): bool
+    {
+        return $this->fiscalComponentsEnabled;
+    }
+
+    public function setFiscalComponentsEnabled(bool $fiscalComponentsEnabled): self
+    {
+        $this->fiscalComponentsEnabled = $fiscalComponentsEnabled;
+
+        return $this;
+    }
+
+    public function isManualFiscalComponentsEnabled(): bool
+    {
+        return $this->manualFiscalComponentsEnabled;
+    }
+
+    public function setManualFiscalComponentsEnabled(bool $manualFiscalComponentsEnabled): self
+    {
+        $this->manualFiscalComponentsEnabled = $manualFiscalComponentsEnabled;
+
+        return $this;
+    }
+
+    public function isFiscalTransparencyEnabled(): bool
+    {
+        return $this->fiscalTransparencyEnabled;
+    }
+
+    public function setFiscalTransparencyEnabled(bool $fiscalTransparencyEnabled): self
+    {
+        $this->fiscalTransparencyEnabled = $fiscalTransparencyEnabled;
+
+        return $this;
+    }
+
+    public function getDefaultIibbJurisdiction(): ?string
+    {
+        return $this->defaultIibbJurisdiction;
+    }
+
+    public function setDefaultIibbJurisdiction(?string $defaultIibbJurisdiction): self
+    {
+        $this->defaultIibbJurisdiction = $defaultIibbJurisdiction;
+
+        return $this;
+    }
+
+    public function getDefaultArcaTributeInternalTaxId(): ?int
+    {
+        return $this->defaultArcaTributeInternalTaxId;
+    }
+
+    public function setDefaultArcaTributeInternalTaxId(?int $defaultArcaTributeInternalTaxId): self
+    {
+        $this->defaultArcaTributeInternalTaxId = $defaultArcaTributeInternalTaxId;
+
+        return $this;
+    }
+
+    public function getDefaultArcaTributeIibbPerceptionId(): ?int
+    {
+        return $this->defaultArcaTributeIibbPerceptionId;
+    }
+
+    public function setDefaultArcaTributeIibbPerceptionId(?int $defaultArcaTributeIibbPerceptionId): self
+    {
+        $this->defaultArcaTributeIibbPerceptionId = $defaultArcaTributeIibbPerceptionId;
+
+        return $this;
+    }
+
+    public function getDefaultArcaTributeVatPerceptionId(): ?int
+    {
+        return $this->defaultArcaTributeVatPerceptionId;
+    }
+
+    public function setDefaultArcaTributeVatPerceptionId(?int $defaultArcaTributeVatPerceptionId): self
+    {
+        $this->defaultArcaTributeVatPerceptionId = $defaultArcaTributeVatPerceptionId;
 
         return $this;
     }

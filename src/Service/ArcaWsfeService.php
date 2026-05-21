@@ -100,6 +100,10 @@ class ArcaWsfeService
             'CondicionIVAReceptorId' => $receiverIvaConditionId,
         ];
 
+        $tributos = $this->buildTributosFromInvoice($invoice);
+        $detail['ImpTrib'] = (float) $this->sumTributos($tributos);
+        if ($tributos !== []) { $detail['Tributos'] = ['Tributo' => count($tributos) === 1 ? $tributos[0] : $tributos]; }
+
         $ivaItems = $this->buildIvaItems($invoice);
         if ($ivaItems) {
             $detail['Iva'] = [
@@ -264,6 +268,10 @@ class ArcaWsfeService
                 ],
             ],
         ];
+
+        $tributos = $this->buildTributosFromSnapshot($associatedInvoice->getFiscalComponentsSnapshot());
+        $detail['ImpTrib'] = (float) $this->sumTributos($tributos);
+        if ($tributos !== []) { $detail['Tributos'] = ['Tributo' => count($tributos) === 1 ? $tributos[0] : $tributos]; }
 
         $ivaItems = $this->buildIvaItemsFromSnapshot($note->getItemsSnapshot(), $note->getVatAmount());
         if ($ivaItems) {
@@ -504,8 +512,10 @@ class ArcaWsfeService
     private function resolveCbteTipoCode(string $cbteTipo): int
     {
         return match ($cbteTipo) {
+            ArcaInvoice::CBTE_FACTURA_A => 1,
             ArcaInvoice::CBTE_FACTURA_B => 6,
             ArcaInvoice::CBTE_FACTURA_C => 11,
+            ArcaCreditNote::CBTE_NC_A => 3,
             ArcaCreditNote::CBTE_NC_B => 8,
             ArcaCreditNote::CBTE_NC_C => 13,
             default => 11,
