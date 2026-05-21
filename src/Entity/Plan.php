@@ -111,6 +111,24 @@ class Plan
         return $this;
     }
 
+
+    public function getFeatures(): array
+    {
+        $features = $this->featuresJson;
+
+        if (!is_string($features) || trim($features) === '') {
+            return [];
+        }
+
+        $decoded = json_decode($features, true);
+
+        if (!is_array($decoded)) {
+            return [];
+        }
+
+        return array_values(array_filter($decoded, static fn ($item) => is_scalar($item) && trim((string) $item) !== ''));
+    }
+
     public function isActive(): bool
     {
         return $this->isActive;
