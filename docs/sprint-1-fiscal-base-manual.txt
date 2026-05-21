@@ -1,0 +1,27 @@
+Sprint 1 — Núcleo Fiscal Base Manual
+
+Qué implementa:
+- FiscalComponent.
+- carga manual de tributos.
+- ventas con tributos.
+- compras con tributos.
+- reporte fiscal básico.
+- preparación para ARCA Tributos.
+- corrección Factura A/B/C.
+
+Qué no implementa:
+- padrones.
+- reglas automáticas.
+- liquidaciones.
+- presentaciones fiscales.
+- contabilidad completa.
+- Factura M.
+- Factura A con leyenda.
+
+Advertencia:
+ItaStock no reemplaza al contador. Esta etapa permite registrar, discriminar y exportar información fiscal para operar correctamente y facilitar el trabajo contable.
+
+Próximos pasos:
+- Sprint 2: integrar ImpTrib/Tributos en WSFE si no quedó implementado completo.
+- Sprint 2: FiscalRule y FiscalEngine para reglas automáticas internas.
+- Sprint 3: padrones/APIs externos con cache, evidencia y auditoría.

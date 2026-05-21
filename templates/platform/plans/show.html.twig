@@ -17,7 +17,7 @@
     <div class="card">
         <div class="card-header">Características</div>
         <div class="card-body">
-            {% set features = plan.featuresJson ? plan.featuresJson|json_decode : [] %}
+            {% set features = plan.features|default([]) %}
             {% if features is iterable and features|length > 0 %}
                 <ul>
                     {% for item in features %}

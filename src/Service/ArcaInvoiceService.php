@@ -21,6 +21,7 @@ class ArcaInvoiceService
         private readonly PricingService $pricingService,
         private readonly ArcaWsaaService $wsaaService,
         private readonly ArcaWsfeService $wsfeService,
+        private readonly FiscalDocumentTypeResolver $fiscalDocumentTypeResolver,
     ) {
     }
 
@@ -38,13 +39,27 @@ class ArcaInvoiceService
         $invoice->setStatus(ArcaInvoice::STATUS_DRAFT);
         $invoice->setArcaPosNumber($membership->getArcaPosNumber() ?? 1);
         $invoice->setIssuedAt(new DateTimeImmutable());
-        $invoice->setCbteTipo($this->resolveCbteTipo($config));
+$receiverIvaConditionId = $sale->getCustomer()?->getIvaConditionId() ?? $config->getDefaultReceiverIvaConditionId();
+        $invoice->setReceiverIvaConditionId($receiverIvaConditionId);
+        $invoice->setReceiverCustomer($sale->getCustomer());
+        $invoice->setCbteTipo($this->fiscalDocumentTypeResolver->resolve($config, $receiverIvaConditionId));
 
         $snapshot = $this->buildItemsSnapshot($sale, $priceMode, $config);
         $invoice->setItemsSnapshot($snapshot['items']);
         $invoice->setNetAmount($snapshot['netAmount']);
         $invoice->setVatAmount($snapshot['vatAmount']);
-        $invoice->setTotalAmount($snapshot['totalAmount']);
+$invoice->setFiscalComponentsSnapshot($sale->getFiscalComponentsSnapshot());
+        $invoice->setFiscalComponentsTotal($sale->getFiscalComponentsTotal());
+        $invoice->setExemptAmount($sale->getExemptAmount() ?? '0.00');
+        $invoice->setNonTaxedAmount($sale->getNonTaxedAmount() ?? '0.00');
+        // ARCA total must match ImpNeto + ImpIVA + ImpTrib + ImpOpEx + ImpTotConc.
+        $totalAmount = '0.00';
+        $totalAmount = bcadd($totalAmount, $invoice->getNetAmount(), 2);
+        $totalAmount = bcadd($totalAmount, $invoice->getVatAmount(), 2);
+        $totalAmount = bcadd($totalAmount, $invoice->getFiscalComponentsTotal(), 2);
+        $totalAmount = bcadd($totalAmount, $invoice->getExemptAmount(), 2);
+        $totalAmount = bcadd($totalAmount, $invoice->getNonTaxedAmount(), 2);
+        $invoice->setTotalAmount($totalAmount);
 
         $this->entityManager->persist($invoice);
         $this->entityManager->flush();

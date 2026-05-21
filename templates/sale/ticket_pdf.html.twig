@@ -24,6 +24,22 @@
 <body>
     {% set headerLines = business.ticketHeaderLines ? business.ticketHeaderLines|replace({'\r': ''})|split('\n') : [] %}
 
+
+    {% set fiscalEnabled = business.arcaConfig is defined and business.arcaConfig and business.arcaConfig.fiscalTransparencyEnabled %}
+    {% set fiscalSnapshot = sale.fiscalComponentsSnapshot|default([]) %}
+    {% if fiscalSnapshot is not iterable %}{% set fiscalSnapshot = [] %}{% endif %}
+    {% set fiscalTotal = sale.fiscalComponentsTotal|default('0.00') + 0 %}
+    {% set taxableAmount = sale.taxableAmount|default('0.00') + 0 %}
+    {% set vatAmount = sale.vatAmount|default('0.00') + 0 %}
+    {% set internalTaxesTotal = 0 %}
+    {% for component in fiscalSnapshot %}
+        {% if component.componentType|default('') == 'INTERNAL_TAX' %}
+            {% set internalTaxesTotal = internalTaxesTotal + (component.amount|default('0.00') + 0) %}
+        {% endif %}
+    {% endfor %}
+    {% set hasInternalTaxes = internalTaxesTotal > 0 %}
+    {% set showFiscalDetail = fiscalEnabled and (taxableAmount > 0 or vatAmount > 0 or fiscalTotal > 0 or hasInternalTaxes) %}
+
     <div class="doc-title">
         <div class="type">REMITO DE VENTA</div>
         <div class="number">N° {{ remitoNumber }}</div>
@@ -114,6 +130,17 @@
         {% endif %}
         <div><strong>Total:</strong> ${{ sale.total }}</div>
     </div>
+
+    {% if showFiscalDetail %}
+        <div style="border-top:1px solid #ddd; margin-top:8px; padding-top:6px; font-size:11px; text-align:right;">
+            <div style="text-align:left; font-weight:bold; margin-bottom:4px;">Detalle fiscal</div>
+            {% if taxableAmount > 0 %}<div><strong>Neto:</strong> ${{ taxableAmount|number_format(2, '.', '') }}</div>{% endif %}
+            {% if vatAmount > 0 %}<div><strong>IVA:</strong> ${{ vatAmount|number_format(2, '.', '') }}</div>{% endif %}
+            {% if fiscalTotal > 0 %}<div><strong>Tributos/percepciones:</strong> ${{ fiscalTotal|number_format(2, '.', '') }}</div>{% endif %}
+            {% if hasInternalTaxes %}<div><strong>Otros impuestos nacionales indirectos:</strong> ${{ internalTaxesTotal|number_format(2, '.', '') }}</div>{% endif %}
+            <div><strong>Total:</strong> ${{ (sale.total|default('0.00') + 0)|number_format(2, '.', '') }}</div>
+        </div>
+    {% endif %}
 
     <h2>Pagos</h2>
     <ul>

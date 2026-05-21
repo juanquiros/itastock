@@ -1,0 +1,26 @@
+Sprint 1B — Cierre Productivo del Núcleo Fiscal Manual
+
+Operativo:
+- Configuración fiscal avanzada en ARCA por comercio.
+- Carga manual de tributos en ventas (backend + preview).
+- Preparación de A/B/C según condición fiscal.
+- Preparación y envío de ImpTrib/Tributos en WSFE cuando corresponde.
+- Base de columnas fiscales en compras proveedor.
+
+Cómo habilitar:
+1) Ir a Configuración ARCA.
+2) Activar "Habilitar componentes fiscales adicionales".
+3) Activar "Permitir carga manual de tributos en POS" para habilitar carga desde POS.
+4) Activar "Mostrar transparencia fiscal" para mostrar detalle opcional en comprobantes.
+
+Errores ARCA esperables:
+- Si un tributo reportable no tiene código ARCA, la emisión se bloquea con mensaje claro.
+
+Reporte y export:
+- Queda pendiente de completar en Sprint siguiente si no está habilitado en esta etapa.
+
+Alcance fuera de esta etapa:
+- Sin padrones ni APIs externas.
+- Sin reglas automáticas.
+- Sin liquidación fiscal.
+- El contador valida alícuotas/códigos y criterios fiscales.

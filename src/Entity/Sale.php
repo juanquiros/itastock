@@ -74,12 +74,36 @@ class Sale
     #[ORM\OneToMany(mappedBy: 'sale', targetEntity: SaleDiscount::class, cascade: ['persist'], orphanRemoval: true)]
     private Collection $saleDiscounts;
 
+    #[ORM\Column(type: 'decimal', precision: 12, scale: 2, options: ['default' => '0.00'])]
+    private string $fiscalComponentsTotal = '0.00';
+
+    #[ORM\Column(type: 'decimal', precision: 12, scale: 2, nullable: true)]
+    private ?string $taxableAmount = null;
+
+    #[ORM\Column(type: 'decimal', precision: 12, scale: 2, nullable: true)]
+    private ?string $vatAmount = null;
+
+    #[ORM\Column(type: 'decimal', precision: 12, scale: 2, nullable: true)]
+    private ?string $exemptAmount = null;
+
+    #[ORM\Column(type: 'decimal', precision: 12, scale: 2, nullable: true)]
+    private ?string $nonTaxedAmount = null;
+
+    #[ORM\Column(type: 'json', nullable: true)]
+    private ?array $fiscalComponentsSnapshot = null;
+
+    /** @var Collection<int, FiscalComponent> */
+    #[ORM\OneToMany(mappedBy: 'sale', targetEntity: FiscalComponent::class, cascade: ['persist'], orphanRemoval: true)]
+    private Collection $fiscalComponents;
+
+
     public function __construct()
     {
         $this->createdAt = new \DateTimeImmutable();
         $this->items = new ArrayCollection();
         $this->payments = new ArrayCollection();
         $this->saleDiscounts = new ArrayCollection();
+        $this->fiscalComponents = new ArrayCollection();
     }
 
     public function getId(): ?int
@@ -329,4 +353,24 @@ class Sale
 
         return $this;
     }
+
+    /** @return Collection<int, FiscalComponent> */
+    public function getFiscalComponents(): Collection { return $this->fiscalComponents; }
+    public function addFiscalComponent(FiscalComponent $component): self { if (!$this->fiscalComponents->contains($component)) { $this->fiscalComponents->add($component); $component->setSale($this);} return $this; }
+    public function removeFiscalComponent(FiscalComponent $component): self { if ($this->fiscalComponents->removeElement($component) && $component->getSale() === $this) { $component->setSale(null);} return $this; }
+    public function getFiscalComponentsTotal(): string { return $this->fiscalComponentsTotal; }
+    public function setFiscalComponentsTotal(string $fiscalComponentsTotal): self { $this->fiscalComponentsTotal = bcadd($fiscalComponentsTotal, '0', 2); return $this; }
+    public function recalculateFiscalComponentsTotal(): self { $total='0.00'; foreach($this->fiscalComponents as $c){ if($c->isAffectsTotal()){$total=bcadd($total,$c->getAmount(),2);} } $this->fiscalComponentsTotal=$total; return $this; }
+    public function getTaxableAmount(): ?string { return $this->taxableAmount; }
+    public function setTaxableAmount(?string $taxableAmount): self { $this->taxableAmount = $taxableAmount===null?null:bcadd($taxableAmount,'0',2); return $this; }
+    public function getVatAmount(): ?string { return $this->vatAmount; }
+    public function setVatAmount(?string $vatAmount): self { $this->vatAmount = $vatAmount===null?null:bcadd($vatAmount,'0',2); return $this; }
+    public function getExemptAmount(): ?string { return $this->exemptAmount; }
+    public function setExemptAmount(?string $exemptAmount): self { $this->exemptAmount = $exemptAmount===null?null:bcadd($exemptAmount,'0',2); return $this; }
+    public function getNonTaxedAmount(): ?string { return $this->nonTaxedAmount; }
+    public function setNonTaxedAmount(?string $nonTaxedAmount): self { $this->nonTaxedAmount = $nonTaxedAmount===null?null:bcadd($nonTaxedAmount,'0',2); return $this; }
+    public function getFiscalComponentsSnapshot(): ?array { return $this->fiscalComponentsSnapshot; }
+    public function setFiscalComponentsSnapshot(?array $fiscalComponentsSnapshot): self { $this->fiscalComponentsSnapshot = $fiscalComponentsSnapshot; return $this; }
+    public function buildFiscalComponentsSnapshot(): self { $this->fiscalComponentsSnapshot = array_map(static fn(FiscalComponent $c)=>$c->toSnapshotArray(), $this->fiscalComponents->toArray()); return $this; }
+
 }

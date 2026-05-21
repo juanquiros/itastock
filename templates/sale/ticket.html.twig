@@ -243,6 +243,33 @@
                         <div class="h4 mb-0 fw-bold">${{ sale.total }}</div>
                     </div>
 
+
+                    {% set fiscalEnabled = sale.business.arcaConfig is defined and sale.business.arcaConfig and sale.business.arcaConfig.fiscalTransparencyEnabled %}
+                    {% set fiscalSnapshot = sale.fiscalComponentsSnapshot|default([]) %}
+                    {% if fiscalSnapshot is not iterable %}{% set fiscalSnapshot = [] %}{% endif %}
+                    {% set fiscalTotal = sale.fiscalComponentsTotal|default('0.00') + 0 %}
+                    {% set taxableAmount = sale.taxableAmount|default('0.00') + 0 %}
+                    {% set vatAmount = sale.vatAmount|default('0.00') + 0 %}
+                    {% set internalTaxesTotal = 0 %}
+                    {% for component in fiscalSnapshot %}
+                        {% if component.componentType|default('') == 'INTERNAL_TAX' %}
+                            {% set internalTaxesTotal = internalTaxesTotal + (component.amount|default('0.00') + 0) %}
+                        {% endif %}
+                    {% endfor %}
+                    {% set hasInternalTaxes = internalTaxesTotal > 0 %}
+                    {% set showFiscalDetail = fiscalEnabled and (taxableAmount > 0 or vatAmount > 0 or fiscalTotal > 0 or hasInternalTaxes) %}
+
+                    {% if showFiscalDetail %}
+                        <div class="mt-3 pt-2 border-top small">
+                            <div class="fw-semibold mb-1">Detalle fiscal</div>
+                            {% if taxableAmount > 0 %}<div class="d-flex justify-content-between"><span>Neto</span><span>${{ taxableAmount|number_format(2, '.', '') }}</span></div>{% endif %}
+                            {% if vatAmount > 0 %}<div class="d-flex justify-content-between"><span>IVA</span><span>${{ vatAmount|number_format(2, '.', '') }}</span></div>{% endif %}
+                            {% if fiscalTotal > 0 %}<div class="d-flex justify-content-between"><span>Tributos/percepciones</span><span>${{ fiscalTotal|number_format(2, '.', '') }}</span></div>{% endif %}
+                            {% if hasInternalTaxes %}<div class="d-flex justify-content-between"><span>Otros impuestos nacionales indirectos</span><span>${{ internalTaxesTotal|number_format(2, '.', '') }}</span></div>{% endif %}
+                            <div class="d-flex justify-content-between fw-semibold"><span>Total</span><span>${{ (sale.total|default('0.00') + 0)|number_format(2, '.', '') }}</span></div>
+                        </div>
+                    {% endif %}
+
                     {% if sale.status == 'CONFIRMED' and is_granted('BUSINESS_ADMIN') and (arcaInvoice is empty or arcaInvoice.status != 'AUTHORIZED') %}
                         <div class="mt-3 text-end">
                             <button class="btn btn-outline-danger" data-bs-toggle="modal" data-bs-target="#voidSaleModal">Anular venta</button>

@@ -17,6 +17,7 @@ class ArcaInvoice
     public const STATUS_REJECTED = 'REJECTED';
     public const STATUS_CANCELLED = 'CANCELLED';
 
+    public const CBTE_FACTURA_A = 'FACTURA_A';
     public const CBTE_FACTURA_B = 'FACTURA_B';
     public const CBTE_FACTURA_C = 'FACTURA_C';
 
@@ -63,6 +64,19 @@ class ArcaInvoice
 
     #[ORM\Column(type: 'decimal', precision: 10, scale: 2)]
     private string $totalAmount = '0.00';
+
+    #[ORM\Column(type: 'decimal', precision: 12, scale: 2, options: ['default' => '0.00'])]
+    private string $fiscalComponentsTotal = '0.00';
+
+    #[ORM\Column(type: 'json', nullable: true)]
+    private ?array $fiscalComponentsSnapshot = null;
+
+    #[ORM\Column(type: 'decimal', precision: 12, scale: 2, options: ['default' => '0.00'])]
+    private string $exemptAmount = '0.00';
+
+    #[ORM\Column(type: 'decimal', precision: 12, scale: 2, options: ['default' => '0.00'])]
+    private string $nonTaxedAmount = '0.00';
+
 
     #[ORM\Column(type: 'json', nullable: true)]
     private ?array $itemsSnapshot = null;
@@ -354,4 +368,13 @@ class ArcaInvoice
     {
         return $this->updatedAt;
     }
+    public function getFiscalComponentsTotal(): string { return $this->fiscalComponentsTotal; }
+    public function setFiscalComponentsTotal(string $fiscalComponentsTotal): self { $this->fiscalComponentsTotal = bcadd($fiscalComponentsTotal, '0', 2); return $this; }
+    public function getFiscalComponentsSnapshot(): ?array { return $this->fiscalComponentsSnapshot; }
+    public function setFiscalComponentsSnapshot(?array $fiscalComponentsSnapshot): self { $this->fiscalComponentsSnapshot = $fiscalComponentsSnapshot; return $this; }
+    public function getExemptAmount(): string { return $this->exemptAmount; }
+    public function setExemptAmount(string $exemptAmount): self { $this->exemptAmount = bcadd($exemptAmount, '0', 2); return $this; }
+    public function getNonTaxedAmount(): string { return $this->nonTaxedAmount; }
+    public function setNonTaxedAmount(string $nonTaxedAmount): self { $this->nonTaxedAmount = bcadd($nonTaxedAmount, '0', 2); return $this; }
+
 }

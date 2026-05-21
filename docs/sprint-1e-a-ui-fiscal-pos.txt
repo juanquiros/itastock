@@ -1,0 +1,33 @@
+Sprint 1E-A — UI fiscal manual en POS
+
+Implementado:
+- Bloque colapsable "Tributos adicionales / percepciones" en POS.
+- Visible solo cuando fiscalComponentsEnabled=true y manualFiscalComponentsEnabled=true.
+- Alta y baja de filas de tributos manuales.
+- Inputs con estructura fiscal_components[index][campo].
+- Checkboxes con hidden fallback (0/1) para reportToArca y affectsTotal.
+- Integración de fiscal_components en payload de preview.
+- Línea de resumen "Tributos / percepciones" en totales cuando fiscalComponentsTotal > 0.
+- Submit final incluye fiscal_components dentro del formulario de venta.
+
+Cómo habilitar:
+1) Configuración ARCA del comercio.
+2) Activar fiscalComponentsEnabled.
+3) Activar manualFiscalComponentsEnabled.
+
+Campos enviados por fila:
+- componentType
+- description
+- jurisdiction
+- taxableBase
+- rate
+- amount
+- arcaTributeId
+- reportToArca
+- affectsTotal
+
+Pendiente para próximos pasos:
+- Compras proveedor con tributos (Sprint 1E-B).
+- Reporte fiscal y CSV.
+- Detalle fiscal en tickets/PDF.
+- Reglas automáticas internas.

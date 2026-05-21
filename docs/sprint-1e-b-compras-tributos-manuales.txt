@@ -1,0 +1,40 @@
+Sprint 1E-B — Compras proveedor con tributos manuales
+
+Implementado:
+- Integración de fiscal_components en PurchaseInvoiceController.
+- Construcción de FiscalComponent vía FiscalManualComponentFactory (source PURCHASE_INVOICE).
+- Reemplazo de componentes en cada guardado para evitar duplicados.
+- Recalculo de:
+  - fiscalComponentsTotal
+  - internalTaxesTotal
+  - perceptionsTotal
+  - otherTaxesTotal
+- Snapshot fiscal en PurchaseInvoice.
+- Validación total de compra: neto + IVA + tributos (tolerancia 0.01).
+- UI en compras (nueva y desde pedido) para cargar tributos/percepciones sufridas.
+
+Cómo cargar tributos:
+- Abrir compra proveedor.
+- Expandir “Tributos / percepciones sufridas”.
+- Agregar filas con tipo, descripción, base, alícuota e importe.
+- Guardar compra.
+
+Tipos soportados:
+- INTERNAL_TAX: impuesto interno
+- IIBB_PERCEPTION: percepción IIBB
+- VAT_PERCEPTION: percepción IVA
+- MUNICIPAL_TAX: tasa municipal
+- NATIONAL_OTHER_TAX: otro impuesto nacional
+- OTHER: otro tributo
+
+Validación de total:
+- Si Total != Neto + IVA + Tributos (±0.01), no guarda y muestra error.
+
+No cubierto todavía:
+- Reporte fiscal y CSV
+- Detalle fiscal en tickets/PDF
+- Reglas automáticas
+- Padrones externos
+
+Nota:
+ItaStock no liquida impuestos ni reemplaza al contador. Esta carga permite registrar tributos discriminados de facturas de proveedor.

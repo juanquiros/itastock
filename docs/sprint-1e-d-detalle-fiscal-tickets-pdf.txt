@@ -1,0 +1,30 @@
+Sprint 1E-D — Detalle fiscal opcional en comprobantes
+
+Qué se implementó:
+- Se agregó visualización fiscal opcional y compacta en ticket web, ticket PDF, factura PDF ARCA y nota de crédito PDF.
+- El detalle usa datos ya guardados/snapshot del comprobante para evitar recalcular reglas fiscales.
+
+Flag que lo activa:
+- fiscalTransparencyEnabled (BusinessArcaConfig).
+
+Comprobantes con detalle fiscal:
+- ticket web (`templates/sale/ticket.html.twig`)
+- ticket PDF (`templates/sale/ticket_pdf.html.twig`)
+- factura PDF ARCA (`templates/arca/invoice_pdf.html.twig`)
+- nota de crédito PDF (`templates/arca/credit_note_pdf.html.twig`)
+
+Datos que muestra:
+- Neto / Neto gravado (si corresponde)
+- IVA (si corresponde)
+- No gravado y Exento en factura ARCA (si > 0)
+- Tributos/percepciones (si > 0)
+- Otros impuestos nacionales indirectos (cuando hay componentes INTERNAL_TAX)
+- Total
+
+Qué pasa si no hay tributos o no hay datos suficientes:
+- No se muestran líneas vacías.
+- Si el flag está apagado, los comprobantes quedan como antes.
+- En nota de crédito, si corresponde, se muestra referencia fiscal según comprobante asociado.
+
+Aclaración:
+- ItaStock muestra información cargada/manual y datos del comprobante; no liquida impuestos ni reemplaza criterio profesional contable.

@@ -17,6 +17,7 @@ class ArcaCreditNote
     public const STATUS_REJECTED = 'REJECTED';
     public const STATUS_CANCELLED = 'CANCELLED';
 
+    public const CBTE_NC_A = 'NC_A';
     public const CBTE_NC_B = 'NC_B';
     public const CBTE_NC_C = 'NC_C';
 

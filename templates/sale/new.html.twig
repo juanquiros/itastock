@@ -159,6 +159,18 @@
 
                                 <div class="card shadow-sm">
                                     <div class="card-body">
+                                        {% if fiscalComponentsEnabled and manualFiscalComponentsEnabled %}
+                                            <div class="mb-3">
+                                                <button class="btn btn-outline-secondary btn-sm w-100 text-start" type="button" data-bs-toggle="collapse" data-bs-target="#fiscal-components-collapse" aria-expanded="false" aria-controls="fiscal-components-collapse">
+                                                    Tributos adicionales / percepciones
+                                                </button>
+                                                <div class="form-text mt-1">Usar solo cuando corresponda cargar impuestos internos, percepciones u otros tributos indicados por el contador.</div>
+                                                <div class="collapse mt-2" id="fiscal-components-collapse">
+                                                    <div id="fiscal-components-rows" class="d-flex flex-column gap-2"></div>
+                                                    <button type="button" class="btn btn-sm btn-outline-primary mt-2" id="add-fiscal-component">Agregar tributo</button>
+                                                </div>
+                                            </div>
+                                        {% endif %}
                                         <div class="d-flex align-items-center justify-content-between mb-2">
                                             <div class="text-muted">Subtotal</div>
                                             <div class="fw-semibold" id="sale-subtotal">$0.00</div>
@@ -166,6 +178,10 @@
                                         <div class="d-flex align-items-center justify-content-between mb-2">
                                             <div class="text-muted">Descuentos</div>
                                             <div class="fw-semibold text-danger" id="sale-discount-total">-$0.00</div>
+                                        </div>
+                                        <div class="d-flex align-items-center justify-content-between mb-2 d-none" id="fiscal-total-row">
+                                            <div class="text-muted">Tributos / percepciones</div>
+                                            <div class="fw-semibold" id="sale-fiscal-components-total">$0.00</div>
                                         </div>
                                         <ul class="list-unstyled small text-muted mb-3" id="sale-discounts"></ul>
                                         <div class="d-flex align-items-center justify-content-between mb-3">
@@ -333,6 +349,8 @@
             const emptyRow = document.getElementById('empty-row');
             const subtotalElement = document.getElementById('sale-subtotal');
             const discountTotalElement = document.getElementById('sale-discount-total');
+            const fiscalTotalRow = document.getElementById('fiscal-total-row');
+            const fiscalTotalElement = document.getElementById('sale-fiscal-components-total');
             const discountList = document.getElementById('sale-discounts');
             const totalElement = document.getElementById('sale-total');
             const customerSearch = document.getElementById('customer-search');
@@ -379,8 +397,13 @@
             let currentSubtotal = 0;
             let currentDiscountTotal = 0;
             let currentTotal = 0;
+            let currentFiscalComponentsTotal = 0;
             let previewTimer = null;
             let previewInFlight = false;
+            const fiscalRowsContainer = document.getElementById('fiscal-components-rows');
+            const addFiscalComponentButton = document.getElementById('add-fiscal-component');
+            const fiscalEnabled = {{ (fiscalComponentsEnabled and manualFiscalComponentsEnabled) ? 'true' : 'false' }};
+            let fiscalRowIndex = 0;
 
             function formatMoney(value) {
                 return `$${value.toFixed(2)}`;
@@ -836,6 +859,7 @@
             function applyFallbackTotals() {
                 currentSubtotal = items.reduce((sum, item) => sum + (item.price * item.qty), 0);
                 currentDiscountTotal = 0;
+                currentFiscalComponentsTotal = 0;
                 currentTotal = currentSubtotal;
 
                 if (subtotalElement) {
@@ -843,6 +867,12 @@
                 }
                 if (discountTotalElement) {
                     discountTotalElement.textContent = `-${formatMoney(currentDiscountTotal)}`;
+                }
+                if (fiscalTotalElement) {
+                    fiscalTotalElement.textContent = formatMoney(currentFiscalComponentsTotal);
+                }
+                if (fiscalTotalRow) {
+                    fiscalTotalRow.classList.add('d-none');
                 }
                 totalElement.textContent = formatMoney(currentTotal);
                 renderDiscountList([]);
@@ -856,6 +886,7 @@
 
                 currentSubtotal = parseFloat(payload.subtotal || '0');
                 currentDiscountTotal = parseFloat(payload.discountTotal || '0');
+                currentFiscalComponentsTotal = parseFloat(payload.fiscalComponentsTotal || '0');
                 currentTotal = parseFloat(payload.total || '0');
 
                 if (subtotalElement) {
@@ -863,6 +894,12 @@
                 }
                 if (discountTotalElement) {
                     discountTotalElement.textContent = `-${formatMoney(currentDiscountTotal)}`;
+                }
+                if (fiscalTotalElement) {
+                    fiscalTotalElement.textContent = formatMoney(currentFiscalComponentsTotal);
+                }
+                if (fiscalTotalRow) {
+                    fiscalTotalRow.classList.toggle('d-none', !(currentFiscalComponentsTotal > 0));
                 }
                 totalElement.textContent = formatMoney(currentTotal);
                 renderDiscountList(payload.discounts || []);
@@ -900,6 +937,7 @@
                             customer_id: selectedCustomer ? selectedCustomer.id : 0,
                             payment_method: paymentMethodModal.value,
                             final_action: finalActionModal.value,
+                            fiscal_components: fiscalEnabled ? collectFiscalComponents() : [],
                         }),
                     });
 
@@ -996,6 +1034,64 @@
                     cashGivenInput.value = '';
                 }
                 updateTotal();
+            }
+
+            function createFiscalRow(index) {
+                const wrapper = document.createElement('div');
+                wrapper.className = 'border rounded p-2';
+                wrapper.dataset.fiscalIndex = String(index);
+                wrapper.innerHTML = `
+                    <div class="row g-2">
+                        <div class="col-md-3">
+                            <select class="form-select form-select-sm" name="fiscal_components[${index}][componentType]">
+                                <option value="OTHER">Otro</option>
+                                <option value="INTERNAL_TAX">Impuestos internos</option>
+                                <option value="IIBB_PERCEPTION">Percepción Ingresos Brutos</option>
+                                <option value="VAT_PERCEPTION">Percepción IVA</option>
+                                <option value="MUNICIPAL_TAX">Tasa municipal</option>
+                                <option value="NATIONAL_OTHER_TAX">Otro impuesto nacional</option>
+                            </select>
+                        </div>
+                        <div class="col-md-5"><input class="form-control form-control-sm" name="fiscal_components[${index}][description]" placeholder="Descripción"></div>
+                        <div class="col-md-4"><input class="form-control form-control-sm" name="fiscal_components[${index}][jurisdiction]" placeholder="Jurisdicción"></div>
+                        <div class="col-md-3"><input class="form-control form-control-sm" name="fiscal_components[${index}][taxableBase]" placeholder="Base imponible"></div>
+                        <div class="col-md-2"><input class="form-control form-control-sm" name="fiscal_components[${index}][rate]" placeholder="Alícuota %"></div>
+                        <div class="col-md-2"><input class="form-control form-control-sm" name="fiscal_components[${index}][amount]" placeholder="Importe"></div>
+                        <div class="col-md-2"><input class="form-control form-control-sm" name="fiscal_components[${index}][arcaTributeId]" placeholder="Cód. ARCA"></div>
+                        <div class="col-md-2 d-flex align-items-center">
+                            <input type="hidden" name="fiscal_components[${index}][reportToArca]" value="0">
+                            <input class="form-check-input me-1" type="checkbox" name="fiscal_components[${index}][reportToArca]" value="1" checked>
+                            <label class="form-check-label small">ARCA</label>
+                        </div>
+                        <div class="col-md-2 d-flex align-items-center">
+                            <input type="hidden" name="fiscal_components[${index}][affectsTotal]" value="0">
+                            <input class="form-check-input me-1" type="checkbox" name="fiscal_components[${index}][affectsTotal]" value="1" checked>
+                            <label class="form-check-label small">Suma total</label>
+                        </div>
+                        <div class="col-12 text-end"><button type="button" class="btn btn-sm btn-link text-danger remove-fiscal-row">Quitar</button></div>
+                    </div>
+                `;
+                wrapper.querySelectorAll('input,select').forEach((el) => el.addEventListener('change', schedulePreview));
+                wrapper.querySelector('.remove-fiscal-row').addEventListener('click', () => { wrapper.remove(); schedulePreview(); });
+                return wrapper;
+            }
+
+            function collectFiscalComponents() {
+                if (!fiscalRowsContainer) return [];
+                return Array.from(fiscalRowsContainer.querySelectorAll('[data-fiscal-index]')).map((row) => {
+                    const byName = (suffix) => row.querySelector(`[name$="[${suffix}]"]`);
+                    return {
+                        componentType: byName('componentType')?.value || '',
+                        description: byName('description')?.value || '',
+                        jurisdiction: byName('jurisdiction')?.value || '',
+                        taxableBase: byName('taxableBase')?.value || '',
+                        rate: byName('rate')?.value || '',
+                        amount: byName('amount')?.value || '',
+                        arcaTributeId: byName('arcaTributeId')?.value || '',
+                        reportToArca: row.querySelector(`input[type="checkbox"][name$="[reportToArca]"]`)?.checked ? '1' : '0',
+                        affectsTotal: row.querySelector(`input[type="checkbox"][name$="[affectsTotal]"]`)?.checked ? '1' : '0',
+                    };
+                });
             }
 
             function showWorkspace() {
@@ -1311,6 +1407,13 @@
                         allowsFractional: product.allowsFractionalQty === true,
                         uomBase: product.uomBase,
                     });
+                });
+            }
+
+            if (fiscalEnabled && fiscalRowsContainer && addFiscalComponentButton) {
+                addFiscalComponentButton.addEventListener('click', () => {
+                    fiscalRowsContainer.appendChild(createFiscalRow(fiscalRowIndex++));
+                    schedulePreview();
                 });
             }
 

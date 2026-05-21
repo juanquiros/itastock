@@ -35,7 +35,7 @@ class ArcaCreditNoteService
         $note->setCreatedBy($user);
         $note->setStatus(ArcaCreditNote::STATUS_DRAFT);
         $note->setArcaPosNumber($membership->getArcaPosNumber() ?? 1);
-        $note->setCbteTipo($this->resolveCbteTipo($config));
+        $note->setCbteTipo($this->resolveCbteTipo($invoice->getCbteTipo()));
         $note->setIssuedAt(new DateTimeImmutable());
         $note->setNetAmount($invoice->getNetAmount());
         $note->setVatAmount($invoice->getVatAmount());
@@ -79,10 +79,12 @@ class ArcaCreditNoteService
         $this->entityManager->flush();
     }
 
-    private function resolveCbteTipo(BusinessArcaConfig $config): string
+    private function resolveCbteTipo(string $invoiceCbteTipo): string
     {
-        return $config->getTaxPayerType() === BusinessArcaConfig::TAX_PAYER_RESPONSABLE_INSCRIPTO
-            ? ArcaCreditNote::CBTE_NC_B
-            : ArcaCreditNote::CBTE_NC_C;
+        return match ($invoiceCbteTipo) {
+            ArcaInvoice::CBTE_FACTURA_A => ArcaCreditNote::CBTE_NC_A,
+            ArcaInvoice::CBTE_FACTURA_B => ArcaCreditNote::CBTE_NC_B,
+            default => ArcaCreditNote::CBTE_NC_C,
+        };
     }
 }
