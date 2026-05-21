@@ -16,6 +16,24 @@
     </style>
 </head>
 <body>
+
+
+    {% set fiscalEnabled = business.arcaConfig is defined and business.arcaConfig and business.arcaConfig.fiscalTransparencyEnabled %}
+    {% set relatedInvoice = creditNote.relatedInvoice|default(null) %}
+    {% set fiscalSnapshot = relatedInvoice ? relatedInvoice.fiscalComponentsSnapshot|default([]) : [] %}
+    {% if fiscalSnapshot is not iterable %}{% set fiscalSnapshot = [] %}{% endif %}
+    {% set fiscalTotal = relatedInvoice ? (relatedInvoice.fiscalComponentsTotal|default('0.00') + 0) : 0 %}
+    {% set internalTaxesTotal = 0 %}
+    {% for component in fiscalSnapshot %}
+        {% if component.componentType|default('') == 'INTERNAL_TAX' %}
+            {% set internalTaxesTotal = internalTaxesTotal + (component.amount|default('0.00') + 0) %}
+        {% endif %}
+    {% endfor %}
+    {% set hasInternalTaxes = internalTaxesTotal > 0 %}
+    {% set noteNet = creditNote.netAmount is defined ? (creditNote.netAmount|default('0.00') + 0) : 0 %}
+    {% set noteVat = creditNote.vatAmount is defined ? (creditNote.vatAmount|default('0.00') + 0) : 0 %}
+    {% set noteTotal = creditNote.totalAmount is defined ? (creditNote.totalAmount|default('0.00') + 0) : 0 %}
+    {% set showFiscalDetail = fiscalEnabled and (noteNet > 0 or noteVat > 0 or noteTotal > 0 or fiscalTotal > 0 or hasInternalTaxes) %}
     <h1>Nota de Crédito {{ creditNote.cbteTipo == 'NC_B' ? 'B' : 'C' }}</h1>
 
     <div class="meta">
@@ -86,6 +104,18 @@
         <div><strong>IVA:</strong> ${{ creditNote.vatAmount }}</div>
         <div><strong>Total:</strong> ${{ creditNote.totalAmount }}</div>
     </div>
+
+    {% if showFiscalDetail %}
+        <div style="border-top:1px solid #ddd; margin-top:8px; padding-top:6px; font-size:11px; text-align:right;">
+            <div style="text-align:left; font-weight:bold; margin-bottom:4px;">Detalle fiscal</div>
+            {% if noteNet > 0 %}<div><strong>Neto:</strong> ${{ noteNet|number_format(2, '.', '') }}</div>{% endif %}
+            {% if noteVat > 0 %}<div><strong>IVA:</strong> ${{ noteVat|number_format(2, '.', '') }}</div>{% endif %}
+            {% if fiscalTotal > 0 %}<div><strong>Tributos/percepciones:</strong> ${{ fiscalTotal|number_format(2, '.', '') }}</div>{% endif %}
+            {% if hasInternalTaxes %}<div><strong>Otros impuestos nacionales indirectos:</strong> ${{ internalTaxesTotal|number_format(2, '.', '') }}</div>{% endif %}
+            {% if relatedInvoice and (fiscalTotal > 0 or hasInternalTaxes) %}<div style="text-align:left; color:#555;">Detalle fiscal según comprobante asociado.</div>{% endif %}
+            {% if noteTotal > 0 %}<div><strong>Total:</strong> ${{ noteTotal|number_format(2, '.', '') }}</div>{% endif %}
+        </div>
+    {% endif %}
 
     <div style="margin-top:16px;">
         <div><strong>QR ARCA</strong></div>
