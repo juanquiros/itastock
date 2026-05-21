@@ -3,6 +3,8 @@
 namespace App\Controller;
 
 use App\Entity\Business;
+use App\Entity\FiscalComponent;
+use App\Repository\FiscalComponentRepository;
 use App\Security\BusinessContext;
 use App\Service\ReportService;
 use App\Service\PdfService;
@@ -24,6 +26,7 @@ class ReportController extends AbstractController
         private readonly PdfService $pdfService,
         private readonly BusinessContext $businessContext,
         private readonly Environment $twig,
+        private readonly FiscalComponentRepository $fiscalComponentRepository,
     ) {
     }
 
@@ -497,6 +500,201 @@ TWIG;
             'from' => $from,
             'to' => $to,
         ]));
+    }
+
+
+    private function parseReportDate(?string $value, bool $endOfDay = false): ?\DateTimeImmutable
+    {
+        if (!$value) {
+            return null;
+        }
+
+        $date = \DateTimeImmutable::createFromFormat('Y-m-d H:i:s', $value.($endOfDay ? ' 23:59:59' : ' 00:00:00'));
+
+        return $date ?: null;
+    }
+
+    private function normalizeFiscalFilter(?string $value, array $allowed): ?string
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        return in_array($value, $allowed, true) ? $value : null;
+    }
+
+    private function fiscalComponentLabels(): array
+    {
+        return [
+            FiscalComponent::TYPE_INTERNAL_TAX => 'Impuestos internos',
+            FiscalComponent::TYPE_IIBB_PERCEPTION => 'Percepción Ingresos Brutos',
+            FiscalComponent::TYPE_VAT_PERCEPTION => 'Percepción IVA',
+            FiscalComponent::TYPE_MUNICIPAL_TAX => 'Tasa municipal',
+            FiscalComponent::TYPE_NATIONAL_OTHER_TAX => 'Otro impuesto nacional',
+            FiscalComponent::TYPE_OTHER => 'Otro',
+        ];
+    }
+
+    private function fiscalSourceLabels(): array
+    {
+        return [
+            FiscalComponent::SOURCE_SALE => 'Venta',
+            FiscalComponent::SOURCE_PURCHASE_INVOICE => 'Compra',
+        ];
+    }
+
+    private function buildFiscalSummary(array $components): array
+    {
+        $summary = [
+            'count' => count($components),
+            'total' => '0.00',
+            'internalTaxes' => '0.00',
+            'perceptions' => '0.00',
+            'others' => '0.00',
+        ];
+
+        foreach ($components as $component) {
+            $amount = $component->getAmount() ?: '0.00';
+            $summary['total'] = bcadd($summary['total'], $amount, 2);
+
+            if ($component->getComponentType() === FiscalComponent::TYPE_INTERNAL_TAX) {
+                $summary['internalTaxes'] = bcadd($summary['internalTaxes'], $amount, 2);
+                continue;
+            }
+
+            if (in_array($component->getComponentType(), [FiscalComponent::TYPE_IIBB_PERCEPTION, FiscalComponent::TYPE_VAT_PERCEPTION], true)) {
+                $summary['perceptions'] = bcadd($summary['perceptions'], $amount, 2);
+                continue;
+            }
+
+            $summary['others'] = bcadd($summary['others'], $amount, 2);
+        }
+
+        return $summary;
+    }
+
+    #[Route('/fiscal-components', name: 'fiscal_components', methods: ['GET'])]
+    public function fiscalComponents(Request $request): Response
+    {
+        $business = $this->requireBusinessContext();
+
+        $allowedSources = [
+            FiscalComponent::SOURCE_SALE,
+            FiscalComponent::SOURCE_PURCHASE_INVOICE,
+        ];
+
+        $allowedTypes = array_keys($this->fiscalComponentLabels());
+
+        $fromInput = $request->query->get('from');
+        $toInput = $request->query->get('to');
+
+        $from = $this->parseReportDate($fromInput, false);
+        $to = $this->parseReportDate($toInput, true);
+        $sourceType = $this->normalizeFiscalFilter($request->query->get('sourceType'), $allowedSources);
+        $componentType = $this->normalizeFiscalFilter($request->query->get('componentType'), $allowedTypes);
+
+        $components = $this->fiscalComponentRepository->findForBusinessReport(
+            $business,
+            $from,
+            $to,
+            $sourceType,
+            $componentType
+        );
+
+        return $this->render('reports/fiscal_components.html.twig', [
+            'components' => $components,
+            'summary' => $this->buildFiscalSummary($components),
+            'from' => $fromInput,
+            'to' => $toInput,
+            'sourceType' => $sourceType,
+            'componentType' => $componentType,
+            'sourceLabels' => $this->fiscalSourceLabels(),
+            'componentLabels' => $this->fiscalComponentLabels(),
+        ]);
+    }
+
+    #[Route('/fiscal-components.csv', name: 'fiscal_components_csv', methods: ['GET'])]
+    public function fiscalComponentsCsv(Request $request): Response
+    {
+        $business = $this->requireBusinessContext();
+
+        $allowedSources = [
+            FiscalComponent::SOURCE_SALE,
+            FiscalComponent::SOURCE_PURCHASE_INVOICE,
+        ];
+
+        $allowedTypes = array_keys($this->fiscalComponentLabels());
+
+        $from = $this->parseReportDate($request->query->get('from'), false);
+        $to = $this->parseReportDate($request->query->get('to'), true);
+        $sourceType = $this->normalizeFiscalFilter($request->query->get('sourceType'), $allowedSources);
+        $componentType = $this->normalizeFiscalFilter($request->query->get('componentType'), $allowedTypes);
+
+        $components = $this->fiscalComponentRepository->findForBusinessReport(
+            $business,
+            $from,
+            $to,
+            $sourceType,
+            $componentType
+        );
+
+        $sourceLabels = $this->fiscalSourceLabels();
+
+        $response = new StreamedResponse();
+        $response->setCallback(static function () use ($components, $sourceLabels): void {
+            $handle = fopen('php://output', 'w');
+
+            if ($handle === false) {
+                return;
+            }
+
+            fwrite($handle, chr(0xEF).chr(0xBB).chr(0xBF));
+
+            fputcsv($handle, [
+                'fecha', 'origen', 'id_origen', 'cliente_proveedor', 'component_type', 'descripcion', 'jurisdiccion',
+                'arca_tribute_id', 'base_imponible', 'alicuota', 'importe', 'afecta_total', 'informa_arca', 'modo',
+            ], ';');
+
+            foreach ($components as $component) {
+                $sale = $component->getSale();
+                $purchase = $component->getPurchaseInvoice();
+
+                $originId = '';
+                $party = '-';
+
+                if ($sale !== null) {
+                    $originId = $sale->getId();
+                    $party = $sale->getCustomer()?->getName() ?: 'Consumidor final';
+                } elseif ($purchase !== null) {
+                    $originId = $purchase->getId();
+                    $party = $purchase->getSupplier()?->getName() ?: '-';
+                }
+
+                fputcsv($handle, [
+                    $component->getCreatedAt()?->format('Y-m-d H:i:s') ?? '',
+                    $sourceLabels[$component->getSourceType()] ?? $component->getSourceType(),
+                    $originId,
+                    $party,
+                    $component->getComponentType(),
+                    $component->getDescription(),
+                    $component->getJurisdiction() ?? '',
+                    $component->getArcaTributeId() ?? '',
+                    $component->getTaxableBase(),
+                    $component->getRate() ?? '',
+                    $component->getAmount(),
+                    $component->isAffectsTotal() ? 'SI' : 'NO',
+                    $component->isReportToArca() ? 'SI' : 'NO',
+                    $component->getMode(),
+                ], ';');
+            }
+
+            fclose($handle);
+        });
+
+        $response->headers->set('Content-Type', 'text/csv; charset=UTF-8');
+        $response->headers->set('Content-Disposition', 'attachment; filename="reporte-fiscal-componentes.csv"');
+
+        return $response;
     }
 
     private function requireBusinessContext(): Business

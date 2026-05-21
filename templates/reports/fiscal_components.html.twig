@@ -1,0 +1,103 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Reporte fiscal · ItaStock{% endblock %}
+
+{% block body %}
+    <div class="mb-4">
+        <p class="text-uppercase text-muted mb-1 small fw-semibold">Reportes</p>
+        <h1 class="h4 mb-0">Reporte fiscal</h1>
+        <p class="text-secondary mb-0">Componentes fiscales cargados en ventas y compras.</p>
+    </div>
+
+    <form method="get" class="row g-2 mb-4">
+        <div class="col-md-2">
+            <label class="form-label">Desde</label>
+            <input type="date" class="form-control" name="from" value="{{ from }}">
+        </div>
+        <div class="col-md-2">
+            <label class="form-label">Hasta</label>
+            <input type="date" class="form-control" name="to" value="{{ to }}">
+        </div>
+        <div class="col-md-3">
+            <label class="form-label">Origen</label>
+            <select class="form-select" name="sourceType">
+                <option value="">Todos</option>
+                {% for sourceValue, sourceLabel in sourceLabels %}
+                    <option value="{{ sourceValue }}" {{ sourceType == sourceValue ? 'selected' : '' }}>{{ sourceLabel }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-3">
+            <label class="form-label">Tipo de componente</label>
+            <select class="form-select" name="componentType">
+                <option value="">Todos</option>
+                {% for typeValue, typeLabel in componentLabels %}
+                    <option value="{{ typeValue }}" {{ componentType == typeValue ? 'selected' : '' }}>{{ typeLabel }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-2 d-flex align-items-end gap-2">
+            <button class="btn btn-primary">Filtrar</button>
+            <a class="btn btn-outline-secondary" href="{{ path('app_reports_fiscal_components') }}">Limpiar</a>
+        </div>
+    </form>
+
+    <div class="d-flex gap-2 mb-4">
+        <a class="btn btn-outline-primary btn-sm" href="{{ path('app_reports_fiscal_components_csv', {
+            from: from,
+            to: to,
+            sourceType: sourceType,
+            componentType: componentType
+        }) }}">CSV</a>
+    </div>
+
+    <div class="row g-3 mb-4">
+        <div class="col-md-6 col-lg-3"><div class="card shadow-sm"><div class="card-body"><p class="text-muted small mb-1">Componentes</p><p class="h5 mb-0">{{ summary.count }}</p></div></div></div>
+        <div class="col-md-6 col-lg-3"><div class="card shadow-sm"><div class="card-body"><p class="text-muted small mb-1">Total</p><p class="h5 mb-0">{{ summary.total }}</p></div></div></div>
+        <div class="col-md-6 col-lg-2"><div class="card shadow-sm"><div class="card-body"><p class="text-muted small mb-1">Impuestos internos</p><p class="h6 mb-0">{{ summary.internalTaxes }}</p></div></div></div>
+        <div class="col-md-6 col-lg-2"><div class="card shadow-sm"><div class="card-body"><p class="text-muted small mb-1">Percepciones</p><p class="h6 mb-0">{{ summary.perceptions }}</p></div></div></div>
+        <div class="col-md-6 col-lg-2"><div class="card shadow-sm"><div class="card-body"><p class="text-muted small mb-1">Otros tributos</p><p class="h6 mb-0">{{ summary.others }}</p></div></div></div>
+    </div>
+
+    <div class="card shadow-sm">
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-sm align-middle">
+                    <thead>
+                    <tr>
+                        <th>Fecha</th><th>Origen</th><th>ID origen</th><th>Cliente/Proveedor</th><th>Tipo</th><th>Descripción</th><th>Jurisdicción</th><th>Código ARCA</th><th class="text-end">Base</th><th class="text-end">Alícuota</th><th class="text-end">Importe</th><th>Afecta total</th><th>Informa ARCA</th><th>Modo</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    {% for component in components %}
+                        {% set party = '-' %}
+                        {% if component.sale %}
+                            {% set party = component.sale.customer ? component.sale.customer.name : 'Consumidor final' %}
+                        {% elseif component.purchaseInvoice %}
+                            {% set party = component.purchaseInvoice.supplier ? component.purchaseInvoice.supplier.name : '-' %}
+                        {% endif %}
+                        <tr>
+                            <td>{{ component.createdAt ? component.createdAt|date('d/m/Y H:i') : '-' }}</td>
+                            <td>{{ sourceLabels[component.sourceType] ?? component.sourceType }}</td>
+                            <td>{{ component.sale ? component.sale.id : (component.purchaseInvoice ? component.purchaseInvoice.id : '-') }}</td>
+                            <td>{{ party }}</td>
+                            <td>{{ componentLabels[component.componentType] ?? component.componentType }}</td>
+                            <td>{{ component.description }}</td>
+                            <td>{{ component.jurisdiction ?: '-' }}</td>
+                            <td>{{ component.arcaTributeId ?: '-' }}</td>
+                            <td class="text-end">{{ component.taxableBase }}</td>
+                            <td class="text-end">{{ component.rate ?: '-' }}</td>
+                            <td class="text-end">{{ component.amount }}</td>
+                            <td>{{ component.affectsTotal ? 'SI' : 'NO' }}</td>
+                            <td>{{ component.reportToArca ? 'SI' : 'NO' }}</td>
+                            <td>{{ component.mode }}</td>
+                        </tr>
+                    {% else %}
+                        <tr><td colspan="14" class="text-muted">No hay componentes fiscales para los filtros seleccionados.</td></tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+{% endblock %}

@@ -1,0 +1,35 @@
+Sprint 1E-C — Reporte fiscal y CSV
+
+Se agregó el reporte fiscal en:
+- /app/admin/reports/fiscal-components
+
+Se agregó la exportación CSV en:
+- /app/admin/reports/fiscal-components.csv
+
+Filtros disponibles:
+- desde (from)
+- hasta (to)
+- origen (sourceType: venta/compra)
+- tipo de componente (componentType)
+
+Columnas exportadas:
+- fecha
+- origen
+- id_origen
+- cliente_proveedor
+- component_type
+- descripcion
+- jurisdiccion
+- arca_tribute_id
+- base_imponible
+- alicuota
+- importe
+- afecta_total
+- informa_arca
+- modo
+
+Uso recomendado:
+- Exportar y enviar este archivo al contador para conciliación y carga en procesos fiscales externos.
+
+Aclaración:
+- ItaStock no liquida impuestos ni reemplaza al contador.
