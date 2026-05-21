@@ -1,0 +1,42 @@
+Checklist operativo — homologación fiscal manual ARCA (ItaStock)
+
+1) Preparación
+- Activar `fiscalComponentsEnabled`.
+- Activar `manualFiscalComponentsEnabled`.
+- Activar `fiscalTransparencyEnabled` solo si se desea mostrar el detalle fiscal en comprobantes.
+- Configurar códigos ARCA de tributos (internos / percepciones) con validación del contador.
+
+2) Casos POS
+- Venta normal sin tributos.
+- Venta con percepción IIBB manual.
+- Venta con impuesto interno manual.
+- Venta con tributo `affectsTotal=false`.
+
+3) Casos ARCA
+- Factura B sin tributos.
+- Factura A RI a RI sin tributos.
+- Factura A con percepción.
+- Factura B con impuesto interno.
+- Error esperado: tributo reportable sin `arcaTributeId`.
+
+4) Casos compras
+- Compra sin tributos.
+- Compra con impuesto interno.
+- Compra con percepción.
+- Edición de compra sin duplicar tributos.
+
+5) Reportes
+- Reporte fiscal en /app/admin/reports/fiscal-components.
+- Exportación CSV y validación UTF-8.
+
+6) Tickets / PDF
+- Flag apagado: salida sin cambios visuales fiscales.
+- Flag encendido: mostrar detalle fiscal cuando hay datos.
+- Factura PDF ARCA con detalle fiscal desde snapshot del invoice.
+- Nota de crédito PDF con referencia fiscal del comprobante asociado cuando aplica.
+
+7) Criterio de aprobación
+- Sin errores runtime.
+- Totales consistentes (venta/compra/ARCA).
+- CSV correcto y utilizable por contador.
+- Homologación ARCA OK con casos definidos.

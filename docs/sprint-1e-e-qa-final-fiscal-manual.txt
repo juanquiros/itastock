@@ -1,0 +1,48 @@
+Sprint 1E-E — QA final fiscal manual/controlado
+
+Qué se revisó
+- Sintaxis PHP de entidades/servicios/controladores/repo del módulo fiscal.
+- Migraciones fiscales (tabla fiscal_components, columnas en sales/purchase_invoices/arca_invoices y flags en business_arca_configs).
+- Defaults y exposición de flags en BusinessArcaConfig + formulario ARCA.
+- Rutas y filtros del reporte fiscal y export CSV por negocio actual.
+- Templates de ticket/ticket PDF/factura PDF/NC PDF con validaciones null-safe y condicionamiento por fiscalTransparencyEnabled.
+
+Comandos ejecutados
+- php -l src/Entity/FiscalComponent.php
+- php -l src/Entity/Sale.php
+- php -l src/Entity/PurchaseInvoice.php
+- php -l src/Entity/ArcaInvoice.php
+- php -l src/Entity/ArcaCreditNote.php
+- php -l src/Service/FiscalManualComponentFactory.php
+- php -l src/Service/FiscalDocumentTypeResolver.php
+- php -l src/Service/ArcaInvoiceService.php
+- php -l src/Service/ArcaWsfeService.php
+- php -l src/Service/ArcaCreditNoteService.php
+- php -l src/Controller/SaleController.php
+- php -l src/Controller/PurchaseInvoiceController.php
+- php -l src/Controller/ReportController.php
+- php -l src/Repository/FiscalComponentRepository.php
+- php bin/console doctrine:migrations:status (no ejecutable por dependencias faltantes)
+- php bin/console doctrine:schema:validate --skip-sync (no ejecutable por dependencias faltantes)
+- php bin/console cache:clear --env=dev (no ejecutable por dependencias faltantes)
+- php bin/console lint:twig templates (no ejecutable por dependencias faltantes)
+- php bin/phpunit (no ejecutable por dependencias faltantes)
+
+Qué quedó corregido
+- En esta corrida de QA no fue necesario aplicar correcciones de código adicionales; se consolidó documentación operativa y de cierre técnico.
+
+Qué no se pudo probar manualmente
+- Flujos UI end-to-end (POS/Compras/ARCA/Reportes/PDF) por no contar en este entorno con instalación de dependencias y sesión web operativa.
+- Validación real contra consola/servicios ARCA en homologación.
+
+Riesgos pendientes
+- Falta de ejecución de pruebas funcionales manuales sobre entorno con dependencias completas.
+- Falta de corrida de suite automatizada y lint Twig en este entorno.
+- Validación final de homologación ARCA sujeta a entorno integrado.
+
+Recomendación previa a deploy
+- Ejecutar el checklist de homologación en staging con datos representativos.
+- Correr `composer install`, validaciones Doctrine/Twig y `php bin/phpunit` en pipeline.
+- Habilitar flags fiscales gradualmente por comercio y monitorear errores de facturación ARCA.
+
+Luego de este QA, el siguiente paso funcional es Sprint 2 — reglas automáticas internas con FiscalRule/FiscalEngine.
