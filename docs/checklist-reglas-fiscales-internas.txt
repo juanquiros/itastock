@@ -1,0 +1,52 @@
+Checklist funcional — Reglas fiscales internas (Sprint 2)
+
+1) Regla GLOBAL APPLY
+- Configurar regla GLOBAL con componentType IIBB_PERCEPTION, rate 3.5, taxableBaseMode SALE_NET, applicationMode APPLY.
+- En preview POS verificar que aparece en componentes automáticos.
+- Confirmar venta y validar que se guarda FiscalComponent mode AUTO_RULE.
+- Verificar en reporte fiscal y CSV origen_regla.
+
+2) Regla GLOBAL SUGGEST
+- Configurar misma regla con applicationMode SUGGEST.
+- En preview verificar bloque “Sugerencias fiscales”.
+- Confirmar venta y validar que NO se persiste componente de sugerencia.
+- Verificar que NO suma al total.
+
+3) Regla PRODUCT
+- Configurar appliesTo PRODUCT con producto específico.
+- Vender producto alcanzado: debe aplicar.
+- Vender otro producto: no debe aplicar.
+
+4) Regla CATEGORY
+- Configurar appliesTo CATEGORY.
+- Vender producto de categoría objetivo: aplica.
+- Vender producto fuera de categoría: no aplica.
+
+5) Regla CUSTOMER
+- Configurar appliesTo CUSTOMER.
+- Venta al cliente objetivo: aplica.
+- Venta a otro cliente: no aplica.
+
+6) Regla CUSTOMER_IVA_CONDITION
+- Configurar condición IVA (p.ej. Responsable Inscripto).
+- Cliente RI: aplica.
+- Consumidor final: no aplica.
+
+7) stopProcessing
+- Crear regla prioritaria con stopProcessing=true.
+- Verificar que reglas posteriores no se evalúan cuando aplica.
+
+8) min/max
+- Probar base menor a minAmount: no aplica.
+- Probar base mayor a maxAmount: no aplica.
+
+9) ARCA
+- reportToArca=true con arcaTributeId: comportamiento normal.
+- reportToArca=true sin arcaTributeId: warning en UI/listado y bloqueo al facturar si el flujo ARCA lo requiere.
+
+10) Auditoría
+- Verificar logs CREATED/UPDATED/TOGGLED/DELETED con before/after.
+
+11) Simulador
+- Validar que no crea venta, no descuenta stock, no abre caja.
+- Verificar componentes aplicados, sugerencias y warnings.
