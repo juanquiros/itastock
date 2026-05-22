@@ -1,0 +1,382 @@
+<?php
+
+namespace App\Controller;
+
+use App\Entity\Business;
+use App\Entity\Category;
+use App\Entity\Customer;
+use App\Entity\FiscalComponent;
+use App\Entity\FiscalRule;
+use App\Entity\FiscalRuleAuditLog;
+use App\Entity\Product;
+use App\Entity\Sale;
+use App\Entity\SaleItem;
+use App\Entity\User;
+use App\Repository\CategoryRepository;
+use App\Repository\CustomerRepository;
+use App\Repository\FiscalRuleAuditLogRepository;
+use App\Repository\FiscalRuleRepository;
+use App\Repository\ProductRepository;
+use App\Security\BusinessContext;
+use App\Service\FiscalEngine;
+use Doctrine\ORM\EntityManagerInterface;
+use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\Routing\Annotation\Route;
+use Symfony\Component\Security\Core\Exception\AccessDeniedException;
+use Symfony\Component\Security\Http\Attribute\IsGranted;
+
+#[Route('/app/admin/fiscal-rules', name: 'app_fiscal_rule_')]
+#[IsGranted('BUSINESS_ADMIN')]
+class FiscalRuleController extends AbstractController
+{
+    public function __construct(
+        private readonly EntityManagerInterface $em,
+        private readonly BusinessContext $businessContext,
+        private readonly ProductRepository $productRepository,
+        private readonly CategoryRepository $categoryRepository,
+        private readonly CustomerRepository $customerRepository,
+        private readonly FiscalEngine $fiscalEngine,
+    ) {
+    }
+
+    #[Route('', name: 'index', methods: ['GET'])]
+    public function index(FiscalRuleRepository $repo): Response
+    {
+        $b = $this->businessContext->requireCurrentBusiness();
+
+        return $this->render('fiscal_rule/index.html.twig', [
+            'rules' => $repo->findForAdminList($b),
+            'componentTypeLabels' => $this->componentTypeLabels(),
+            'appliesToLabels' => $this->appliesToLabels(),
+            'today' => new \DateTimeImmutable('today'),
+            'ivaConditionOptions' => $this->ivaConditionOptions(),
+        ]);
+    }
+
+    #[Route('/audit', name: 'audit', methods: ['GET'])]
+    public function audit(Request $request, FiscalRuleAuditLogRepository $repo): Response
+    {
+        $b = $this->businessContext->requireCurrentBusiness();
+        $from = $request->query->get('from');
+        $to = $request->query->get('to');
+        $action = $request->query->get('action') ?: null;
+
+        $logs = $repo->findForAudit(
+            $b,
+            $from ? new \DateTimeImmutable($from.' 00:00:00') : null,
+            $to ? new \DateTimeImmutable($to.' 23:59:59') : null,
+            $action
+        );
+
+        return $this->render('fiscal_rule/audit.html.twig', compact('logs', 'from', 'to', 'action'));
+    }
+
+    #[Route('/simulator', name: 'simulator', methods: ['GET', 'POST'])]
+    public function simulator(Request $request): Response
+    {
+        $b = $this->businessContext->requireCurrentBusiness();
+        $products = $this->productRepository->findBy(['business' => $b, 'isActive' => true], ['name' => 'ASC']);
+        $customers = $this->customerRepository->findBy(['business' => $b], ['name' => 'ASC']);
+        $result = null;
+
+        if ($request->isMethod('POST')) {
+            if (!$this->isCsrfTokenValid('fiscal_rule_simulator', (string) $request->request->get('_token'))) {
+                throw new AccessDeniedException('CSRF inválido.');
+            }
+
+            $sale = (new Sale())->setBusiness($b);
+            $customer = $this->customerRepository->find((int) $request->request->get('customerId', 0));
+            if ($customer instanceof Customer && $customer->getBusiness()?->getId() === $b->getId()) {
+                $sale->setCustomer($customer);
+            }
+
+            foreach ([1, 2] as $n) {
+                $pid = (int) $request->request->get('product'.$n, 0);
+                $qty = $this->decimalOrNull($request->request->get('qty'.$n), 3);
+                if ($pid <= 0 || $qty === null || bccomp($qty, '0.000', 3) <= 0) {
+                    continue;
+                }
+
+                $product = $this->productRepository->find($pid);
+                if (!$product instanceof Product || $product->getBusiness()?->getId() !== $b->getId()) {
+                    continue;
+                }
+
+                $price = $this->decimalOrNull((string) $product->getPrice(), 2) ?? '0.00';
+                $line = bcmul($price, $qty, 2);
+                $item = (new SaleItem())
+                    ->setProduct($product)
+                    ->setDescription($product->getName())
+                    ->setQty($qty)
+                    ->setUnitPrice($price)
+                    ->setLineSubtotal($line)
+                    ->setLineDiscount('0.00')
+                    ->setLineTotal($line);
+                $sale->addItem($item);
+            }
+
+            $subtotal = '0.00';
+            foreach ($sale->getItems() as $item) {
+                $subtotal = bcadd($subtotal, $item->getLineTotal(), 2);
+            }
+            $sale->setSubtotal($subtotal)->setDiscountTotal('0.00')->setTotal($subtotal);
+            $result = $this->fiscalEngine->calculateForSale($b, $sale, []);
+        }
+
+        return $this->render('fiscal_rule/simulator.html.twig', compact('products', 'customers', 'result'));
+    }
+
+    #[Route('/new', name: 'new', methods: ['GET', 'POST'])]
+    public function new(Request $request): Response
+    {
+        $b = $this->businessContext->requireCurrentBusiness();
+        $rule = (new FiscalRule())
+            ->setBusiness($b)
+            ->setActive(true)
+            ->setPriority(100)
+            ->setApplicationMode(FiscalRule::APPLICATION_MODE_SUGGEST)
+            ->setReportToArca(true)
+            ->setAffectsTotal(true)
+            ->setIncludedInPrice(false)
+            ->setStopProcessing(false);
+        return $this->upsert($request, $rule, $b);
+    }
+
+    #[Route('/{id}/edit', name: 'edit', methods: ['GET', 'POST'])]
+    public function edit(Request $request, FiscalRule $rule): Response
+    {
+        $b = $this->businessContext->requireCurrentBusiness();
+        $this->assertRuleBelongsToBusiness($rule, $b);
+        return $this->upsert($request, $rule, $b);
+    }
+
+    #[Route('/{id}/toggle', name: 'toggle', methods: ['POST'])]
+    public function toggle(Request $request, FiscalRule $rule): Response
+    {
+        $b = $this->businessContext->requireCurrentBusiness();
+        $this->assertRuleBelongsToBusiness($rule, $b);
+        if (!$this->isCsrfTokenValid('fiscal_rule_toggle_'.$rule->getId(), (string) $request->request->get('_token'))) {
+            throw new AccessDeniedException('CSRF inválido.');
+        }
+
+        $before = $rule->toAuditArray();
+        $rule->setActive(!$rule->isActive());
+        $this->logAudit($b, $rule, FiscalRuleAuditLog::ACTION_TOGGLED, $before, $rule->toAuditArray());
+        $this->em->flush();
+
+        return $this->redirectToRoute('app_fiscal_rule_index');
+    }
+
+    #[Route('/{id}/delete', name: 'delete', methods: ['POST'])]
+    public function delete(Request $request, FiscalRule $rule): Response
+    {
+        $b = $this->businessContext->requireCurrentBusiness();
+        $this->assertRuleBelongsToBusiness($rule, $b);
+        if (!$this->isCsrfTokenValid('fiscal_rule_delete_'.$rule->getId(), (string) $request->request->get('_token'))) {
+            throw new AccessDeniedException('CSRF inválido.');
+        }
+
+        $this->logAudit($b, $rule, FiscalRuleAuditLog::ACTION_DELETED, $rule->toAuditArray(), null);
+        $this->em->remove($rule);
+        $this->em->flush();
+
+        return $this->redirectToRoute('app_fiscal_rule_index');
+    }
+
+    private function upsert(Request $request, FiscalRule $rule, Business $business): Response
+    {
+        $products = $this->productRepository->findBy(['business' => $business, 'isActive' => true], ['name' => 'ASC']);
+        $categories = $this->categoryRepository->findBy(['business' => $business], ['name' => 'ASC']);
+        $customers = $this->customerRepository->findBy(['business' => $business], ['name' => 'ASC']);
+        $isEdit = $rule->getId() !== null;
+
+        if ($request->isMethod('POST')) {
+            if (!$this->isCsrfTokenValid($isEdit ? 'fiscal_rule_edit_'.$rule->getId() : 'fiscal_rule_new', (string) $request->request->get('_token'))) {
+                throw new AccessDeniedException('CSRF inválido.');
+            }
+
+            $before = $rule->toAuditArray();
+            try {
+                $this->hydrateRule($rule, $request, $business);
+                $errors = $this->validateRule($rule);
+                if ($errors !== []) {
+                    foreach ($errors as $error) {
+                        $this->addFlash('danger', $error);
+                    }
+                } else {
+                    $this->em->persist($rule);
+                    $this->logAudit($business, $rule, $isEdit ? FiscalRuleAuditLog::ACTION_UPDATED : FiscalRuleAuditLog::ACTION_CREATED, $isEdit ? $before : null, $rule->toAuditArray());
+                    $this->em->flush();
+                    if ($rule->isReportToArca() && $rule->getApplicationMode() === FiscalRule::APPLICATION_MODE_APPLY && $rule->getArcaTributeId() === null) {
+                        $this->addFlash('warning', 'Esta regla informa a ARCA pero no tiene código de tributo. La venta podrá fallar al facturar.');
+                    }
+                    return $this->redirectToRoute('app_fiscal_rule_index');
+                }
+            } catch (\Throwable $e) {
+                $this->addFlash('danger', $e->getMessage());
+            }
+        }
+
+        return $this->render('fiscal_rule/form.html.twig', [
+            'rule' => $rule,
+            'products' => $products,
+            'categories' => $categories,
+            'customers' => $customers,
+            'componentTypeLabels' => $this->componentTypeLabels(),
+            'appliesToLabels' => $this->appliesToLabels(),
+            'taxableBaseModeLabels' => $this->taxableBaseModeLabels(),
+            'applicationModes' => [FiscalRule::APPLICATION_MODE_APPLY => 'Aplicar automáticamente', FiscalRule::APPLICATION_MODE_SUGGEST => 'Solo sugerir'],
+            'ivaConditionOptions' => $this->ivaConditionOptions(),
+        ]);
+    }
+
+    private function hydrateRule(FiscalRule $rule, Request $request, Business $business): void
+    {
+        $d = $request->request;
+        $rule->setName((string) ($this->emptyToNull($d->get('name')) ?? ''))
+            ->setActive($this->parseBool($d->get('active')))
+            ->setPriority($this->intOrDefault($d->get('priority'), 100))
+            ->setComponentType((string) $d->get('componentType', FiscalComponent::TYPE_OTHER))
+            ->setAppliesTo((string) $d->get('appliesTo', FiscalRule::APPLIES_TO_GLOBAL))
+            ->setJurisdiction($this->emptyToNull($d->get('jurisdiction')))
+            ->setDescriptionTemplate($this->emptyToNull($d->get('descriptionTemplate')))
+            ->setTaxableBaseMode((string) $d->get('taxableBaseMode', FiscalRule::TAXABLE_BASE_SALE_NET))
+            ->setApplicationMode((string) $d->get('applicationMode', FiscalRule::APPLICATION_MODE_APPLY))
+            ->setRate($this->decimalOrNull($d->get('rate'), 4))
+            ->setFixedAmount($this->decimalOrNull($d->get('fixedAmount'), 2))
+            ->setMinAmount($this->decimalOrNull($d->get('minAmount'), 2))
+            ->setMaxAmount($this->decimalOrNull($d->get('maxAmount'), 2))
+            ->setArcaTributeId($this->positiveIntOrNull($d->get('arcaTributeId')))
+            ->setReportToArca($this->parseBool($d->get('reportToArca')))
+            ->setAffectsTotal($this->parseBool($d->get('affectsTotal')))
+            ->setIncludedInPrice($this->parseBool($d->get('includedInPrice')))
+            ->setStopProcessing($this->parseBool($d->get('stopProcessing')))
+            ->setStartsAt($this->dateOrNull($d->get('startsAt')))
+            ->setEndsAt($this->dateOrNull($d->get('endsAt')))
+            ->setProduct(null)->setCategory(null)->setCustomer(null)->setCustomerIvaConditionId(null);
+
+        $appliesTo = $rule->getAppliesTo();
+        if ($appliesTo === FiscalRule::APPLIES_TO_PRODUCT) {
+            $productId = (int) $d->get('productId', 0);
+            if ($productId <= 0) throw new \InvalidArgumentException('Debe seleccionar producto.');
+            $product = $this->productRepository->find($productId);
+            if (!$product instanceof Product || $product->getBusiness()?->getId() !== $business->getId()) throw new AccessDeniedException('Producto inválido para este comercio.');
+            $rule->setProduct($product);
+        } elseif ($appliesTo === FiscalRule::APPLIES_TO_CATEGORY) {
+            $categoryId = (int) $d->get('categoryId', 0);
+            if ($categoryId <= 0) throw new \InvalidArgumentException('Debe seleccionar categoría.');
+            $category = $this->categoryRepository->find($categoryId);
+            if (!$category instanceof Category || $category->getBusiness()?->getId() !== $business->getId()) throw new AccessDeniedException('Categoría inválida para este comercio.');
+            $rule->setCategory($category);
+        } elseif ($appliesTo === FiscalRule::APPLIES_TO_CUSTOMER) {
+            $customerId = (int) $d->get('customerId', 0);
+            if ($customerId <= 0) throw new \InvalidArgumentException('Debe seleccionar cliente.');
+            $customer = $this->customerRepository->find($customerId);
+            if (!$customer instanceof Customer || $customer->getBusiness()?->getId() !== $business->getId()) throw new AccessDeniedException('Cliente inválido para este comercio.');
+            $rule->setCustomer($customer);
+        } elseif ($appliesTo === FiscalRule::APPLIES_TO_CUSTOMER_IVA_CONDITION) {
+            $iva = $this->emptyToNull($d->get('customerIvaConditionId'));
+            if ($iva === null) throw new \InvalidArgumentException('Debe informar condición IVA.');
+            $rule->setCustomerIvaConditionId((int) $iva);
+        }
+    }
+
+    private function validateRule(FiscalRule $rule): array
+    {
+        $errors = [];
+        if (trim($rule->getName()) === '') $errors[] = 'El nombre es obligatorio.';
+        if (!array_key_exists($rule->getComponentType(), $this->componentTypeLabels())) $errors[] = 'Tipo de componente inválido.';
+        if (!array_key_exists($rule->getAppliesTo(), $this->appliesToLabels())) $errors[] = 'Aplica a inválido.';
+        if (!array_key_exists($rule->getTaxableBaseMode(), $this->taxableBaseModeLabels())) $errors[] = 'Base de cálculo inválida.';
+        if (!in_array($rule->getApplicationMode(), [FiscalRule::APPLICATION_MODE_APPLY, FiscalRule::APPLICATION_MODE_SUGGEST], true)) $errors[] = 'Modo de aplicación inválido.';
+        if ($rule->getRate() === null && $rule->getFixedAmount() === null) $errors[] = 'Indicá alícuota o monto fijo.';
+        if ($rule->getMinAmount() !== null && $rule->getMaxAmount() !== null && bccomp($rule->getMinAmount(), $rule->getMaxAmount(), 2) === 1) $errors[] = 'Monto mínimo no puede ser mayor a monto máximo.';
+        if ($rule->getStartsAt() && $rule->getEndsAt() && $rule->getStartsAt() > $rule->getEndsAt()) $errors[] = 'La vigencia desde no puede ser mayor a hasta.';
+        if ($rule->getAppliesTo() === FiscalRule::APPLIES_TO_PRODUCT && !$rule->getProduct()) $errors[] = 'Seleccioná un producto.';
+        if ($rule->getAppliesTo() === FiscalRule::APPLIES_TO_CATEGORY && !$rule->getCategory()) $errors[] = 'Seleccioná una categoría.';
+        if ($rule->getAppliesTo() === FiscalRule::APPLIES_TO_CUSTOMER && !$rule->getCustomer()) $errors[] = 'Seleccioná un cliente.';
+        if ($rule->getAppliesTo() === FiscalRule::APPLIES_TO_CUSTOMER_IVA_CONDITION && $rule->getCustomerIvaConditionId() === null) $errors[] = 'Seleccioná condición IVA.';
+        if ($rule->getTaxableBaseMode() === FiscalRule::TAXABLE_BASE_MANUAL_BASE && $rule->getFixedAmount() === null) $errors[] = 'Base manual requiere monto fijo.';
+        return $errors;
+    }
+
+    private function decimalOrNull(mixed $value, int $scale): ?string
+    {
+        $value = $this->emptyToNull($value);
+        if ($value === null) return null;
+
+        $v = str_replace(' ', '', $value);
+        $lastComma = strrpos($v, ',');
+        $lastDot = strrpos($v, '.');
+        if ($lastComma !== false && $lastDot !== false) {
+            $sep = $lastComma > $lastDot ? ',' : '.';
+            $thousand = $sep === ',' ? '.' : ',';
+            $v = str_replace($thousand, '', $v);
+            $v = str_replace($sep, '.', $v);
+        } else {
+            $v = str_replace(',', '.', $v);
+        }
+
+        if (!preg_match('/^\d+(\.\d+)?$/', $v)) throw new \InvalidArgumentException('Importe o alícuota inválida.');
+        if (str_starts_with($v, '-')) throw new \InvalidArgumentException('No se permiten valores negativos.');
+
+        $parts = explode('.', $v, 2);
+        $int = ltrim($parts[0], '0');
+        $int = $int === '' ? '0' : $int;
+        $dec = $parts[1] ?? '';
+        $dec = substr(str_pad($dec, $scale, '0'), 0, $scale);
+        return $int.'.'.$dec;
+    }
+
+    private function logAudit(Business $b, FiscalRule $r, string $a, ?array $before, ?array $after): void
+    {
+        try {
+            $u = $this->getUser();
+            $log = (new FiscalRuleAuditLog())
+                ->setBusiness($b)
+                ->setFiscalRule($r)
+                ->setUser($u instanceof User ? $u : null)
+                ->setAction($a)
+                ->setRuleName($r->getName())
+                ->setBeforeData($before)
+                ->setAfterData($after);
+            $this->em->persist($log);
+        } catch (\Throwable) {
+        }
+    }
+
+    private function assertRuleBelongsToBusiness(FiscalRule $rule, Business $business): void
+    {
+        if ($rule->getBusiness()?->getId() !== $business->getId()) throw new AccessDeniedException('No tenés acceso a esta regla fiscal.');
+    }
+
+    private function intOrDefault(mixed $value, int $default): int
+    {
+        $v = $this->emptyToNull($value);
+        if ($v === null) return $default;
+        if (!preg_match('/^-?\d+$/', $v)) throw new \InvalidArgumentException('Prioridad inválida.');
+        $i = (int) $v;
+        if ($i < 0) throw new \InvalidArgumentException('Prioridad inválida.');
+        return $i;
+    }
+
+    private function positiveIntOrNull(mixed $value): ?int
+    {
+        $v = $this->emptyToNull($value);
+        if ($v === null) return null;
+        if (!preg_match('/^\d+$/', $v)) throw new \InvalidArgumentException('Código ARCA inválido.');
+        $i = (int) $v;
+        if ($i <= 0) throw new \InvalidArgumentException('Código ARCA inválido.');
+        return $i;
+    }
+
+    private function parseBool(mixed $value): bool { return in_array($value, ['1', 1, true, 'true', 'on', 'yes', 'si', 'sí'], true); }
+    private function emptyToNull(mixed $value): ?string { $value = is_string($value) ? trim($value) : $value; return $value === '' || $value === null ? null : (string) $value; }
+    private function dateOrNull(mixed $value): ?\DateTimeInterface { $v = $this->emptyToNull($value); return $v ? new \DateTimeImmutable($v) : null; }
+    private function componentTypeLabels(): array { return [FiscalComponent::TYPE_INTERNAL_TAX=>'Impuestos internos',FiscalComponent::TYPE_IIBB_PERCEPTION=>'Percepción Ingresos Brutos',FiscalComponent::TYPE_VAT_PERCEPTION=>'Percepción IVA',FiscalComponent::TYPE_MUNICIPAL_TAX=>'Tasa municipal',FiscalComponent::TYPE_NATIONAL_OTHER_TAX=>'Otro impuesto nacional',FiscalComponent::TYPE_OTHER=>'Otro']; }
+    private function appliesToLabels(): array { return [FiscalRule::APPLIES_TO_GLOBAL=>'Global',FiscalRule::APPLIES_TO_PRODUCT=>'Producto',FiscalRule::APPLIES_TO_CATEGORY=>'Categoría',FiscalRule::APPLIES_TO_CUSTOMER=>'Cliente',FiscalRule::APPLIES_TO_CUSTOMER_IVA_CONDITION=>'Condición IVA cliente']; }
+    private function taxableBaseModeLabels(): array { return [FiscalRule::TAXABLE_BASE_SALE_NET=>'Neto de venta',FiscalRule::TAXABLE_BASE_SALE_TOTAL=>'Total de venta',FiscalRule::TAXABLE_BASE_ITEM_NET=>'Neto de ítems alcanzados',FiscalRule::TAXABLE_BASE_MANUAL_BASE=>'Base manual / monto fijo']; }
+    private function ivaConditionOptions(): array { return [1=>'Responsable Inscripto',5=>'Consumidor Final',6=>'Responsable Monotributo',4=>'IVA Sujeto Exento']; }
+}

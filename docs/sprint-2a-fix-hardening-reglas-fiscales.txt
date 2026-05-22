@@ -1,0 +1,20 @@
+Sprint 2-A Fix (Hardening) corrige puntos críticos para staging:
+- Migraciones: FKs de fiscal_rules corregidas a products/categories/customers y migración defensiva para entornos ya migrados.
+- Seguridad: FiscalRuleController ahora usa BusinessContext + IsGranted(BUSINESS_ADMIN).
+- Multi-tenant: validación explícita de pertenencia de regla en edit/toggle/delete.
+- Preview/confirmación: se elimina doble ejecución del FiscalEngine para evitar duplicados.
+- Formulario: selects para constantes y relaciones (producto/categoría/cliente/condición IVA).
+- Parseo robusto: booleans y decimales validados; se evita guardar datos corruptos.
+- FiscalEngine: se elimina uso de float en bases monetarias (bc math + maxMoney).
+- POS: muestra tributos automáticos y warnings de reglas sin bloquear venta.
+
+Limitaciones actuales:
+- No hay padrones ni APIs externas.
+- No hay automatización provincial hardcodeada.
+- La validación ARCA sigue en su flujo habitual.
+
+Pruebas recomendadas:
+1) regla global + preview/confirmación sin duplicados,
+2) reglas por categoría/producto/cliente en mismo business,
+3) bloqueo de acceso cruzado entre comercios,
+4) reporte fiscal con mode AUTO_RULE.

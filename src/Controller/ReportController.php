@@ -652,7 +652,7 @@ TWIG;
 
             fputcsv($handle, [
                 'fecha', 'origen', 'id_origen', 'cliente_proveedor', 'component_type', 'descripcion', 'jurisdiccion',
-                'arca_tribute_id', 'base_imponible', 'alicuota', 'importe', 'afecta_total', 'informa_arca', 'modo',
+                'arca_tribute_id', 'base_imponible', 'alicuota', 'importe', 'afecta_total', 'informa_arca', 'modo', 'origen_regla',
             ], ';');
 
             foreach ($components as $component) {
@@ -685,6 +685,7 @@ TWIG;
                     $component->isAffectsTotal() ? 'SI' : 'NO',
                     $component->isReportToArca() ? 'SI' : 'NO',
                     $component->getMode(),
+                    ($component->getMetadata()['fiscalRuleName'] ?? ($component->getMode() === 'MANUAL' ? 'Manual' : '')),
                 ], ';');
             }
 

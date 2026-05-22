@@ -32,6 +32,7 @@ use App\Service\ArcaQrService;
 use App\Service\PdfService;
 use App\Service\PricingService;
 use App\Service\FiscalManualComponentFactory;
+use App\Service\FiscalEngine;
 use App\Service\QuotationService;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -71,6 +72,7 @@ class SaleController extends AbstractController
         private readonly string $mailFrom,
         private readonly string $appName,
         private readonly FiscalManualComponentFactory $fiscalManualComponentFactory,
+        private readonly FiscalEngine $fiscalEngine,
     ) {
     }
 
@@ -347,10 +349,17 @@ class SaleController extends AbstractController
         }
 
         try {
-            $fiscalComponents = $this->buildFiscalComponentsFromPreviewPayload($payload, $business, $arcaConfig);
+            $manualFiscalComponents = $this->buildFiscalComponentsFromPreviewPayload($payload, $business, $arcaConfig);
         } catch (\Throwable $exception) {
             return $this->json(['error' => $exception->getMessage()], Response::HTTP_BAD_REQUEST);
         }
+        $fiscalResult = null;
+        $fiscalComponents = $manualFiscalComponents;
+        if ($arcaConfig->isAutomaticFiscalRulesEnabled()) {
+            $fiscalResult = $this->fiscalEngine->calculateForSale($business, $sale, $manualFiscalComponents);
+            $fiscalComponents = $fiscalResult->getAllComponents();
+        }
+
         $this->applyFiscalComponentsToSale($sale, $fiscalComponents);
 
         return $this->json([
@@ -364,7 +373,12 @@ class SaleController extends AbstractController
                 'actionValue' => $saleDiscount->getActionValue(),
                 'appliedAmount' => $saleDiscount->getAppliedAmount(),
             ], $sale->getSaleDiscounts()->toArray()),
-            'fiscalComponents' => array_map(static fn ($component) => ['componentType' => $component->getComponentType(),'description' => $component->getDescription(),'amount' => $component->getAmount()], $fiscalComponents),
+            'fiscalComponents' => array_map(static fn ($component) => ['componentType' => $component->getComponentType(),'description' => $component->getDescription(),'amount' => $component->getAmount(),'mode'=>$component->getMode()], $fiscalComponents),
+            'manualFiscalComponentsTotal' => $fiscalResult ? array_reduce($fiscalResult->getManualComponents(), static fn($c,$i)=>bcadd($c,$i->isAffectsTotal()?$i->getAmount():'0.00',2), '0.00') : $sale->getFiscalComponentsTotal(),
+            'automaticFiscalComponentsTotal' => $fiscalResult ? array_reduce($fiscalResult->getAutomaticComponents(), static fn($c,$i)=>bcadd($c,$i->isAffectsTotal()?$i->getAmount():'0.00',2), '0.00') : '0.00',
+            'automaticFiscalComponents' => $fiscalResult ? array_map(static fn ($component) => ['componentType'=>$component->getComponentType(),'description'=>$component->getDescription(),'amount'=>$component->getAmount()], $fiscalResult->getAutomaticComponents()) : [],
+            'fiscalWarnings' => $fiscalResult?->getWarnings() ?? [],
+            'suggestedFiscalComponents' => $fiscalResult ? array_map(static fn ($component) => ['description'=>$component->getDescription(),'amount'=>$component->getAmount()], $fiscalResult->getSuggestedComponents()) : [],
             'lines' => array_map(static fn (SaleItem $item) => [
                 'product_id' => $item->getProduct()?->getId(),
                 'kind' => $item->getProduct() ? 'product' : 'custom',
@@ -933,6 +947,11 @@ class SaleController extends AbstractController
 
         if ($finalAction === 'SALE') {
             $this->discountEngine->applyDiscounts($sale, $paymentMethod);
+        }
+
+        if ($arcaConfig->isAutomaticFiscalRulesEnabled()) {
+            $fiscalResult = $this->fiscalEngine->calculateForSale($business, $sale, $fiscalComponents);
+            $fiscalComponents = $fiscalResult->getAllComponents();
         }
 
         $this->applyFiscalComponentsToSale($sale, $fiscalComponents);

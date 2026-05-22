@@ -1,0 +1,43 @@
+Sprint 2-C — QA funcional y hardening final
+
+Comandos ejecutados:
+- php -l src/Entity/FiscalRule.php
+- php -l src/Entity/FiscalRuleAuditLog.php
+- php -l src/Repository/FiscalRuleRepository.php
+- php -l src/Repository/FiscalRuleAuditLogRepository.php
+- php -l src/Service/FiscalEngine.php
+- php -l src/Service/Result/FiscalCalculationResult.php
+- php -l src/Controller/FiscalRuleController.php
+- php -l src/Controller/SaleController.php
+- php -l src/Controller/ReportController.php
+- php -l src/Entity/BusinessArcaConfig.php
+
+Resultados:
+- Todos los chequeos de sintaxis PHP pasaron.
+
+Verificaciones adicionales:
+- Se revisó consistencia preview/guardado en SaleController: el engine se ejecuta una vez en preview y una vez en confirmación; suggestedFiscalComponents se exponen en preview y no se persisten.
+- Se revisaron migraciones fiscales: referencias a products/categories/customers correctas, business(id) mantenido, application_mode con default, audit log con ON DELETE SET NULL para fiscal_rule_id.
+- Se revisó reporte fiscal/CSV con origen_regla y compatibilidad de modo MANUAL/AUTO_RULE.
+
+Limitaciones del entorno:
+- No fue posible ejecutar:
+  - php bin/console lint:twig templates
+  - php bin/console doctrine:migrations:status
+  - php bin/console doctrine:schema:validate --skip-sync
+  - php bin/console cache:clear --env=dev
+  - php bin/phpunit
+- Motivo: faltan dependencias de Composer en entorno (mensaje: "Dependencies are missing. Try running composer install").
+
+Bugs corregidos en este cierre:
+- No se introdujeron nuevas features grandes; foco en validación final y checklist operativo.
+
+Riesgos pendientes:
+- Requiere corrida en staging con composer install para lint Twig, schema validate, status de migraciones y suite de tests.
+- Validación funcional manual de punta a punta con caja/facturación real controlada.
+
+Recomendación antes de deploy:
+- Ejecutar comandos Doctrine/Twig/tests en staging con dependencias completas.
+- Ejecutar checklist-reglas-fiscales-internas.txt completo con datos reales de negocio.
+
+Siguiente etapa: Sprint 3 — Padrones/APIs externos con cache, evidencia y modo controlado.

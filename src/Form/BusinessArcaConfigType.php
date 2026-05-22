@@ -134,6 +134,7 @@ class BusinessArcaConfigType extends AbstractType
             ->add('fiscalComponentsEnabled', CheckboxType::class, ['label'=>'Habilitar componentes fiscales adicionales','required'=>false])
             ->add('manualFiscalComponentsEnabled', CheckboxType::class, ['label'=>'Permitir carga manual de tributos en POS','required'=>false])
             ->add('fiscalTransparencyEnabled', CheckboxType::class, ['label'=>'Mostrar transparencia fiscal en comprobantes','required'=>false])
+            ->add('automaticFiscalRulesEnabled', CheckboxType::class, ['label'=>'Habilitar reglas fiscales automáticas','required'=>false,'help'=>'Las reglas automáticas aplican tributos configurados por el comercio. Deben ser validadas por el contador.'])
             ->add('defaultIibbJurisdiction', TextType::class, ['label'=>'Jurisdicción IIBB por defecto','required'=>false])
             ->add('defaultArcaTributeInternalTaxId', NumberType::class, ['label'=>'Código ARCA Impuestos Internos','required'=>false,'scale'=>0])
             ->add('defaultArcaTributeIibbPerceptionId', NumberType::class, ['label'=>'Código ARCA Percepción IIBB','required'=>false,'scale'=>0])

@@ -1,0 +1,14 @@
+Fix Sprint 2-B:
+- Se corrigió hydrateRule para setear/limpiar product/category/customer/customerIvaConditionId según appliesTo.
+- Se reforzó validateRule con validaciones de constantes, rangos y relaciones obligatorias.
+- Se completó formulario con descriptionTemplate, min/max y vigencia, preservando selecciones al editar.
+- Se agregó CSRF al simulador y validación backend.
+- Simulador endurecido para usar strings decimales + bc math (sin float monetario).
+- Auditoría mejorada con filtros y detalle before/after.
+- Index muestra valor concreto de "Aplica a" e incompletas.
+
+Pruebas sugeridas:
+- Crear reglas GLOBAL/PRODUCT/CATEGORY/CUSTOMER/CUSTOMER_IVA_CONDITION y verificar matching en preview POS.
+- Validar bloqueos por datos incompletos y min>max.
+- Verificar POST simulador sin CSRF.
+- Revisar auditoría con before/after.

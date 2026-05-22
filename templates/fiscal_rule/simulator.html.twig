@@ -1,0 +1,22 @@
+{% extends 'base.html.twig' %}
+{% block body %}
+<h1 class="h4 mb-3">Simulador de reglas fiscales</h1>
+<form method="post" class="row g-3 mb-4">
+<input type="hidden" name="_token" value="{{ csrf_token('fiscal_rule_simulator') }}">
+<div class="col-md-4"><label class="form-label">Cliente</label><select name="customerId" class="form-select"><option value="">Consumidor final</option>{% for c in customers %}<option value="{{ c.id }}">{{ c.name }}</option>{% endfor %}</select></div>
+<div class="col-md-4"><label class="form-label">Producto 1</label><select name="product1" class="form-select"><option value="">Seleccionar</option>{% for p in products %}<option value="{{ p.id }}">{{ p.name }}</option>{% endfor %}</select></div>
+<div class="col-md-2"><label class="form-label">Cantidad 1</label><input name="qty1" class="form-control" value="1"></div>
+<div class="col-md-4"><label class="form-label">Producto 2</label><select name="product2" class="form-select"><option value="">Opcional</option>{% for p in products %}<option value="{{ p.id }}">{{ p.name }}</option>{% endfor %}</select></div>
+<div class="col-md-2"><label class="form-label">Cantidad 2</label><input name="qty2" class="form-control"></div>
+<div class="col-12"><button class="btn btn-primary">Simular</button></div>
+</form>
+{% if result %}
+<div class="card"><div class="card-body">
+<h5>Resultado de simulación</h5>
+<p><strong>Total tributos aplicados:</strong> {{ result.fiscalComponentsTotal }}</p>
+<h6>Componentes aplicados</h6><ul>{% for c in result.automaticComponents %}<li>{{ c.description }} · {{ c.componentType }} · base {{ c.taxableBase }} · alícuota {{ c.rate ?: '-' }} · importe {{ c.amount }}</li>{% else %}<li>Sin componentes aplicados.</li>{% endfor %}</ul>
+<h6>Sugerencias</h6><ul>{% for c in result.suggestedComponents %}<li>{{ c.description }} · {{ c.amount }}</li>{% else %}<li>Sin sugerencias.</li>{% endfor %}</ul>
+<h6>Warnings</h6><ul>{% for w in result.warnings %}<li>{{ w }}</li>{% else %}<li>Sin warnings.</li>{% endfor %}</ul>
+</div></div>
+{% endif %}
+{% endblock %}

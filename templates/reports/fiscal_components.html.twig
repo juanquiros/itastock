@@ -65,7 +65,7 @@
                 <table class="table table-sm align-middle">
                     <thead>
                     <tr>
-                        <th>Fecha</th><th>Origen</th><th>ID origen</th><th>Cliente/Proveedor</th><th>Tipo</th><th>Descripción</th><th>Jurisdicción</th><th>Código ARCA</th><th class="text-end">Base</th><th class="text-end">Alícuota</th><th class="text-end">Importe</th><th>Afecta total</th><th>Informa ARCA</th><th>Modo</th>
+                        <th>Fecha</th><th>Origen</th><th>ID origen</th><th>Cliente/Proveedor</th><th>Tipo</th><th>Descripción</th><th>Jurisdicción</th><th>Código ARCA</th><th class="text-end">Base</th><th class="text-end">Alícuota</th><th class="text-end">Importe</th><th>Afecta total</th><th>Informa ARCA</th><th>Modo</th><th>Origen regla</th>
                     </tr>
                     </thead>
                     <tbody>
@@ -90,10 +90,10 @@
                             <td class="text-end">{{ component.amount }}</td>
                             <td>{{ component.affectsTotal ? 'SI' : 'NO' }}</td>
                             <td>{{ component.reportToArca ? 'SI' : 'NO' }}</td>
-                            <td>{{ component.mode }}</td>
+                            <td>{{ component.mode }}</td><td>{{ component.metadata.fiscalRuleName|default(component.mode == "MANUAL" ? "Manual" : "-") }}</td>
                         </tr>
                     {% else %}
-                        <tr><td colspan="14" class="text-muted">No hay componentes fiscales para los filtros seleccionados.</td></tr>
+                        <tr><td colspan="15" class="text-muted">No hay componentes fiscales para los filtros seleccionados.</td></tr>
                     {% endfor %}
                     </tbody>
                 </table>
