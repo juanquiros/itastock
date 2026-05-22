@@ -132,7 +132,16 @@ class FiscalRuleController extends AbstractController
     public function new(Request $request): Response
     {
         $b = $this->businessContext->requireCurrentBusiness();
-        return $this->upsert($request, (new FiscalRule())->setBusiness($b), $b);
+        $rule = (new FiscalRule())
+            ->setBusiness($b)
+            ->setActive(true)
+            ->setPriority(100)
+            ->setApplicationMode(FiscalRule::APPLICATION_MODE_SUGGEST)
+            ->setReportToArca(true)
+            ->setAffectsTotal(true)
+            ->setIncludedInPrice(false)
+            ->setStopProcessing(false);
+        return $this->upsert($request, $rule, $b);
     }
 
     #[Route('/{id}/edit', name: 'edit', methods: ['GET', 'POST'])]
@@ -228,7 +237,7 @@ class FiscalRuleController extends AbstractController
         $d = $request->request;
         $rule->setName((string) ($this->emptyToNull($d->get('name')) ?? ''))
             ->setActive($this->parseBool($d->get('active')))
-            ->setPriority((int) $d->get('priority', 100))
+            ->setPriority($this->intOrDefault($d->get('priority'), 100))
             ->setComponentType((string) $d->get('componentType', FiscalComponent::TYPE_OTHER))
             ->setAppliesTo((string) $d->get('appliesTo', FiscalRule::APPLIES_TO_GLOBAL))
             ->setJurisdiction($this->emptyToNull($d->get('jurisdiction')))
@@ -239,7 +248,7 @@ class FiscalRuleController extends AbstractController
             ->setFixedAmount($this->decimalOrNull($d->get('fixedAmount'), 2))
             ->setMinAmount($this->decimalOrNull($d->get('minAmount'), 2))
             ->setMaxAmount($this->decimalOrNull($d->get('maxAmount'), 2))
-            ->setArcaTributeId($this->emptyToNull($d->get('arcaTributeId')) !== null ? (int) $d->get('arcaTributeId') : null)
+            ->setArcaTributeId($this->positiveIntOrNull($d->get('arcaTributeId')))
             ->setReportToArca($this->parseBool($d->get('reportToArca')))
             ->setAffectsTotal($this->parseBool($d->get('affectsTotal')))
             ->setIncludedInPrice($this->parseBool($d->get('includedInPrice')))
@@ -341,6 +350,26 @@ class FiscalRuleController extends AbstractController
     private function assertRuleBelongsToBusiness(FiscalRule $rule, Business $business): void
     {
         if ($rule->getBusiness()?->getId() !== $business->getId()) throw new AccessDeniedException('No tenés acceso a esta regla fiscal.');
+    }
+
+    private function intOrDefault(mixed $value, int $default): int
+    {
+        $v = $this->emptyToNull($value);
+        if ($v === null) return $default;
+        if (!preg_match('/^-?\d+$/', $v)) throw new \InvalidArgumentException('Prioridad inválida.');
+        $i = (int) $v;
+        if ($i < 0) throw new \InvalidArgumentException('Prioridad inválida.');
+        return $i;
+    }
+
+    private function positiveIntOrNull(mixed $value): ?int
+    {
+        $v = $this->emptyToNull($value);
+        if ($v === null) return null;
+        if (!preg_match('/^\d+$/', $v)) throw new \InvalidArgumentException('Código ARCA inválido.');
+        $i = (int) $v;
+        if ($i <= 0) throw new \InvalidArgumentException('Código ARCA inválido.');
+        return $i;
     }
 
     private function parseBool(mixed $value): bool { return in_array($value, ['1', 1, true, 'true', 'on', 'yes', 'si', 'sí'], true); }

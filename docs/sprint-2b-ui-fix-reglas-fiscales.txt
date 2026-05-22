@@ -1,0 +1,17 @@
+Sprint 2-B UI Fix:
+- Se completó el formulario de reglas fiscales con todos los campos operativos.
+- Se organizaron secciones: generales, alcance, cálculo, ARCA/comportamiento, vigencia/descripcion.
+- Se corrigió riesgo de booleans invisibles (checkboxes robustos con hidden 0).
+- Se agregaron defaults seguros para reglas nuevas (activo + prioridad + SUGGEST inicial).
+- Se validan priority y arcaTributeId con mensajes claros.
+- Se completó simulador con cliente/productos/cantidades y salida detallada.
+- Se mejoró listado con columnas operativas y badges de riesgo/estado/vigencia.
+
+Cómo probar:
+- regla GLOBAL
+- regla PRODUCT
+- regla CATEGORY
+- regla CUSTOMER
+- regla CUSTOMER_IVA_CONDITION
+- regla SUGGEST
+- regla APPLY
