@@ -186,6 +186,7 @@
                                         <ul class="list-unstyled small text-muted mb-2" id="sale-discounts"></ul>
                                         <div id="automatic-fiscal-box" class="small text-muted mb-2 d-none"></div>
                                         <div id="fiscal-warnings-box" class="alert alert-warning py-2 px-3 small d-none"></div>
+                                        <div id="suggested-fiscal-box" class="small text-info mb-2 d-none"></div>
                                         <div class="d-flex align-items-center justify-content-between mb-3">
                                             <div class="text-muted">Total final</div>
                                             <div class="h3 mb-0 fw-bold" id="sale-total">$0.00</div>
@@ -356,6 +357,7 @@
             const discountList = document.getElementById('sale-discounts');
             const automaticFiscalBox = document.getElementById('automatic-fiscal-box');
             const fiscalWarningsBox = document.getElementById('fiscal-warnings-box');
+            const suggestedFiscalBox = document.getElementById('suggested-fiscal-box');
             const totalElement = document.getElementById('sale-total');
             const customerSearch = document.getElementById('customer-search');
             const customerResults = document.getElementById('customer-results');
@@ -914,6 +916,7 @@
                         automaticFiscalBox.innerHTML = '<div class="fw-semibold mb-1">Tributos automáticos</div>' + autos.map((a)=>`<div class="d-flex justify-content-between"><span>${a.description}</span><span>${formatMoney(parseFloat(a.amount||'0'))}</span></div>`).join('');
                     } else { automaticFiscalBox.classList.add('d-none'); automaticFiscalBox.innerHTML=''; }
                 }
+                if (suggestedFiscalBox) { const suggests = payload.suggestedFiscalComponents || []; if (suggests.length>0){ suggestedFiscalBox.classList.remove('d-none'); suggestedFiscalBox.innerHTML='<div class="fw-semibold">Sugerencias fiscales</div>'+suggests.map((a)=>`<div class="d-flex justify-content-between"><span>${a.description}</span><span>${formatMoney(parseFloat(a.amount||'0'))}</span></div>`).join(''); } else { suggestedFiscalBox.classList.add('d-none'); suggestedFiscalBox.innerHTML=''; } }
                 if (fiscalWarningsBox) {
                     const warns = payload.fiscalWarnings || [];
                     if (warns.length > 0) { fiscalWarningsBox.classList.remove('d-none'); fiscalWarningsBox.innerHTML = warns.map((w)=>`<div>${w}</div>`).join(''); } else { fiscalWarningsBox.classList.add('d-none'); fiscalWarningsBox.innerHTML=''; }

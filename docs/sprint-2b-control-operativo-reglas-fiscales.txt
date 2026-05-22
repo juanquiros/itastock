@@ -1,0 +1,19 @@
+Sprint 2-B agrega control operativo para reglas fiscales:
+- CSRF en crear/editar/toggle/delete de reglas fiscales.
+- Auditoría de cambios (CREATED/UPDATED/TOGGLED/DELETED).
+- Vista de auditoría para admins por comercio.
+- Modo de aplicación APPLY/SUGGEST en reglas.
+- Preview POS separa aplicados y sugerencias, con warnings.
+- Simulador de reglas sin persistir venta ni tocar stock.
+- Warnings ARCA para reglas APPLY + reportToArca sin arcaTributeId.
+- Reporte fiscal/CSV agrega origen de regla (metadata.fiscalRuleName).
+
+Cómo probar antes de usar:
+1) Crear regla en SUGGEST,
+2) probar en simulador,
+3) validar preview POS,
+4) revisar auditoría,
+5) pasar a APPLY cuando contador valide.
+
+Pendiente Sprint 3:
+- padrones/APIs externas con cache y evidencia.

@@ -23,6 +23,8 @@ class FiscalRule
     public const TAXABLE_BASE_SALE_TOTAL = 'SALE_TOTAL';
     public const TAXABLE_BASE_ITEM_NET = 'ITEM_NET';
     public const TAXABLE_BASE_MANUAL_BASE = 'MANUAL_BASE';
+    public const APPLICATION_MODE_APPLY = 'APPLY';
+    public const APPLICATION_MODE_SUGGEST = 'SUGGEST';
 
     #[ORM\Id, ORM\GeneratedValue, ORM\Column] private ?int $id = null;
     #[ORM\ManyToOne, ORM\JoinColumn(nullable: false)] private ?Business $business = null;
@@ -52,6 +54,7 @@ class FiscalRule
     #[ORM\Column(type: 'date', nullable: true)] private ?\DateTimeInterface $startsAt = null;
     #[ORM\Column(type: 'date', nullable: true)] private ?\DateTimeInterface $endsAt = null;
     #[ORM\Column(options: ['default' => false])] private bool $stopProcessing = false;
+    #[ORM\Column(length: 30, options: ['default' => self::APPLICATION_MODE_APPLY])] private string $applicationMode = self::APPLICATION_MODE_APPLY;
     #[ORM\Column(type: 'json', nullable: true)] private ?array $metadata = null;
     #[ORM\Column(type: 'datetime_immutable')] private ?DateTimeImmutable $createdAt = null;
     #[ORM\Column(type: 'datetime_immutable')] private ?DateTimeImmutable $updatedAt = null;
@@ -82,5 +85,7 @@ class FiscalRule
     public function getStartsAt(): ?\DateTimeInterface { return $this->startsAt; } public function setStartsAt(?\DateTimeInterface $startsAt): self { $this->startsAt = $startsAt; return $this; }
     public function getEndsAt(): ?\DateTimeInterface { return $this->endsAt; } public function setEndsAt(?\DateTimeInterface $endsAt): self { $this->endsAt = $endsAt; return $this; }
     public function isStopProcessing(): bool { return $this->stopProcessing; } public function setStopProcessing(bool $stopProcessing): self { $this->stopProcessing = $stopProcessing; return $this; }
+    public function getApplicationMode(): string { return $this->applicationMode; } public function setApplicationMode(string $applicationMode): self { $this->applicationMode = $applicationMode; return $this; }
     public function getMetadata(): ?array { return $this->metadata; } public function setMetadata(?array $metadata): self { $this->metadata = $metadata; return $this; }
+    public function toAuditArray(): array { return ['id'=>$this->id,'name'=>$this->name,'active'=>$this->active,'componentType'=>$this->componentType,'appliesTo'=>$this->appliesTo,'productId'=>$this->product?->getId(),'categoryId'=>$this->category?->getId(),'customerId'=>$this->customer?->getId(),'customerIvaConditionId'=>$this->customerIvaConditionId,'jurisdiction'=>$this->jurisdiction,'taxableBaseMode'=>$this->taxableBaseMode,'applicationMode'=>$this->applicationMode,'rate'=>$this->rate,'fixedAmount'=>$this->fixedAmount,'minAmount'=>$this->minAmount,'maxAmount'=>$this->maxAmount,'arcaTributeId'=>$this->arcaTributeId,'reportToArca'=>$this->reportToArca,'affectsTotal'=>$this->affectsTotal,'includedInPrice'=>$this->includedInPrice,'startsAt'=>$this->startsAt?->format('Y-m-d'),'endsAt'=>$this->endsAt?->format('Y-m-d'),'stopProcessing'=>$this->stopProcessing]; }
 }

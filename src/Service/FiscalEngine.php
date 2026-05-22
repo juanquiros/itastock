@@ -17,6 +17,7 @@ class FiscalEngine
     {
         $rules = $this->fiscalRuleRepository->findActiveForBusiness($business);
         $automatic = [];
+        $suggested = [];
         $warnings = [];
         foreach ($rules as $rule) {
             if (!$rule instanceof FiscalRule || !$this->matches($rule, $sale)) { continue; }
@@ -30,12 +31,17 @@ class FiscalEngine
             if (bccomp($amount, '0', 2) < 0) { $amount = '0.00'; }
             if (bccomp($amount, '0', 2) === 0 && $rule->getFixedAmount() === null && $rule->getRate() === null) { continue; }
             $c=(new FiscalComponent())->setBusiness($business)->setSourceType(FiscalComponent::SOURCE_SALE)->setMode(FiscalComponent::MODE_AUTO_RULE)->setComponentType($rule->getComponentType())->setDescription($rule->getDescriptionTemplate() ?: $rule->getName())->setJurisdiction($rule->getJurisdiction())->setArcaTributeId($rule->getArcaTributeId())->setTaxableBase($base)->setRate($rule->getRate())->setAmount($amount)->setAffectsTotal($rule->isAffectsTotal())->setReportToArca($rule->isReportToArca())->setIncludedInPrice($rule->isIncludedInPrice())->setMetadata(['fiscalRuleId'=>$rule->getId(),'fiscalRuleName'=>$rule->getName(),'taxableBaseMode'=>$rule->getTaxableBaseMode(),'appliesTo'=>$rule->getAppliesTo()]);
-            $automatic[] = $c;
+            if ($rule->getApplicationMode() === FiscalRule::APPLICATION_MODE_SUGGEST) {
+                $suggested[] = $c;
+                $warnings[] = sprintf('Sugerencia fiscal: %s', $c->getDescription());
+            } else {
+                $automatic[] = $c;
+            }
             if ($rule->isStopProcessing()) { break; }
         }
         $all = array_merge($manualComponents, $automatic);
         $total='0.00'; foreach($all as $c){ if($c instanceof FiscalComponent && $c->isAffectsTotal()){$total=bcadd($total,$c->getAmount(),2);} }
-        return new FiscalCalculationResult($manualComponents, $automatic, $all, $total, $warnings);
+        return new FiscalCalculationResult($manualComponents, $automatic, $suggested, $all, $total, $warnings);
     }
 
     private function matches(FiscalRule $rule, Sale $sale): bool

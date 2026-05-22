@@ -378,6 +378,7 @@ class SaleController extends AbstractController
             'automaticFiscalComponentsTotal' => $fiscalResult ? array_reduce($fiscalResult->getAutomaticComponents(), static fn($c,$i)=>bcadd($c,$i->isAffectsTotal()?$i->getAmount():'0.00',2), '0.00') : '0.00',
             'automaticFiscalComponents' => $fiscalResult ? array_map(static fn ($component) => ['componentType'=>$component->getComponentType(),'description'=>$component->getDescription(),'amount'=>$component->getAmount()], $fiscalResult->getAutomaticComponents()) : [],
             'fiscalWarnings' => $fiscalResult?->getWarnings() ?? [],
+            'suggestedFiscalComponents' => $fiscalResult ? array_map(static fn ($component) => ['description'=>$component->getDescription(),'amount'=>$component->getAmount()], $fiscalResult->getSuggestedComponents()) : [],
             'lines' => array_map(static fn (SaleItem $item) => [
                 'product_id' => $item->getProduct()?->getId(),
                 'kind' => $item->getProduct() ? 'product' : 'custom',
