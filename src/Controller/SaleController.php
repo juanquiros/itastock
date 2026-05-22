@@ -349,16 +349,14 @@ class SaleController extends AbstractController
         }
 
         try {
-            $fiscalComponents = $this->buildFiscalComponentsFromPreviewPayload($payload, $business, $arcaConfig);
+            $manualFiscalComponents = $this->buildFiscalComponentsFromPreviewPayload($payload, $business, $arcaConfig);
         } catch (\Throwable $exception) {
             return $this->json(['error' => $exception->getMessage()], Response::HTTP_BAD_REQUEST);
         }
-        $fiscalResult = $arcaConfig->isAutomaticFiscalRulesEnabled()
-            ? $this->fiscalEngine->calculateForSale($business, $sale, $fiscalComponents)
-            : null;
-        if ($fiscalResult) { $fiscalComponents = $fiscalResult->getAllComponents(); }
+        $fiscalResult = null;
+        $fiscalComponents = $manualFiscalComponents;
         if ($arcaConfig->isAutomaticFiscalRulesEnabled()) {
-            $fiscalResult = $this->fiscalEngine->calculateForSale($business, $sale, $fiscalComponents);
+            $fiscalResult = $this->fiscalEngine->calculateForSale($business, $sale, $manualFiscalComponents);
             $fiscalComponents = $fiscalResult->getAllComponents();
         }
 
@@ -948,6 +946,11 @@ class SaleController extends AbstractController
 
         if ($finalAction === 'SALE') {
             $this->discountEngine->applyDiscounts($sale, $paymentMethod);
+        }
+
+        if ($arcaConfig->isAutomaticFiscalRulesEnabled()) {
+            $fiscalResult = $this->fiscalEngine->calculateForSale($business, $sale, $fiscalComponents);
+            $fiscalComponents = $fiscalResult->getAllComponents();
         }
 
         $this->applyFiscalComponentsToSale($sale, $fiscalComponents);

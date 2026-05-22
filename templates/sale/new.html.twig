@@ -183,7 +183,9 @@
                                             <div class="text-muted">Tributos / percepciones</div>
                                             <div class="fw-semibold" id="sale-fiscal-components-total">$0.00</div>
                                         </div>
-                                        <ul class="list-unstyled small text-muted mb-3" id="sale-discounts"></ul>
+                                        <ul class="list-unstyled small text-muted mb-2" id="sale-discounts"></ul>
+                                        <div id="automatic-fiscal-box" class="small text-muted mb-2 d-none"></div>
+                                        <div id="fiscal-warnings-box" class="alert alert-warning py-2 px-3 small d-none"></div>
                                         <div class="d-flex align-items-center justify-content-between mb-3">
                                             <div class="text-muted">Total final</div>
                                             <div class="h3 mb-0 fw-bold" id="sale-total">$0.00</div>
@@ -352,6 +354,8 @@
             const fiscalTotalRow = document.getElementById('fiscal-total-row');
             const fiscalTotalElement = document.getElementById('sale-fiscal-components-total');
             const discountList = document.getElementById('sale-discounts');
+            const automaticFiscalBox = document.getElementById('automatic-fiscal-box');
+            const fiscalWarningsBox = document.getElementById('fiscal-warnings-box');
             const totalElement = document.getElementById('sale-total');
             const customerSearch = document.getElementById('customer-search');
             const customerResults = document.getElementById('customer-results');
@@ -903,6 +907,17 @@
                 }
                 totalElement.textContent = formatMoney(currentTotal);
                 renderDiscountList(payload.discounts || []);
+                if (automaticFiscalBox) {
+                    const autos = payload.automaticFiscalComponents || [];
+                    if (autos.length > 0) {
+                        automaticFiscalBox.classList.remove('d-none');
+                        automaticFiscalBox.innerHTML = '<div class="fw-semibold mb-1">Tributos automáticos</div>' + autos.map((a)=>`<div class="d-flex justify-content-between"><span>${a.description}</span><span>${formatMoney(parseFloat(a.amount||'0'))}</span></div>`).join('');
+                    } else { automaticFiscalBox.classList.add('d-none'); automaticFiscalBox.innerHTML=''; }
+                }
+                if (fiscalWarningsBox) {
+                    const warns = payload.fiscalWarnings || [];
+                    if (warns.length > 0) { fiscalWarningsBox.classList.remove('d-none'); fiscalWarningsBox.innerHTML = warns.map((w)=>`<div>${w}</div>`).join(''); } else { fiscalWarningsBox.classList.add('d-none'); fiscalWarningsBox.innerHTML=''; }
+                }
                 updateCashChange();
             }
 

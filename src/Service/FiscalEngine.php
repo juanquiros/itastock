@@ -53,12 +53,12 @@ class FiscalEngine
     private function resolveTaxableBase(FiscalRule $rule, Sale $sale): array
     {
         $mode = $rule->getTaxableBaseMode();
-        if ($mode === FiscalRule::TAXABLE_BASE_SALE_NET) { return [max(0,(float)bcsub($sale->getSubtotal(), $sale->getDiscountTotal(), 2)).'', null]; }
-        if ($mode === FiscalRule::TAXABLE_BASE_SALE_TOTAL) { return [$sale->getTotal() ?? '0.00', null]; }
+        if ($mode === FiscalRule::TAXABLE_BASE_SALE_NET) { $base = bcsub($sale->getSubtotal() ?? '0.00', $sale->getDiscountTotal() ?? '0.00', 2); return [$this->maxMoney($base), null]; }
+        if ($mode === FiscalRule::TAXABLE_BASE_SALE_TOTAL) { return [$this->maxMoney($sale->getTotal() ?? '0.00'), null]; }
         if ($mode === FiscalRule::TAXABLE_BASE_ITEM_NET) {
             if ($rule->getAppliesTo() === FiscalRule::APPLIES_TO_PRODUCT) { return [$this->sumMatchedItemNet($sale, fn(SaleItem $i)=>$rule->getProduct()&&$i->getProduct()?->getId()===$rule->getProduct()?->getId()), null]; }
             if ($rule->getAppliesTo() === FiscalRule::APPLIES_TO_CATEGORY) { return [$this->sumMatchedItemNet($sale, fn(SaleItem $i)=>$rule->getCategory()&&$i->getProduct()?->getCategory()?->getId()===$rule->getCategory()?->getId()), null]; }
-            return [$this->sumMatchedItemNet($sale, fn()=>true), null];
+            return [$this->maxMoney($this->sumMatchedItemNet($sale, fn()=>true)), null];
         }
         if ($mode === FiscalRule::TAXABLE_BASE_MANUAL_BASE) {
             if ($rule->getFixedAmount() === null) { return ['0.00', sprintf('Regla "%s": MANUAL_BASE requiere monto fijo.', $rule->getName())]; }
@@ -66,5 +66,6 @@ class FiscalEngine
         }
         return ['0.00', null];
     }
+    private function maxMoney(string $value): string { return bccomp($value, '0.00', 2) < 0 ? '0.00' : bcadd($value, '0.00', 2); }
     private function sumMatchedItemNet(Sale $sale, callable $matcher): string { $total='0.00'; foreach($sale->getItems() as $item){ if($item instanceof SaleItem && $matcher($item)){ $total=bcadd($total,$item->getLineTotal(),2);} } return $total; }
 }
