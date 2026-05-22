@@ -65,6 +65,9 @@ class BusinessArcaConfig
     #[ORM\Column(options: ['default' => false])]
     private bool $fiscalTransparencyEnabled = false;
 
+    #[ORM\Column(options: ['default' => false])]
+    private bool $automaticFiscalRulesEnabled = false;
+
     #[ORM\Column(length: 80, nullable: true)]
     private ?string $defaultIibbJurisdiction = null;
 
@@ -313,6 +316,18 @@ class BusinessArcaConfig
         return $this;
     }
 
+
+    public function isAutomaticFiscalRulesEnabled(): bool
+    {
+        return $this->automaticFiscalRulesEnabled;
+    }
+
+    public function setAutomaticFiscalRulesEnabled(bool $automaticFiscalRulesEnabled): self
+    {
+        $this->automaticFiscalRulesEnabled = $automaticFiscalRulesEnabled;
+
+        return $this;
+    }
     public function getDefaultArcaTributeVatPerceptionId(): ?int
     {
         return $this->defaultArcaTributeVatPerceptionId;

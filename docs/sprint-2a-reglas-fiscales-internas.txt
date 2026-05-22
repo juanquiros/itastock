@@ -1,0 +1,8 @@
+Sprint 2-A implementa motor interno de reglas fiscales por comercio con FiscalRule, FiscalEngine y aplicación en POS preview/confirmación.
+No implementa padrones, APIs externas, liquidaciones ni lógica provincial hardcodeada.
+Activación: BusinessArcaConfig.automaticFiscalRulesEnabled=true en configuración fiscal.
+Crear regla desde /app/admin/fiscal-rules.
+Ejemplos: impuesto interno por categoría Cigarrillos; percepción IIBB por cliente RI; percepción IVA global.
+En POS se muestran tributos automáticos en preview y se guardan como FiscalComponent mode AUTO_RULE con metadata de regla.
+Reporte fiscal y CSV reflejan mode AUTO_RULE.
+ItaStock no consulta padrones ni liquida impuestos: las reglas deben configurarse/validarse con contador.
