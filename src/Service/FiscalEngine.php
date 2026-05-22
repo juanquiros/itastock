@@ -50,8 +50,8 @@ class FiscalEngine
             FiscalRule::APPLIES_TO_GLOBAL => true,
             FiscalRule::APPLIES_TO_CUSTOMER => $sale->getCustomer() && $rule->getCustomer() && $sale->getCustomer()->getId() === $rule->getCustomer()->getId(),
             FiscalRule::APPLIES_TO_CUSTOMER_IVA_CONDITION => $sale->getCustomer() && $rule->getCustomerIvaConditionId() !== null && $sale->getCustomer()->getIvaConditionId() === $rule->getCustomerIvaConditionId(),
-            FiscalRule::APPLIES_TO_PRODUCT => $this->sumMatchedItemNet($sale, static fn(SaleItem $i) => $rule->getProduct() && $i->getProduct()?->getId()===$rule->getProduct()?->getId()) !== '0.00',
-            FiscalRule::APPLIES_TO_CATEGORY => $this->sumMatchedItemNet($sale, static fn(SaleItem $i) => $rule->getCategory() && $i->getProduct()?->getCategory()?->getId()===$rule->getCategory()?->getId()) !== '0.00',
+            FiscalRule::APPLIES_TO_PRODUCT => $rule->getProduct() ? $this->sumMatchedItemNet($sale, static fn(SaleItem $i) => $i->getProduct()?->getId()===$rule->getProduct()?->getId()) !== '0.00' : false,
+            FiscalRule::APPLIES_TO_CATEGORY => $rule->getCategory() ? $this->sumMatchedItemNet($sale, static fn(SaleItem $i) => $i->getProduct()?->getCategory()?->getId()===$rule->getCategory()?->getId()) !== '0.00' : false,
             default => false,
         };
     }
