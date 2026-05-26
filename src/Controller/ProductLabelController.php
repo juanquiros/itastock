@@ -101,12 +101,17 @@ class ProductLabelController extends AbstractController
     }
 
     #[Route('/app/admin/exports/labels', name: 'app_exports_labels_index', methods: ['GET'])]
-    public function exportsIndex(LabelExportJobRepository $jobRepository): Response
+    public function exportsIndex(Request $request, LabelExportJobRepository $jobRepository): Response
     {
         $business = $this->requireBusinessContext();
+        $page = max(1, (int) $request->query->get('page', 1));
+        $pagination = $jobRepository->findPaginatedForBusiness($business, $page, 10);
 
         return $this->render('exports/labels_index.html.twig', [
-            'jobs' => $jobRepository->findRecentForBusiness($business),
+            'jobs' => $pagination['items'],
+            'page' => $pagination['page'],
+            'pages' => $pagination['pages'],
+            'total' => $pagination['total'],
         ]);
     }
 

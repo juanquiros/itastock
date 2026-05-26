@@ -11,6 +11,8 @@
         <a class="btn btn-outline-secondary" href="{{ path('app_product_labels') }}">Nueva exportación</a>
     </div>
 
+    <p class="text-muted mb-3">Total de exportaciones: {{ total }}</p>
+
     <div class="card shadow-sm" data-exports-list>
         <div class="card-body">
             <div class="table-responsive">
@@ -36,6 +38,27 @@
             </div>
         </div>
     </div>
+
+    {% if pages > 1 %}
+        <nav class="mt-3" aria-label="Paginación de exportaciones">
+            <ul class="pagination mb-0">
+                {% set previousPage = page - 1 %}
+                {% set nextPage = page + 1 %}
+
+                <li class="page-item {{ previousPage < 1 ? 'disabled' : '' }}">
+                    <a class="page-link" href="{{ previousPage < 1 ? '#' : path('app_exports_labels_index', {page: previousPage}) }}">Anterior</a>
+                </li>
+
+                <li class="page-item disabled">
+                    <span class="page-link">Página {{ page }} de {{ pages }}</span>
+                </li>
+
+                <li class="page-item {{ nextPage > pages ? 'disabled' : '' }}">
+                    <a class="page-link" href="{{ nextPage > pages ? '#' : path('app_exports_labels_index', {page: nextPage}) }}">Siguiente</a>
+                </li>
+            </ul>
+        </nav>
+    {% endif %}
 {% endblock %}
 
 {% block javascripts %}
